@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EntityStatus;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,9 +49,17 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
-        Auth::logout();
+        if ($user->isSuperAdmin()) {
+            return Redirect::route('profile.edit')->withErrors([
+                'password' => 'The SuperAdmin account cannot be self-deleted.',
+            ], 'userDeletion');
+        }
 
-        $user->delete();
+        $user->update([
+            'status' => EntityStatus::Deleted->value,
+        ]);
+
+        Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

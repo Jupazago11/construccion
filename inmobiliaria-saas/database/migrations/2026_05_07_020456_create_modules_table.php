@@ -6,20 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('modules', function (Blueprint $table) {
             $table->id();
+
+            $table->string('key')->unique();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->string('status')->default('active');
+            // active, inactive, deleted
+
             $table->timestamps();
+
+            $table->index('status');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('modules');

@@ -6,20 +6,31 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('auxiliaries', function (Blueprint $table) {
             $table->id();
+
+            $table->foreignId('subcategory_id')
+                ->constrained('subcategories')
+                ->restrictOnDelete();
+
+            $table->string('name');
+            $table->text('description')->nullable();
+
+            $table->unsignedInteger('sort_order')->default(0);
+
+            $table->string('status')->default('active');
+            // active, inactive, deleted
+
             $table->timestamps();
+
+            $table->unique(['subcategory_id', 'name']);
+            $table->unique(['id', 'subcategory_id']);
+            $table->index(['subcategory_id', 'status']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('auxiliaries');
