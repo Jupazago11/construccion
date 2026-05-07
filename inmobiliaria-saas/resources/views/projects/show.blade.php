@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
         <x-page-header :title="$project->name" description="Detalle del proyecto, estado actual y contexto operativo dentro de la empresa.">
+            <a href="{{ route('projects.categories.index', $project) }}" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
+                Estructura financiera
+            </a>
             @can('update', $project)
                 <a href="{{ route('projects.edit', $project) }}" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
                     Editar proyecto

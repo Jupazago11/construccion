@@ -30,6 +30,11 @@
                             Proyectos
                         </x-nav-link>
                     @endcan
+                    @can('viewAny', App\Models\Provider::class)
+                        <x-nav-link :href="route('providers.index')" :active="request()->routeIs('providers.*')">
+                            Proveedores
+                        </x-nav-link>
+                    @endcan
                 </div>
             </div>
 
@@ -103,6 +108,11 @@
             @can('viewAny', App\Models\Project::class)
                 <x-responsive-nav-link :href="route('projects.index')" :active="request()->routeIs('projects.*')">
                     Proyectos
+                </x-responsive-nav-link>
+            @endcan
+            @can('viewAny', App\Models\Provider::class)
+                <x-responsive-nav-link :href="route('providers.index')" :active="request()->routeIs('providers.*')">
+                    Proveedores
                 </x-responsive-nav-link>
             @endcan
         </div>

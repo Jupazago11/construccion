@@ -166,6 +166,15 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 
     applyRowChange(payload) {
+        if (payload.summary_html && this.$refs.summary) {
+            this.$refs.summary.innerHTML = payload.summary_html;
+        }
+
+        if (payload.structure_html && this.$refs.structure) {
+            this.$refs.structure.innerHTML = payload.structure_html;
+            return;
+        }
+
         if (! payload.row_html || ! payload.id) {
             return;
         }
