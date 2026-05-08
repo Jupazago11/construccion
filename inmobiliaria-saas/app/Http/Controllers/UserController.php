@@ -154,7 +154,7 @@ class UserController extends Controller
         $authUser = $request->user();
         $data = $request->validated();
 
-        $status = $authUser->isSuperAdmin()
+        $status = $this->canManageUserStatus($authUser, $user)
             ? ($data['status'] ?? $user->status)
             : $user->status;
 
@@ -191,7 +191,7 @@ class UserController extends Controller
     public function updateStatus(Request $request, User $user): JsonResponse
     {
         $this->authorize('update', $user);
-        abort_unless($request->user()?->isSuperAdmin(), 403);
+        abort_unless($this->canManageUserStatus($request->user(), $user), 403);
 
         $data = $request->validate([
             'status' => ['required', 'in:active,inactive,deleted'],
@@ -288,5 +288,22 @@ class UserController extends Controller
         throw ValidationException::withMessages([
             'status' => 'No puedes inactivar ni eliminar tu propio usuario.',
         ]);
+    }
+
+    protected function canManageUserStatus(?User $authUser, User $managedUser): bool
+    {
+        if (! $authUser || $managedUser->isSuperAdmin()) {
+            return false;
+        }
+
+        if ($authUser->isSuperAdmin()) {
+            return true;
+        }
+
+        if (! $authUser->hasRole('CompanyAdmin') || $authUser->is($managedUser) || $authUser->company_id !== $managedUser->company_id) {
+            return false;
+        }
+
+        return $managedUser->hasAnyRole(['Operator', 'Viewer']);
     }
 }

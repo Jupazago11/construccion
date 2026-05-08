@@ -1,6 +1,6 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
-        <x-page-header title="Usuarios" description="Administra usuarios internos, roles y límites de acceso por empresa.">
+        <x-page-header title="Usuarios" description="">
             @can('create', App\Models\User::class)
                 <button type="button" data-action="create" data-url="{{ route('users.create') }}" data-title="Nuevo usuario" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
                     Nuevo usuario

@@ -25,6 +25,10 @@ class UserUpdateRequest extends FormRequest
             ? [SystemRole::CompanyAdmin->value, SystemRole::Operator->value, SystemRole::Viewer->value]
             : [SystemRole::Operator->value, SystemRole::Viewer->value];
 
+        if ($managedUser->hasRole(SystemRole::CompanyAdmin->value)) {
+            $availableRoles[] = SystemRole::CompanyAdmin->value;
+        }
+
         return [
             'company_id' => [
                 Rule::requiredIf($authUser->isSuperAdmin() && ! $managedUser->isSuperAdmin()),
@@ -35,9 +39,22 @@ class UserUpdateRequest extends FormRequest
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._-]+$/', Rule::unique('users', 'username')->ignore($managedUser?->id)],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($managedUser?->id)],
-            'password' => ['nullable', 'confirmed', 'min:8'],
-            'status' => [Rule::requiredIf($authUser->isSuperAdmin()), 'nullable', Rule::in(['active', 'inactive', 'deleted'])],
+            'password' => ['nullable', 'confirmed', 'min:4', 'max:25'],
+            'status' => [Rule::requiredIf($this->canManageStatus($authUser, $managedUser)), 'nullable', Rule::in(['active', 'inactive', 'deleted'])],
             'role' => ['required', Rule::in($availableRoles)],
         ];
+    }
+
+    protected function canManageStatus(User $authUser, User $managedUser): bool
+    {
+        if ($authUser->isSuperAdmin()) {
+            return true;
+        }
+
+        if (! $authUser->hasRole(SystemRole::CompanyAdmin->value) || $authUser->is($managedUser)) {
+            return false;
+        }
+
+        return $managedUser->hasAnyRole([SystemRole::Operator->value, SystemRole::Viewer->value]);
     }
 }

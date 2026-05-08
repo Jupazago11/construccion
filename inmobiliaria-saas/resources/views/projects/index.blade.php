@@ -4,7 +4,7 @@
             title="Proyectos"
             description="{{ auth()->user()->isSuperAdmin()
                 ? 'Administra los proyectos de cada empresa y su estado operativo dentro del módulo financiero.'
-                : 'Gestiona los proyectos de tu empresa y accede a su estructura financiera.' }}"
+                : '' }}"
         >
             @can('create', App\Models\Project::class)
                 <button

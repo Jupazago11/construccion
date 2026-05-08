@@ -12,12 +12,12 @@ class CompanyPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isSuperAdmin() || $user->hasPermissionTo('companies.view');
+        return $user->isSuperAdmin();
     }
 
     public function view(User $user, Company $company): bool
     {
-        return $this->hasTenantPermission($user, 'companies.view', $company) && $this->isActiveRecord($company);
+        return $user->isSuperAdmin() && $this->isActiveRecord($company);
     }
 
     public function create(User $user): bool
@@ -27,7 +27,7 @@ class CompanyPolicy
 
     public function update(User $user, Company $company): bool
     {
-        return $this->canManageOwnCompany($user, $company) && $this->isActiveRecord($company);
+        return $user->isSuperAdmin() && $this->isActiveRecord($company);
     }
 
     public function delete(User $user, Company $company): bool

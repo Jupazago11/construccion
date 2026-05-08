@@ -26,16 +26,17 @@ class UserPolicy
 
     public function update(User $user, User $managedUser): bool
     {
-        return $this->hasTenantPermission($user, 'users.manage', $managedUser)
-            && ! $managedUser->isSuperAdmin()
-            && $this->isActiveRecord($managedUser);
+        if ($user->is($managedUser)) {
+            return $this->hasTenantPermission($user, 'users.manage', $managedUser)
+                && $this->isActiveRecord($managedUser);
+        }
+
+        return $this->canManageUser($user, $managedUser);
     }
 
     public function delete(User $user, User $managedUser): bool
     {
-        return $this->hasTenantPermission($user, 'users.manage', $managedUser)
-            && ! $managedUser->isSuperAdmin()
-            && $this->isActiveRecord($managedUser);
+        return $this->canManageUser($user, $managedUser);
     }
 
     public function restore(User $user, User $managedUser): bool
@@ -48,5 +49,20 @@ class UserPolicy
         return $user->isSuperAdmin()
             && $user->hasPermissionTo('users.manage')
             && ! $managedUser->isSuperAdmin();
+    }
+
+    protected function canManageUser(User $user, User $managedUser): bool
+    {
+        if (! $this->hasTenantPermission($user, 'users.manage', $managedUser)
+            || ! $this->isActiveRecord($managedUser)
+            || $managedUser->isSuperAdmin()) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $managedUser->hasAnyRole(['Operator', 'Viewer']);
     }
 }

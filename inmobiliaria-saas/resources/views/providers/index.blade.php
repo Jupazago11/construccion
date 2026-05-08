@@ -1,6 +1,6 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
-        <x-page-header title="Proveedores" description="Administra el catálogo de proveedores antes del registro de gastos.">
+        <x-page-header title="Proveedores" description="">
             @can('create', App\Models\Provider::class)
                 <button type="button" data-action="create" data-url="{{ route('providers.create') }}" data-title="Nuevo proveedor" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
                     Nuevo proveedor

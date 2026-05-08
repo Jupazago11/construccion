@@ -1,6 +1,6 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
-        <x-page-header title="Gastos" description="Registra y administra los gastos reales del proyecto con su clasificación financiera completa.">
+        <x-page-header title="Gastos" description="">
             @can('create', App\Models\Expense::class)
                 <button type="button" data-action="create" data-url="{{ route('expenses.create') }}" data-title="Nuevo gasto" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
                     Nuevo gasto

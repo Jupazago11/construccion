@@ -4,6 +4,16 @@
     $selectedRole = old('role', $managedUser->roles->first()?->name);
 @endphp
 
+@php
+    $roleLabels = [
+        'SuperAdmin' => 'Superadministrador',
+        'CompanyAdmin' => 'Administrador',
+        'Operator' => 'Operador',
+        'Viewer' => 'Visualizador',
+        'BuyerUser' => 'Usuario comprador',
+    ];
+@endphp
+
 <div class="grid gap-6 md:grid-cols-2">
     @if (auth()->user()->isSuperAdmin())
         <div>
@@ -25,7 +35,7 @@
         <select id="role" name="role" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
             <option value="">Selecciona un rol</option>
             @foreach ($availableRoles as $role)
-                <option value="{{ $role }}" @selected($selectedRole === $role)>{{ $role }}</option>
+                <option value="{{ $role }}" @selected($selectedRole === $role)>{{ $roleLabels[$role] ?? $role }}</option>
             @endforeach
         </select>
         <x-input-error class="mt-2" :messages="$errors->get('role')" />

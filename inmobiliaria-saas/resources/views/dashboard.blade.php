@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="Panel principal" :description="$currentUser->isSuperAdmin() ? 'Visión global del SaaS sobre empresas, usuarios, proyectos y actividad financiera.' : 'Resumen operativo de tu empresa y del uso actual del módulo de finanzas de construcción.'" />
+        <x-page-header title="Panel principal" :description="$currentUser->isSuperAdmin() ? 'Visión global del SaaS sobre empresas, usuarios, proyectos y actividad financiera.' : ''" />
     </x-slot>
 
     <div class="py-8">

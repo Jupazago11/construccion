@@ -15,11 +15,11 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         Panel
                     </x-nav-link>
-                    @can('viewAny', App\Models\Company::class)
+                    @if (Auth::user()->isSuperAdmin())
                         <x-nav-link :href="route('companies.index')" :active="request()->routeIs('companies.*')">
                             Empresas
                         </x-nav-link>
-                    @endcan
+                    @endif
                     @can('viewAny', App\Models\User::class)
                         <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                             Usuarios
@@ -110,11 +110,11 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 Panel
             </x-responsive-nav-link>
-            @can('viewAny', App\Models\Company::class)
+            @if (Auth::user()->isSuperAdmin())
                 <x-responsive-nav-link :href="route('companies.index')" :active="request()->routeIs('companies.*')">
                     Empresas
                 </x-responsive-nav-link>
-            @endcan
+            @endif
             @can('viewAny', App\Models\User::class)
                 <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                     Usuarios

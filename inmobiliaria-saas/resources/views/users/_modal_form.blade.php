@@ -1,5 +1,16 @@
 @php
     $isSelf = $managedUser->exists && $managedUser->is(auth()->user());
+    $currentRole = optional($managedUser->roles->first())->name;
+    $hideRoleSelector = $managedUser->exists && $currentRole === 'CompanyAdmin';
+    $canManageStatus = auth()->user()->isSuperAdmin()
+        || (auth()->user()->hasRole('CompanyAdmin') && ! $isSelf && (! $managedUser->exists || $managedUser->hasAnyRole(['Operator', 'Viewer'])));
+    $roleLabels = [
+        'SuperAdmin' => 'Superadministrador',
+        'CompanyAdmin' => 'Administrador',
+        'Operator' => 'Operador',
+        'Viewer' => 'Visualizador',
+        'BuyerUser' => 'Usuario comprador',
+    ];
 @endphp
 
 <form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
@@ -25,19 +36,26 @@
 
         <div>
             <x-input-label for="role" :value="'Rol'" />
-            <select id="role" name="role" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                <option value="">Selecciona un rol</option>
-                @foreach ($availableRoles as $role)
-                    <option value="{{ $role }}" @selected(optional($managedUser->roles->first())->name === $role)>{{ $role }}</option>
-                @endforeach
-            </select>
+            @if ($hideRoleSelector)
+                <input type="hidden" name="role" value="{{ $currentRole }}">
+                <div class="mt-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+                    {{ $roleLabels[$currentRole] ?? $currentRole }}
+                </div>
+            @else
+                <select id="role" name="role" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                    <option value="">Selecciona un rol</option>
+                    @foreach ($availableRoles as $role)
+                        <option value="{{ $role }}" @selected($currentRole === $role)>{{ $roleLabels[$role] ?? $role }}</option>
+                    @endforeach
+                </select>
+            @endif
             <p class="mt-2 hidden text-sm text-rose-600" data-error-for="role"></p>
         </div>
 
         <div>
             <x-input-label for="username" :value="'Usuario'" />
             <x-text-input id="username" name="username" type="text" class="mt-1 block w-full" :value="$managedUser->username" required />
-            <p class="mt-2 text-xs text-stone-500">Usa solo letras, números, puntos, guiones o guiones bajos.</p>
+            <p class="mt-2 text-xs text-stone-500">Usa solo letras, numeros, puntos, guiones o guiones bajos.</p>
             <p class="mt-2 hidden text-sm text-rose-600" data-error-for="username"></p>
         </div>
 
@@ -47,14 +65,7 @@
             <p class="mt-2 hidden text-sm text-rose-600" data-error-for="name"></p>
         </div>
 
-        <div>
-            <x-input-label for="email" :value="'Correo'" />
-            <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="$managedUser->email" />
-            <p class="mt-2 text-xs text-stone-500">Opcional.</p>
-            <p class="mt-2 hidden text-sm text-rose-600" data-error-for="email"></p>
-        </div>
-
-        @if (auth()->user()->isSuperAdmin())
+        @if ($canManageStatus)
             <div>
                 <x-input-label for="status" :value="'Estado'" />
                 <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
@@ -71,14 +82,20 @@
         @endif
 
         <div>
-            <x-input-label for="password" :value="$managedUser->exists ? 'Nueva contraseña' : 'Contraseña'" />
-            <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" :required="! $managedUser->exists" />
+            <x-input-label for="password" :value="$managedUser->exists ? 'Nueva contrasena' : 'Contrasena'" />
+            <div class="relative mt-1">
+                <x-text-input id="password" name="password" type="password" class="block w-full pr-24" :required="! $managedUser->exists" />
+                <button type="button" onclick="const input=document.getElementById('password'); if(!input) return; input.type = input.type === 'password' ? 'text' : 'password'; this.textContent = input.type === 'password' ? 'Mostrar' : 'Ocultar';" class="absolute inset-y-0 right-3 my-auto text-sm font-medium text-stone-500 transition hover:text-stone-800">Mostrar</button>
+            </div>
             <p class="mt-2 hidden text-sm text-rose-600" data-error-for="password"></p>
         </div>
 
         <div>
-            <x-input-label for="password_confirmation" :value="$managedUser->exists ? 'Confirmar nueva contraseña' : 'Confirmar contraseña'" />
-            <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" :required="! $managedUser->exists" />
+            <x-input-label for="password_confirmation" :value="$managedUser->exists ? 'Confirmar nueva contrasena' : 'Confirmar contrasena'" />
+            <div class="relative mt-1">
+                <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="block w-full pr-24" :required="! $managedUser->exists" />
+                <button type="button" onclick="const input=document.getElementById('password_confirmation'); if(!input) return; input.type = input.type === 'password' ? 'text' : 'password'; this.textContent = input.type === 'password' ? 'Mostrar' : 'Ocultar';" class="absolute inset-y-0 right-3 my-auto text-sm font-medium text-stone-500 transition hover:text-stone-800">Mostrar</button>
+            </div>
         </div>
         </div>
     </div>

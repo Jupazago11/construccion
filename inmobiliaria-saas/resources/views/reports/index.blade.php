@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="Reportes" description="Analiza el comportamiento financiero del módulo de construcción por proyecto, categoría, subcategoría, auxiliar y fechas." />
+        <x-page-header title="Reportes" description="" />
     </x-slot>
 
     <div class="py-8">
