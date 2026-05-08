@@ -6,3 +6,12 @@ npm run dev -- --host 0.0.0.0 --port=5174
 
 
 http://127.0.0.1:8080
+
+
+
+portatil
+cd ~/proyectos/Construccion/construccion/inmobiliaria-saas
+./vendor/bin/sail up -d
+
+./vendor/bin/sail artisan migrate
+./vendor/bin/sail npm run dev
