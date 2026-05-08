@@ -24,7 +24,6 @@ class CompanyUpdateRequest extends FormRequest
             'nit' => ['nullable', 'string', 'max:100', Rule::unique('companies', 'nit')->ignore($company?->id)],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'logo_path' => ['nullable', 'string', 'max:255'],
             'primary_color' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'status' => ['required', Rule::in(['active', 'inactive', 'deleted'])],
         ];

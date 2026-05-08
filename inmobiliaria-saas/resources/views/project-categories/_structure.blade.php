@@ -1,10 +1,33 @@
-<div class="space-y-5">
+@php
+    $categoryThemes = [
+        [
+            'section' => 'border-sky-200 bg-sky-50/55',
+            'header' => 'border-sky-200 bg-sky-100/70',
+            'pill' => 'bg-white/80 text-sky-800 border border-sky-200',
+            'subcategory' => 'border-sky-200 bg-white/75',
+            'auxiliary' => 'border-sky-100 bg-white',
+            'empty' => 'border-sky-200 bg-white/70 text-sky-900',
+        ],
+        [
+            'section' => 'border-amber-200 bg-amber-50/55',
+            'header' => 'border-amber-200 bg-amber-100/70',
+            'pill' => 'bg-white/80 text-amber-800 border border-amber-200',
+            'subcategory' => 'border-amber-200 bg-white/75',
+            'auxiliary' => 'border-amber-100 bg-white',
+            'empty' => 'border-amber-200 bg-white/70 text-amber-900',
+        ],
+    ];
+@endphp
+
+<div class="space-y-4">
     @forelse ($project->categories as $category)
-        <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-            <div class="flex flex-col gap-4 border-b border-stone-200 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
-                <div class="space-y-3">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-lg font-semibold text-stone-900">{{ $category->name }}</h2>
+        @php($theme = $categoryThemes[$loop->index % 2])
+
+        <section class="overflow-hidden rounded-3xl border {{ $theme['section'] }} shadow-sm">
+            <div class="flex flex-col gap-3 border-b px-4 py-4 {{ $theme['header'] }} lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-base font-semibold text-stone-900">{{ $category->name }}</h2>
                         <button
                             type="button"
                             data-action="status"
@@ -17,26 +40,26 @@
                     </div>
 
                     @if ($category->description)
-                        <p class="max-w-3xl text-sm text-stone-600">{{ $category->description }}</p>
+                        <p class="max-w-3xl text-xs text-stone-600">{{ $category->description }}</p>
                     @endif
 
-                    <div class="flex flex-wrap gap-2 text-xs text-stone-500">
-                        <span class="rounded-full bg-stone-100 px-3 py-1">Orden: {{ $category->sort_order }}</span>
-                        <span class="rounded-full bg-stone-100 px-3 py-1">Subcategorías: {{ $category->subcategories->count() }}</span>
+                    <div class="flex flex-wrap gap-2 text-[11px]">
+                        <span class="rounded-full px-2.5 py-1 {{ $theme['pill'] }}">Orden: {{ $category->sort_order }}</span>
+                        <span class="rounded-full px-2.5 py-1 {{ $theme['pill'] }}">Subcategorías: {{ $category->subcategories->count() }}</span>
                     </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
                     @if ($projectAllowsNewRecords)
-                        <button
-                            type="button"
-                            data-action="create"
-                            data-url="{{ route('projects.subcategories.create', $project) }}?category_id={{ $category->id }}"
-                            data-title="Nueva subcategoría"
-                            class="rounded-2xl border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
-                        >
-                            Nueva subcategoría
-                        </button>
+                                    <button
+                                        type="button"
+                                        data-action="create"
+                                        data-url="{{ route('projects.subcategories.create', $project) }}?category_id={{ $category->id }}"
+                                        data-title="Nueva subcategoría · {{ $category->name }}"
+                                        class="rounded-xl border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:bg-white/70"
+                                    >
+                                        Nueva subcategoría
+                                    </button>
                     @endif
 
                     <button
@@ -44,7 +67,7 @@
                         data-action="edit"
                         data-url="{{ route('projects.categories.edit', [$project, $category]) }}"
                         data-title="Editar categoría"
-                        class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                        class="rounded-xl border border-stone-200 p-2 text-stone-600 transition hover:bg-white/70 hover:text-stone-900"
                         title="Editar categoría"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -57,7 +80,7 @@
                         data-action="delete"
                         data-url="{{ route('projects.categories.destroy', [$project, $category]) }}"
                         data-confirm-message="¿Deseas archivar esta categoría? Solo se permite si no tiene subcategorías ni gastos."
-                        class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
+                        class="rounded-xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
                         title="Archivar categoría"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -67,13 +90,13 @@
                 </div>
             </div>
 
-            <div class="space-y-4 px-6 py-5">
+            <div class="space-y-3 px-4 py-4">
                 @forelse ($category->subcategories as $subcategory)
-                    <article class="rounded-3xl border border-stone-200 bg-stone-50/70 p-5">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div class="space-y-3">
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <h3 class="text-base font-semibold text-stone-900">{{ $subcategory->name }}</h3>
+                    <article class="rounded-2xl border p-4 {{ $theme['subcategory'] }}">
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="text-sm font-semibold text-stone-900">{{ $subcategory->name }}</h3>
                                     <button
                                         type="button"
                                         data-action="status"
@@ -86,12 +109,12 @@
                                 </div>
 
                                 @if ($subcategory->description)
-                                    <p class="text-sm text-stone-600">{{ $subcategory->description }}</p>
+                                    <p class="text-xs text-stone-600">{{ $subcategory->description }}</p>
                                 @endif
 
-                                <div class="flex flex-wrap gap-2 text-xs text-stone-500">
-                                    <span class="rounded-full bg-white px-3 py-1">Orden: {{ $subcategory->sort_order }}</span>
-                                    <span class="rounded-full bg-white px-3 py-1">Auxiliares: {{ $subcategory->auxiliaries->count() }}</span>
+                                <div class="flex flex-wrap gap-2 text-[11px] text-stone-500">
+                                    <span class="rounded-full bg-white px-2.5 py-1">Orden: {{ $subcategory->sort_order }}</span>
+                                    <span class="rounded-full bg-white px-2.5 py-1">Auxiliares: {{ $subcategory->auxiliaries->count() }}</span>
                                 </div>
                             </div>
 
@@ -102,7 +125,7 @@
                                         data-action="create"
                                         data-url="{{ route('projects.auxiliaries.create', $project) }}?subcategory_id={{ $subcategory->id }}"
                                         data-title="Nuevo auxiliar"
-                                        class="rounded-2xl border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                                        class="rounded-xl border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:bg-white/70"
                                     >
                                         Nuevo auxiliar
                                     </button>
@@ -113,7 +136,7 @@
                                     data-action="edit"
                                     data-url="{{ route('projects.subcategories.edit', [$project, $subcategory]) }}"
                                     data-title="Editar subcategoría"
-                                    class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                                    class="rounded-xl border border-stone-200 p-2 text-stone-600 transition hover:bg-white/70 hover:text-stone-900"
                                     title="Editar subcategoría"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -126,7 +149,7 @@
                                     data-action="delete"
                                     data-url="{{ route('projects.subcategories.destroy', [$project, $subcategory]) }}"
                                     data-confirm-message="¿Deseas archivar esta subcategoría? Solo se permite si no tiene auxiliares ni gastos."
-                                    class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
+                                    class="rounded-xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
                                     title="Archivar subcategoría"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -136,12 +159,12 @@
                             </div>
                         </div>
 
-                        <div class="mt-5 space-y-3">
+                        <div class="mt-3 space-y-2.5">
                             @forelse ($subcategory->auxiliaries as $auxiliary)
-                                <div class="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-4 md:flex-row md:items-start md:justify-between">
-                                    <div class="space-y-2">
-                                        <div class="flex flex-wrap items-center gap-3">
-                                            <h4 class="font-semibold text-stone-900">{{ $auxiliary->name }}</h4>
+                                <div class="flex flex-col gap-2 rounded-xl border px-3 py-3 {{ $theme['auxiliary'] }} md:flex-row md:items-start md:justify-between">
+                                    <div class="space-y-1.5">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <h4 class="text-sm font-medium text-stone-900">{{ $auxiliary->name }}</h4>
                                             <button
                                                 type="button"
                                                 data-action="status"
@@ -154,10 +177,10 @@
                                         </div>
 
                                         @if ($auxiliary->description)
-                                            <p class="text-sm text-stone-600">{{ $auxiliary->description }}</p>
+                                            <p class="text-xs text-stone-600">{{ $auxiliary->description }}</p>
                                         @endif
 
-                                        <span class="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-500">Orden: {{ $auxiliary->sort_order }}</span>
+                                        <span class="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-[11px] text-stone-500">Orden: {{ $auxiliary->sort_order }}</span>
                                     </div>
 
                                     <div class="flex items-center gap-2">
@@ -166,7 +189,7 @@
                                             data-action="edit"
                                             data-url="{{ route('projects.auxiliaries.edit', [$project, $auxiliary]) }}"
                                             data-title="Editar auxiliar"
-                                            class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                                            class="rounded-xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
                                             title="Editar auxiliar"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -179,7 +202,7 @@
                                             data-action="delete"
                                             data-url="{{ route('projects.auxiliaries.destroy', [$project, $auxiliary]) }}"
                                             data-confirm-message="¿Deseas archivar este auxiliar? Solo se permite si no tiene gastos."
-                                            class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
+                                            class="rounded-xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
                                             title="Archivar auxiliar"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -189,14 +212,14 @@
                                     </div>
                                 </div>
                             @empty
-                                <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-4 py-5 text-sm text-stone-500">
+                                <div class="rounded-xl border border-dashed border-stone-300 bg-white px-3 py-4 text-xs text-stone-500">
                                     Esta subcategoría no tiene auxiliares registrados.
                                 </div>
                             @endforelse
                         </div>
                     </article>
                 @empty
-                    <div class="rounded-3xl border border-dashed border-stone-300 bg-stone-50 px-5 py-8 text-center text-sm text-stone-500">
+                    <div class="rounded-2xl border border-dashed px-4 py-6 text-center text-xs {{ $theme['empty'] }}">
                         Esta categoría todavía no tiene subcategorías.
                     </div>
                 @endforelse

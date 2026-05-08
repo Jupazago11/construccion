@@ -31,7 +31,7 @@ class UserStoreRequest extends FormRequest
             ],
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._-]+$/', 'unique:users,username'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', 'min:8'],
             'status' => ['required', Rule::in(['active', 'inactive', 'deleted'])],
             'role' => ['required', Rule::in($availableRoles)],

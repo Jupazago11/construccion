@@ -5,15 +5,19 @@
         <div class="mt-1 text-xs uppercase tracking-wide text-stone-400">{{ $company->nit ?: 'Sin NIT' }}</div>
     </td>
     <td class="px-6 py-4">
-        <button
-            type="button"
-            data-action="status"
-            data-url="{{ route('companies.status', $company) }}"
-            data-current-status="{{ $company->status }}"
-            data-status-options='@json(["active", "inactive", "deleted"])'
-        >
-            <x-status-badge :value="$company->status" class="cursor-pointer transition hover:opacity-80" />
-        </button>
+        @if (auth()->user()->isSuperAdmin())
+            <button
+                type="button"
+                data-action="status"
+                data-url="{{ route('companies.status', $company) }}"
+                data-current-status="{{ $company->status }}"
+                data-status-options='@json(["active", "inactive", "deleted"])'
+            >
+                <x-status-badge :value="$company->status" class="cursor-pointer transition hover:opacity-80" />
+            </button>
+        @else
+            <x-status-badge :value="$company->status" />
+        @endif
     </td>
     <td class="px-6 py-4 text-stone-600">{{ $company->users_count }}</td>
     <td class="px-6 py-4 text-stone-600">{{ $company->projects_count }}</td>

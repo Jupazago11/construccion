@@ -18,7 +18,7 @@ class SuperAdminSeeder extends Seeder
                 'username' => env('SUPERADMIN_USERNAME', 'superadmin'),
                 'name' => env('SUPERADMIN_NAME', 'Super Admin'),
                 'email' => env('SUPERADMIN_EMAIL', 'superadmin@example.com'),
-                'password' => Hash::make(env('SUPERADMIN_PASSWORD', 'ChangeMe123!')),
+                'password' => Hash::make(env('SUPERADMIN_PASSWORD', '123456')),
                 'status' => EntityStatus::Active->value,
                 'company_id' => null,
                 'email_verified_at' => now(),

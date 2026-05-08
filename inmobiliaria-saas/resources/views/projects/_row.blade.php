@@ -1,3 +1,5 @@
+@php($statusOptions = ['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted'])
+
 <tr class="align-top" data-row-id="{{ $project->id }}">
     <td class="px-6 py-4">
         <div class="font-semibold text-stone-900">{{ $project->name }}</div>
@@ -16,10 +18,11 @@
     <td class="px-6 py-4">
         <button
             type="button"
-            data-action="status"
+            data-action="status-modal"
             data-url="{{ route('projects.status', $project) }}"
             data-current-status="{{ $project->status }}"
-            data-status-options='@json(["planning", "active", "paused", "completed", "cancelled", "deleted"])'
+            data-status-options='@json($statusOptions)'
+            data-entity-label="proyecto"
         >
             <x-status-badge :value="$project->status" class="cursor-pointer transition hover:opacity-80" />
         </button>

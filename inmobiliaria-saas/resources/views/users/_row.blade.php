@@ -15,7 +15,7 @@
         {{ $user->roles->pluck('name')->join(', ') ?: 'Sin rol asignado' }}
     </td>
     <td class="px-6 py-4">
-        @if ($isSelf)
+        @if ($isSelf || ! auth()->user()->isSuperAdmin())
             <div class="inline-flex">
                 <x-status-badge :value="$user->status" />
             </div>

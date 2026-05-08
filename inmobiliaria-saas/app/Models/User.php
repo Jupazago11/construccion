@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\EntityStatus;
 use App\Enums\SystemRole;
+use App\Traits\LogsAuditActivity;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,7 +23,10 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory;
     use HasRoles;
+    use LogsAuditActivity;
     use Notifiable;
+
+    protected array $auditExcept = ['password'];
 
     /**
      * Get the attributes that should be cast.

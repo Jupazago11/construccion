@@ -55,7 +55,7 @@ class ProviderController extends Controller
         ]);
     }
 
-    public function create(Request $request): View|string
+    public function create(Request $request): View|string|RedirectResponse
     {
         $this->authorize('create', Provider::class);
 
@@ -75,7 +75,7 @@ class ProviderController extends Controller
             ->with('status', 'La creación de proveedores se realiza desde la vista principal.');
     }
 
-    public function store(ProviderStoreRequest $request): RedirectResponse
+    public function store(ProviderStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Provider::class);
 
@@ -106,7 +106,7 @@ class ProviderController extends Controller
             ->with('status', 'Proveedor creado correctamente.');
     }
 
-    public function edit(Request $request, Provider $provider): View|string
+    public function edit(Request $request, Provider $provider): View|string|RedirectResponse
     {
         $this->authorize('update', $provider);
 
@@ -126,7 +126,7 @@ class ProviderController extends Controller
             ->with('status', 'La edición de proveedores se realiza desde la vista principal.');
     }
 
-    public function update(ProviderUpdateRequest $request, Provider $provider): RedirectResponse
+    public function update(ProviderUpdateRequest $request, Provider $provider): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $provider);
 

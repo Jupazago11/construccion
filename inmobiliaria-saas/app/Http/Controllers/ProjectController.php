@@ -14,6 +14,10 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
+    protected const PROJECT_CARD_VIEW = 'projects._card';
+
+    protected const PROJECT_ROW_VIEW = 'projects._row';
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Project::class);
@@ -76,7 +80,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(ProjectStoreRequest $request): RedirectResponse
+    public function store(ProjectStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Project::class);
 
@@ -102,7 +106,7 @@ class ProjectController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'id' => $project->id,
-                'row_html' => view('projects._row', compact('project'))->render(),
+                'row_html' => view($this->projectListPartial($request), compact('project'))->render(),
                 'message' => 'Proyecto creado correctamente.',
             ]);
         }
@@ -145,7 +149,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function update(ProjectUpdateRequest $request, Project $project): RedirectResponse
+    public function update(ProjectUpdateRequest $request, Project $project): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $project);
 
@@ -171,7 +175,7 @@ class ProjectController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'id' => $project->id,
-                'row_html' => view('projects._row', compact('project'))->render(),
+                'row_html' => view($this->projectListPartial($request), compact('project'))->render(),
                 'message' => 'Proyecto actualizado correctamente.',
             ]);
         }
@@ -197,7 +201,7 @@ class ProjectController extends Controller
 
         return response()->json([
             'id' => $project->id,
-            'row_html' => view('projects._row', compact('project'))->render(),
+            'row_html' => view($this->projectListPartial($request), compact('project'))->render(),
             'message' => 'Estado del proyecto actualizado correctamente.',
         ]);
     }
@@ -244,6 +248,13 @@ class ProjectController extends Controller
         return Company::query()
             ->whereKey($authUser->company_id)
             ->get();
+    }
+
+    protected function projectListPartial(Request $request): string
+    {
+        return $request->user()?->isSuperAdmin()
+            ? self::PROJECT_ROW_VIEW
+            : self::PROJECT_CARD_VIEW;
     }
 
     protected function projectHasDependencies(Project $project): bool

@@ -34,9 +34,9 @@ class UserUpdateRequest extends FormRequest
             ],
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._-]+$/', Rule::unique('users', 'username')->ignore($managedUser?->id)],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($managedUser?->id)],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($managedUser?->id)],
             'password' => ['nullable', 'confirmed', 'min:8'],
-            'status' => ['required', Rule::in(['active', 'inactive', 'deleted'])],
+            'status' => [Rule::requiredIf($authUser->isSuperAdmin()), 'nullable', Rule::in(['active', 'inactive', 'deleted'])],
             'role' => ['required', Rule::in($availableRoles)],
         ];
     }

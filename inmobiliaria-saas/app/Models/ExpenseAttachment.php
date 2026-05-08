@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\LogsAuditActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 class ExpenseAttachment extends Model
 {
     use HasFactory;
+    use LogsAuditActivity;
 
     protected $fillable = [
         'expense_id',
@@ -36,5 +38,15 @@ class ExpenseAttachment extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    protected function resolveAuditCompanyId(): ?int
+    {
+        return $this->expense?->company_id ?? $this->loadMissing('expense')->expense?->company_id;
+    }
+
+    protected function resolveAuditProjectId(): ?int
+    {
+        return $this->expense?->project_id ?? $this->loadMissing('expense')->expense?->project_id;
     }
 }

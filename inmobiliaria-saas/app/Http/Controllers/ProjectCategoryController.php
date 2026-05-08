@@ -72,6 +72,17 @@ class ProjectCategoryController extends Controller
 
         $counts = $replicator->copy($sourceProject, $project);
 
+        activity('categories')
+            ->causedBy($request->user())
+            ->performedOn($project)
+            ->event('copy')
+            ->withProperties([
+                'source_project_id' => $sourceProject->id,
+                'source_project_name' => $sourceProject->name,
+                'copied' => $counts,
+            ])
+            ->log('copy');
+
         return $this->structureResponse(
             $project,
             "Estructura copiada correctamente. {$counts['categories']} categorías, {$counts['subcategories']} subcategorías y {$counts['auxiliaries']} auxiliares agregados."
@@ -102,8 +113,8 @@ class ProjectCategoryController extends Controller
             'project_id' => $project->id,
             'name' => $request->validated('name'),
             'description' => $request->validated('description'),
-            'sort_order' => $request->validated('sort_order', 0),
-            'status' => $request->validated('status'),
+            'sort_order' => $this->nextCategorySortOrder($project),
+            'status' => EntityStatus::Active->value,
         ]);
 
         return $this->structureResponse($project, 'Categoría creada correctamente.');
@@ -132,8 +143,6 @@ class ProjectCategoryController extends Controller
         $category->update([
             'name' => $request->validated('name'),
             'description' => $request->validated('description'),
-            'sort_order' => $request->validated('sort_order', 0),
-            'status' => $request->validated('status'),
         ]);
 
         return $this->structureResponse($project, 'Categoría actualizada correctamente.');
@@ -178,11 +187,17 @@ class ProjectCategoryController extends Controller
         $this->ensureProjectAllowsNewRecords($project);
 
         $selectedCategoryId = $request->integer('category_id') ?: null;
+        $categories = $this->availableCategories($project);
+        $selectedCategory = $selectedCategoryId
+            ? $categories->firstWhere('id', $selectedCategoryId)
+            : null;
 
         return view('project-categories._subcategory_modal_form', [
             'project' => $project,
             'subcategory' => new Subcategory(['category_id' => $selectedCategoryId]),
-            'categories' => $this->availableCategories($project),
+            'categories' => $categories,
+            'selectedCategory' => $selectedCategory,
+            'lockCategory' => $selectedCategory !== null,
             'action' => route('projects.subcategories.store', $project),
             'method' => 'POST',
         ])->render();
@@ -198,8 +213,8 @@ class ProjectCategoryController extends Controller
             'category_id' => $request->validated('category_id'),
             'name' => $request->validated('name'),
             'description' => $request->validated('description'),
-            'sort_order' => $request->validated('sort_order', 0),
-            'status' => $request->validated('status'),
+            'sort_order' => $this->nextSubcategorySortOrder((int) $request->validated('category_id')),
+            'status' => EntityStatus::Active->value,
         ]);
 
         return $this->structureResponse($project, 'Subcategoría creada correctamente.');
@@ -211,10 +226,14 @@ class ProjectCategoryController extends Controller
         $this->guardSubcategoryBelongsToProject($project, $subcategory);
         $this->authorize('update', $subcategory);
 
+        $categories = $this->availableCategories($project);
+
         return view('project-categories._subcategory_modal_form', [
             'project' => $project,
             'subcategory' => $subcategory,
-            'categories' => $this->availableCategories($project),
+            'categories' => $categories,
+            'selectedCategory' => $categories->firstWhere('id', $subcategory->category_id),
+            'lockCategory' => false,
             'action' => route('projects.subcategories.update', [$project, $subcategory]),
             'method' => 'PATCH',
         ])->render();
@@ -230,8 +249,6 @@ class ProjectCategoryController extends Controller
             'category_id' => $request->validated('category_id'),
             'name' => $request->validated('name'),
             'description' => $request->validated('description'),
-            'sort_order' => $request->validated('sort_order', 0),
-            'status' => $request->validated('status'),
         ]);
 
         return $this->structureResponse($project, 'Subcategoría actualizada correctamente.');
@@ -275,14 +292,26 @@ class ProjectCategoryController extends Controller
         $this->authorize('create', Auxiliary::class);
         $this->ensureProjectAllowsNewRecords($project);
 
-        $selectedSubcategoryId = $request->integer('subcategory_id') ?: null;
+        $selectedSubcategoryId = $request->integer('subcategory_id');
+
+        abort_unless($selectedSubcategoryId, 404);
+
+        $subcategory = Subcategory::query()
+            ->whereKey($selectedSubcategoryId)
+            ->whereHas('category', fn ($query) => $query->where('project_id', $project->id))
+            ->firstOrFail();
 
         return view('project-categories._auxiliary_modal_form', [
             'project' => $project,
-            'auxiliary' => new Auxiliary(['subcategory_id' => $selectedSubcategoryId]),
-            'subcategories' => $this->availableSubcategories($project),
+            'auxiliary' => new Auxiliary([
+                'subcategory_id' => $subcategory->id,
+                'status' => EntityStatus::Active->value,
+            ]),
+            'subcategory' => $subcategory,
+            'subcategories' => collect([$subcategory]),
             'action' => route('projects.auxiliaries.store', $project),
             'method' => 'POST',
+            'isCreating' => true,
         ])->render();
     }
 
@@ -296,8 +325,8 @@ class ProjectCategoryController extends Controller
             'subcategory_id' => $request->validated('subcategory_id'),
             'name' => $request->validated('name'),
             'description' => $request->validated('description'),
-            'sort_order' => $request->validated('sort_order', 0),
-            'status' => $request->validated('status'),
+            'sort_order' => $this->nextAuxiliarySortOrder((int) $request->validated('subcategory_id')),
+            'status' => EntityStatus::Active->value,
         ]);
 
         return $this->structureResponse($project, 'Auxiliar creado correctamente.');
@@ -315,6 +344,7 @@ class ProjectCategoryController extends Controller
             'subcategories' => $this->availableSubcategories($project),
             'action' => route('projects.auxiliaries.update', [$project, $auxiliary]),
             'method' => 'PATCH',
+            'isCreating' => false,
         ])->render();
     }
 
@@ -328,8 +358,6 @@ class ProjectCategoryController extends Controller
             'subcategory_id' => $request->validated('subcategory_id'),
             'name' => $request->validated('name'),
             'description' => $request->validated('description'),
-            'sort_order' => $request->validated('sort_order', 0),
-            'status' => $request->validated('status'),
         ]);
 
         return $this->structureResponse($project, 'Auxiliar actualizado correctamente.');
@@ -444,6 +472,21 @@ class ProjectCategoryController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+    }
+
+    protected function nextCategorySortOrder(Project $project): int
+    {
+        return ((int) Category::query()->where('project_id', $project->id)->max('sort_order')) + 1;
+    }
+
+    protected function nextSubcategorySortOrder(int $categoryId): int
+    {
+        return ((int) Subcategory::query()->where('category_id', $categoryId)->max('sort_order')) + 1;
+    }
+
+    protected function nextAuxiliarySortOrder(int $subcategoryId): int
+    {
+        return ((int) Auxiliary::query()->where('subcategory_id', $subcategoryId)->max('sort_order')) + 1;
     }
 
     protected function availableSourceProjects(Project $project)

@@ -1,12 +1,16 @@
 <?php
 
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExpenseAttachmentController;
 use App\Http\Controllers\ProjectCategoryController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -18,6 +22,9 @@ Route::get('/dashboard', DashboardController::class)
     ->name('dashboard');
 
 Route::middleware(['auth', 'active.user'])->group(function () {
+    Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -30,6 +37,16 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     Route::patch('providers/{provider}/status', [ProviderController::class, 'updateStatus'])->name('providers.status');
     Route::resource('providers', ProviderController::class)->except('show');
+
+    Route::patch('expenses/{expense}/status', [ExpenseController::class, 'updateStatus'])->name('expenses.status');
+    Route::resource('expenses', ExpenseController::class)->except('show');
+
+    Route::prefix('expenses/{expense}')->name('expenses.')->group(function () {
+        Route::get('attachments', [ExpenseAttachmentController::class, 'index'])->name('attachments.index');
+        Route::post('attachments', [ExpenseAttachmentController::class, 'store'])->name('attachments.store');
+        Route::get('attachments/{attachment}/download', [ExpenseAttachmentController::class, 'download'])->name('attachments.download');
+        Route::delete('attachments/{attachment}', [ExpenseAttachmentController::class, 'destroy'])->name('attachments.destroy');
+    });
 
     Route::prefix('projects/{project}')->name('projects.')->group(function () {
         Route::get('categories', [ProjectCategoryController::class, 'index'])->name('categories.index');

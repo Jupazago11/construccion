@@ -79,7 +79,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(UserStoreRequest $request): RedirectResponse
+    public function store(UserStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', User::class);
 
@@ -90,10 +90,10 @@ class UserController extends Controller
             'company_id' => $authUser->isSuperAdmin() ? $data['company_id'] : $authUser->company_id,
             'username' => $data['username'],
             'name' => $data['name'],
-            'email' => $data['email'],
+            'email' => $data['email'] ?? null,
             'password' => Hash::make($data['password']),
             'status' => $data['status'],
-            'email_verified_at' => now(),
+            'email_verified_at' => filled($data['email'] ?? null) ? now() : null,
         ]);
 
         $user->syncRoles([$data['role']]);
@@ -147,22 +147,29 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(UserUpdateRequest $request, User $user): RedirectResponse
+    public function update(UserUpdateRequest $request, User $user): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $user);
 
         $authUser = $request->user();
         $data = $request->validated();
 
-        $this->ensureUserCanRemainActive($request, $user, $data['status']);
+        $status = $authUser->isSuperAdmin()
+            ? ($data['status'] ?? $user->status)
+            : $user->status;
+
+        $this->ensureUserCanRemainActive($request, $user, $status);
 
         $user->update([
             'company_id' => $authUser->isSuperAdmin() ? ($data['company_id'] ?? null) : $user->company_id,
             'username' => $data['username'],
             'name' => $data['name'],
-            'email' => $data['email'],
-            'status' => $data['status'],
+            'email' => $data['email'] ?? null,
+            'status' => $status,
             'password' => filled($data['password'] ?? null) ? Hash::make($data['password']) : $user->password,
+            'email_verified_at' => filled($data['email'] ?? null)
+                ? ($user->email === ($data['email'] ?? null) ? $user->email_verified_at : null)
+                : null,
         ]);
 
         $user->syncRoles([$data['role']]);
@@ -184,6 +191,7 @@ class UserController extends Controller
     public function updateStatus(Request $request, User $user): JsonResponse
     {
         $this->authorize('update', $user);
+        abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $data = $request->validate([
             'status' => ['required', 'in:active,inactive,deleted'],

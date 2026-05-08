@@ -2,7 +2,7 @@
     $isSelf = $managedUser->exists && $managedUser->is(auth()->user());
 @endphp
 
-<form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full flex-col gap-6">
+<form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
     @csrf
     @if ($method !== 'POST')
         @method($method)
@@ -49,23 +49,26 @@
 
         <div>
             <x-input-label for="email" :value="'Correo'" />
-            <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="$managedUser->email" required />
+            <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="$managedUser->email" />
+            <p class="mt-2 text-xs text-stone-500">Opcional.</p>
             <p class="mt-2 hidden text-sm text-rose-600" data-error-for="email"></p>
         </div>
 
-        <div>
-            <x-input-label for="status" :value="'Estado'" />
-            <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                @foreach (['active' => 'Activo', 'inactive' => 'Inactivo', 'deleted' => 'Eliminado'] as $value => $label)
-                    @continue($isSelf && $value !== 'active')
-                    <option value="{{ $value }}" @selected(($managedUser->status ?: 'active') === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            @if ($isSelf)
-                <p class="mt-2 text-xs text-stone-500">Tu propio usuario solo puede mantenerse activo desde esta vista.</p>
-            @endif
-            <p class="mt-2 hidden text-sm text-rose-600" data-error-for="status"></p>
-        </div>
+        @if (auth()->user()->isSuperAdmin())
+            <div>
+                <x-input-label for="status" :value="'Estado'" />
+                <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                    @foreach (['active' => 'Activo', 'inactive' => 'Inactivo', 'deleted' => 'Eliminado'] as $value => $label)
+                        @continue($isSelf && $value !== 'active')
+                        <option value="{{ $value }}" @selected(($managedUser->status ?: 'active') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                @if ($isSelf)
+                    <p class="mt-2 text-xs text-stone-500">Tu propio usuario solo puede mantenerse activo desde esta vista.</p>
+                @endif
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="status"></p>
+            </div>
+        @endif
 
         <div>
             <x-input-label for="password" :value="$managedUser->exists ? 'Nueva contraseña' : 'Contraseña'" />
@@ -80,12 +83,14 @@
         </div>
     </div>
 
-    <div class="sticky bottom-0 flex items-center justify-end gap-3 border-t border-stone-200 bg-white pt-5">
+    <div class="sticky bottom-0 z-10 mt-auto shrink-0 border-t border-stone-200 bg-white px-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-4 shadow-[0_-8px_18px_rgba(255,255,255,0.92)]">
+        <div class="flex items-center justify-end gap-3">
         <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
             Cancelar
         </button>
         <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
             {{ $managedUser->exists ? 'Actualizar usuario' : 'Crear usuario' }}
         </button>
+        </div>
     </div>
 </form>

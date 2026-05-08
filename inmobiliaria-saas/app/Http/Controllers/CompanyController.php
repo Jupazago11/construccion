@@ -64,7 +64,7 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function store(CompanyStoreRequest $request): RedirectResponse
+    public function store(CompanyStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Company::class);
 
@@ -124,7 +124,7 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function update(CompanyUpdateRequest $request, Company $company): RedirectResponse
+    public function update(CompanyUpdateRequest $request, Company $company): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $company);
 
@@ -147,6 +147,7 @@ class CompanyController extends Controller
     public function updateStatus(Request $request, Company $company): JsonResponse
     {
         $this->authorize('update', $company);
+        abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $data = $request->validate([
             'status' => ['required', 'in:active,inactive,deleted'],

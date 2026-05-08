@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Category;
 use App\Models\Project;
 use App\Models\Subcategory;
 use Illuminate\Foundation\Http\FormRequest;
@@ -24,7 +25,12 @@ class AuxiliaryStoreRequest extends FormRequest
                 'required',
                 'integer',
                 Rule::exists(Subcategory::class, 'id')->where(function ($query) use ($project) {
-                    $query->whereHas('category', fn ($categoryQuery) => $categoryQuery->where('project_id', $project?->id));
+                    $query->whereIn(
+                        'category_id',
+                        Category::query()
+                            ->where('project_id', $project?->id)
+                            ->select('id')
+                    );
                 }),
             ],
             'name' => [
@@ -37,7 +43,6 @@ class AuxiliaryStoreRequest extends FormRequest
             ],
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
         ];
     }
 }

@@ -32,7 +32,6 @@ class CategoryUpdateRequest extends FormRequest
             ],
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
         ];
     }
 }
