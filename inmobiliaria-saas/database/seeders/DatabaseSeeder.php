@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             ModuleSeeder::class,
             RoleAndPermissionSeeder::class,
             SuperAdminSeeder::class,
+            CamiloDemoSeeder::class,
+            ProviderDemoSeeder::class,
         ]);
     }
 }

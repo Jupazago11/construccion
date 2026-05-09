@@ -11,6 +11,7 @@ class Activity extends SpatieActivity
     protected function casts(): array
     {
         return [
+            'attribute_changes' => 'collection',
             'properties' => 'collection',
             'reverted_at' => 'datetime',
             'expires_at' => 'datetime',

@@ -20,6 +20,11 @@ class ProjectStoreRequest extends FormRequest
         $companyId = $user->isSuperAdmin()
             ? $this->input('company_id')
             : $user->company_id;
+        $statuses = ['planning', 'active', 'paused', 'completed', 'cancelled'];
+
+        if ($user->isSuperAdmin()) {
+            $statuses[] = EntityStatus::Deleted->value;
+        }
 
         return [
             'company_id' => [
@@ -42,7 +47,7 @@ class ProjectStoreRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'location_reference' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
-            'status' => ['required', Rule::in(['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted'])],
+            'status' => ['required', Rule::in($statuses)],
         ];
     }
 }

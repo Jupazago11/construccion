@@ -1,3 +1,17 @@
+@php
+    $statusOptions = [
+        'planning' => 'Planeación',
+        'active' => 'Activo',
+        'paused' => 'Pausado',
+        'completed' => 'Completado',
+        'cancelled' => 'Cancelado',
+    ];
+
+    if (auth()->user()->isSuperAdmin()) {
+        $statusOptions['deleted'] = 'Eliminado';
+    }
+@endphp
+
 <form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
     @csrf
     @if ($method !== 'POST')
@@ -34,14 +48,7 @@
         <div>
             <x-input-label for="status" :value="'Estado'" />
             <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                @foreach ([
-                    'planning' => 'Planeación',
-                    'active' => 'Activo',
-                    'paused' => 'Pausado',
-                    'completed' => 'Completado',
-                    'cancelled' => 'Cancelado',
-                    'deleted' => 'Eliminado',
-                ] as $value => $label)
+                @foreach ($statusOptions as $value => $label)
                     <option value="{{ $value }}" @selected(($project->status ?: 'planning') === $value)>{{ $label }}</option>
                 @endforeach
             </select>

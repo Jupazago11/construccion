@@ -252,6 +252,7 @@ Alpine.data('crudTable', (config = {}) => ({
 
         if (payload.structure_html && this.$refs.structure) {
             this.$refs.structure.innerHTML = payload.structure_html;
+            this.$nextTick(() => Alpine.initTree(this.$refs.structure));
             return;
         }
 

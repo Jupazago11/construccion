@@ -1,6 +1,17 @@
 @php
     $isEditing = $project->exists;
     $selectedCompany = old('company_id', $project->company_id ?: request('company_id'));
+    $statusOptions = [
+        'planning',
+        'active',
+        'paused',
+        'completed',
+        'cancelled',
+    ];
+
+    if (auth()->user()->isSuperAdmin()) {
+        $statusOptions[] = 'deleted';
+    }
 @endphp
 
 <div class="grid gap-6 md:grid-cols-2">
@@ -34,7 +45,7 @@
     <div>
         <x-input-label for="status" :value="'Estado'" />
         <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-            @foreach (['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted'] as $status)
+            @foreach ($statusOptions as $status)
                 <option value="{{ $status }}" @selected(old('status', $project->status ?: 'planning') === $status)>
                     {{ [
                         'planning' => 'Planeación',

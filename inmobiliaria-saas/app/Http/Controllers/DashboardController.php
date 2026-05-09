@@ -34,8 +34,8 @@ class DashboardController extends Controller
             'active_companies' => Company::query()->where('status', EntityStatus::Active->value)->count(),
             'users' => User::query()->where('status', '!=', EntityStatus::Deleted->value)->count(),
             'projects' => Project::query()->where('status', '!=', EntityStatus::Deleted->value)->count(),
-            'expenses' => Expense::query()->where('status', '!=', EntityStatus::Deleted->value)->count(),
-            'expense_total' => Expense::query()->where('status', '!=', EntityStatus::Deleted->value)->sum('total_amount'),
+            'expenses' => Expense::query()->where('status', EntityStatus::Active->value)->count(),
+            'expense_total' => Expense::query()->where('status', EntityStatus::Active->value)->sum('total_amount'),
         ];
     }
 
@@ -57,11 +57,11 @@ class DashboardController extends Controller
                 ->count(),
             'expenses' => Expense::query()
                 ->where('company_id', $companyId)
-                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->where('status', EntityStatus::Active->value)
                 ->count(),
             'expense_total' => Expense::query()
                 ->where('company_id', $companyId)
-                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->where('status', EntityStatus::Active->value)
                 ->sum('total_amount'),
         ];
     }

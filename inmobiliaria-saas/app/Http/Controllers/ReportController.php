@@ -26,7 +26,7 @@ class ReportController extends Controller
         $dateTo = $request->string('date_to')->toString();
 
         $baseQuery = Expense::query()
-            ->where('expenses.status', '!=', EntityStatus::Deleted->value)
+            ->where('expenses.status', EntityStatus::Active->value)
             ->when($companyId, fn ($query) => $query->where('expenses.company_id', $companyId))
             ->when($projectId, fn ($query) => $query->where('expenses.project_id', $projectId))
             ->when($dateFrom !== '', fn ($query) => $query->whereDate('expenses.expense_date', '>=', $dateFrom))

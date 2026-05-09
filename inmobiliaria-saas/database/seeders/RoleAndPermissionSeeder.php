@@ -44,11 +44,17 @@ class RoleAndPermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::findOrCreate($permission, 'web');
+            Permission::firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'web',
+            ]);
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $rolePermissions = [
             SystemRole::SuperAdmin->value => $permissions,
+
             SystemRole::CompanyAdmin->value => [
                 'dashboard.view',
                 'companies.view',
@@ -69,6 +75,7 @@ class RoleAndPermissionSeeder extends Seeder
                 'audit.view',
                 'audit.revert',
             ],
+
             SystemRole::Operator->value => [
                 'dashboard.view',
                 'projects.view',
@@ -79,6 +86,7 @@ class RoleAndPermissionSeeder extends Seeder
                 'attachments.view',
                 'attachments.manage',
             ],
+
             SystemRole::Viewer->value => [
                 'dashboard.view',
                 'projects.view',
@@ -88,12 +96,24 @@ class RoleAndPermissionSeeder extends Seeder
                 'attachments.view',
                 'reports.view',
             ],
+
             SystemRole::BuyerUser->value => [],
         ];
 
         foreach ($rolePermissions as $roleName => $assignedPermissions) {
-            $role = Role::findOrCreate($roleName, 'web');
-            $role->syncPermissions($assignedPermissions);
+            $role = Role::firstOrCreate([
+                'name' => $roleName,
+                'guard_name' => 'web',
+            ]);
+
+            $permissionModels = Permission::query()
+                ->where('guard_name', 'web')
+                ->whereIn('name', $assignedPermissions)
+                ->get();
+
+            $role->syncPermissions($permissionModels);
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

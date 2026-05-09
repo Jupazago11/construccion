@@ -5,12 +5,14 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <x-metric-card label="Empresas" :value="number_format($stats['companies'])" :hint="$currentUser->isSuperAdmin() ? number_format($stats['active_companies']).' empresas activas' : 'Alcance de tu empresa'" />
+            <div class="grid gap-4 md:grid-cols-2 {{ $currentUser->isSuperAdmin() ? 'xl:grid-cols-3' : 'xl:grid-cols-4' }}">
+                @if ($currentUser->isSuperAdmin())
+                    <x-metric-card label="Empresas" :value="number_format($stats['companies'])" :hint="number_format($stats['active_companies']).' empresas activas'" />
+                @endif
                 <x-metric-card label="Usuarios" :value="number_format($stats['users'])" hint="Usuarios internos de la plataforma" />
                 <x-metric-card label="Proyectos" :value="number_format($stats['projects'])" hint="Proyectos registrados" />
                 <x-metric-card label="Gastos" :value="number_format($stats['expenses'])" hint="Registros de gastos creados" />
-                <x-metric-card label="Volumen de gasto" :value="'$ '.number_format((float) $stats['expense_total'], 2)" hint="Monto total de gastos registrados" class="md:col-span-2 xl:col-span-1" />
+                <x-metric-card label="Volumen de gasto" :value="'$ '.number_format((float) $stats['expense_total'], 2)" hint="Monto total de gastos registrados" class="{{ $currentUser->isSuperAdmin() ? 'md:col-span-2 xl:col-span-1' : '' }}" />
             </div>
 
             <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">

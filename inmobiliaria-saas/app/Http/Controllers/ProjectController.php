@@ -31,6 +31,7 @@ class ProjectController extends Controller
 
         $projects = Project::query()
             ->with('company')
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
@@ -67,7 +68,7 @@ class ProjectController extends Controller
 
         if ($request->ajax()) {
             return view('projects._modal_form', [
-                'project' => new Project(),
+                'project' => new Project(['start_date' => today()]),
                 'companies' => $this->companiesForForm($authUser),
                 'action' => route('projects.store'),
                 'method' => 'POST',
@@ -75,7 +76,7 @@ class ProjectController extends Controller
         }
 
         return view('projects.create', [
-            'project' => new Project(),
+            'project' => new Project(['start_date' => today()]),
             'companies' => $this->companiesForForm($authUser),
         ]);
     }
@@ -97,7 +98,7 @@ class ProjectController extends Controller
             'city' => $data['city'] ?? null,
             'address' => $data['address'] ?? null,
             'location_reference' => $data['location_reference'] ?? null,
-            'start_date' => $data['start_date'] ?? null,
+            'start_date' => $data['start_date'] ?? today(),
             'status' => $data['status'],
         ]);
 
@@ -188,9 +189,14 @@ class ProjectController extends Controller
     public function updateStatus(Request $request, Project $project): JsonResponse
     {
         $this->authorize('update', $project);
+        $statuses = ['planning', 'active', 'paused', 'completed', 'cancelled'];
+
+        if ($request->user()->isSuperAdmin()) {
+            $statuses[] = EntityStatus::Deleted->value;
+        }
 
         $data = $request->validate([
-            'status' => ['required', 'in:planning,active,paused,completed,cancelled,deleted'],
+            'status' => ['required', 'in:'.implode(',', $statuses)],
         ]);
 
         $project->update([
@@ -198,6 +204,13 @@ class ProjectController extends Controller
         ]);
 
         $project->load('company');
+
+        if (! $request->user()->isSuperAdmin() && $project->status === EntityStatus::Deleted->value) {
+            return response()->json([
+                'id' => $project->id,
+                'message' => 'Proyecto archivado correctamente.',
+            ]);
+        }
 
         return response()->json([
             'id' => $project->id,

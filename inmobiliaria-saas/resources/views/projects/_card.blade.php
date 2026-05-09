@@ -1,4 +1,6 @@
-@php($statusOptions = ['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted'])
+@php($statusOptions = auth()->user()->isSuperAdmin()
+    ? ['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted']
+    : ['planning', 'active', 'paused', 'completed', 'cancelled'])
 
 <article data-row-id="{{ $project->id }}" class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm transition hover:border-stone-300 hover:shadow-md">
     <div class="flex flex-col gap-4">
