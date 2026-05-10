@@ -24,7 +24,7 @@
                 <x-metric-card label="Categorías" :value="$project->categories_count" hint="Árbol financiero asociado" />
                 <x-metric-card label="Gastos" :value="$project->expenses_count" hint="Registros financieros vinculados" />
                 <x-metric-card label="Estado" :value="[
-                    'planning' => 'Planeación',
+                    'planning' => 'En gestión',
                     'active' => 'Activo',
                     'paused' => 'Pausado',
                     'completed' => 'Completado',

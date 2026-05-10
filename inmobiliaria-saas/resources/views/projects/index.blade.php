@@ -12,9 +12,10 @@
                     data-action="create"
                     data-url="{{ route('projects.create') }}"
                     data-title="Nuevo proyecto"
-                    class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 text-xl font-semibold leading-none text-sky-900 transition hover:border-sky-300 hover:bg-sky-100"
+                    title="Nuevo proyecto"
                 >
-                    Nuevo proyecto
+                    +
                 </button>
             @endcan
         </x-page-header>
@@ -46,7 +47,7 @@
                         <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
                             <option value="">Todos</option>
                             @foreach ([
-                                'planning' => 'Planeación',
+                                'planning' => 'En gestión',
                                 'active' => 'Activo',
                                 'paused' => 'Pausado',
                                 'completed' => 'Completado',
@@ -99,8 +100,11 @@
                     @endif
                 </div>
             @else
-                <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" x-ref="tbody">
+                <div class="grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-3" x-ref="tbody">
                     @forelse ($projects as $project)
+                        @if (! $loop->first)
+                            <div class="h-px bg-stone-200/80 md:hidden" aria-hidden="true"></div>
+                        @endif
                         @include('projects._card', ['project' => $project])
                     @empty
                         <div data-empty-state class="rounded-3xl border border-dashed border-stone-300 bg-white px-6 py-12 text-center text-stone-500 md:col-span-2 xl:col-span-3">

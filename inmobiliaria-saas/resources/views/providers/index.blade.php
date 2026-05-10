@@ -2,8 +2,8 @@
     <x-slot name="header">
         <x-page-header title="Proveedores" description="">
             @can('create', App\Models\Provider::class)
-                <button type="button" data-action="create" data-url="{{ route('providers.create') }}" data-title="Nuevo proveedor" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
-                    Nuevo proveedor
+                <button type="button" data-action="create" data-url="{{ route('providers.create') }}" data-title="Nuevo proveedor" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-xl font-semibold leading-none text-amber-900 transition hover:border-amber-300 hover:bg-amber-100" title="Nuevo proveedor">
+                    +
                 </button>
             @endcan
         </x-page-header>

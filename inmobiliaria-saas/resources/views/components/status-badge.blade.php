@@ -16,7 +16,7 @@
         'active' => 'Activo',
         'inactive' => 'Inactivo',
         'deleted' => 'Eliminado',
-        'planning' => 'Planeación',
+        'planning' => 'En gestión',
         'paused' => 'Pausado',
         'completed' => 'Completado',
         'cancelled' => 'Cancelado',

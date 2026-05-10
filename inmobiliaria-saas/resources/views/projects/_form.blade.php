@@ -48,7 +48,7 @@
             @foreach ($statusOptions as $status)
                 <option value="{{ $status }}" @selected(old('status', $project->status ?: 'planning') === $status)>
                     {{ [
-                        'planning' => 'Planeación',
+                        'planning' => 'En gestión',
                         'active' => 'Activo',
                         'paused' => 'Pausado',
                         'completed' => 'Completado',

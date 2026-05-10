@@ -1,6 +1,6 @@
 @php
     $statusOptions = [
-        'planning' => 'Planeación',
+        'planning' => 'En gestión',
         'active' => 'Activo',
         'paused' => 'Pausado',
         'completed' => 'Completado',

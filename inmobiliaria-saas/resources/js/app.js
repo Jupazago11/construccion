@@ -4,6 +4,135 @@ import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
 
+const closestFromEvent = (event, selector) => {
+    if (! (event.target instanceof Element)) {
+        return null;
+    }
+
+    return event.target.closest(selector);
+};
+
+const logMobileTap = (scope, payload = {}) => {
+    const entry = {
+        time: new Date().toISOString(),
+        href: window.location.href,
+        ...payload,
+    };
+
+    const storageKey = 'inmobiliaria-mobile-tap-debug';
+    const entries = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+    entries.push({ scope, ...entry });
+    window.localStorage.setItem(storageKey, JSON.stringify(entries.slice(-30)));
+
+    console.log(`[${scope}]`, entry);
+};
+
+window.showMobileTapDebug = () => JSON.parse(window.localStorage.getItem('inmobiliaria-mobile-tap-debug') || '[]');
+window.clearMobileTapDebug = () => window.localStorage.removeItem('inmobiliaria-mobile-tap-debug');
+
+let syntheticActionClick = false;
+let lastTouchActionClickAt = 0;
+
+document.addEventListener('touchend', (event) => {
+    const actionButton = closestFromEvent(event, '[data-action]');
+
+    if (! actionButton || actionButton.disabled) {
+        return;
+    }
+
+    logMobileTap('mobile-action-debug:touchend', {
+        action: actionButton.dataset.action,
+        title: actionButton.dataset.title,
+        url: actionButton.dataset.url,
+        tag: actionButton.tagName,
+    });
+
+    event.preventDefault();
+    lastTouchActionClickAt = Date.now();
+    syntheticActionClick = true;
+    actionButton.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+    }));
+    syntheticActionClick = false;
+}, { passive: false });
+
+document.addEventListener('click', (event) => {
+    if (syntheticActionClick) {
+        const actionButton = closestFromEvent(event, '[data-action]');
+
+        logMobileTap('mobile-action-debug:synthetic-click', {
+            action: actionButton?.dataset.action,
+            tag: actionButton?.tagName,
+        });
+
+        return;
+    }
+
+    const actionButton = closestFromEvent(event, '[data-action]');
+
+    if (! actionButton) {
+        return;
+    }
+
+    if (Date.now() - lastTouchActionClickAt < 700) {
+        logMobileTap('mobile-action-debug:block-ghost-click', {
+            action: actionButton.dataset.action,
+            tag: actionButton.tagName,
+        });
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+}, true);
+
+document.addEventListener('touchend', (event) => {
+    const link = closestFromEvent(event, 'a[data-mobile-nav-link]');
+
+    if (! link) {
+        return;
+    }
+
+    const targetUrl = new URL(link.href);
+    const targetPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+
+    logMobileTap('mobile-nav-debug:touchend', {
+        text: link.textContent.trim(),
+        targetHref: link.href,
+        targetPath,
+        hasForm: Boolean(link.closest('form')),
+        defaultPreventedBefore: event.defaultPrevented,
+    });
+
+    event.preventDefault();
+
+    const form = link.closest('form');
+
+    if (form) {
+        logMobileTap('mobile-nav-debug:submit-form', {
+            text: link.textContent.trim(),
+            action: form.action,
+        });
+
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+
+        return;
+    }
+
+    logMobileTap('mobile-nav-debug:navigate', {
+        text: link.textContent.trim(),
+        targetHref: link.href,
+        targetPath,
+    });
+
+    window.location.assign(targetPath);
+}, { passive: false });
+
 Alpine.data('crudTable', (config = {}) => ({
     modalOpen: false,
     modalTitle: '',
@@ -105,6 +234,8 @@ Alpine.data('crudTable', (config = {}) => ({
             return;
         }
 
+        event.preventDefault();
+
         const action = button.dataset.action;
 
         if (action === 'create' || action === 'edit') {
@@ -148,8 +279,51 @@ Alpine.data('crudTable', (config = {}) => ({
             return;
         }
 
+        const statusThemes = {
+            planning: {
+                current: 'border-sky-300 bg-sky-100 text-sky-950 ring-2 ring-sky-100 shadow-sm',
+                idle: 'border-sky-200 bg-sky-50/70 text-sky-800 hover:border-sky-300 hover:bg-sky-100',
+                dot: 'bg-sky-400',
+            },
+            active: {
+                current: 'border-emerald-300 bg-emerald-100 text-emerald-950 ring-2 ring-emerald-100 shadow-sm',
+                idle: 'border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100',
+                dot: 'bg-emerald-400',
+            },
+            paused: {
+                current: 'border-orange-300 bg-orange-100 text-orange-950 ring-2 ring-orange-100 shadow-sm',
+                idle: 'border-orange-200 bg-orange-50/70 text-orange-800 hover:border-orange-300 hover:bg-orange-100',
+                dot: 'bg-orange-400',
+            },
+            completed: {
+                current: 'border-teal-300 bg-teal-100 text-teal-950 ring-2 ring-teal-100 shadow-sm',
+                idle: 'border-teal-200 bg-teal-50/70 text-teal-800 hover:border-teal-300 hover:bg-teal-100',
+                dot: 'bg-teal-400',
+            },
+            cancelled: {
+                current: 'border-stone-300 bg-stone-100 text-stone-950 ring-2 ring-stone-100 shadow-sm',
+                idle: 'border-stone-200 bg-stone-50/80 text-stone-800 hover:border-stone-300 hover:bg-stone-100',
+                dot: 'bg-stone-400',
+            },
+            inactive: {
+                current: 'border-amber-300 bg-amber-100 text-amber-950 ring-2 ring-amber-100 shadow-sm',
+                idle: 'border-amber-200 bg-amber-50/70 text-amber-800 hover:border-amber-300 hover:bg-amber-100',
+                dot: 'bg-amber-400',
+            },
+            deleted: {
+                current: 'border-rose-300 bg-rose-100 text-rose-950 ring-2 ring-rose-100 shadow-sm',
+                idle: 'border-rose-200 bg-rose-50/70 text-rose-800 hover:border-rose-300 hover:bg-rose-100',
+                dot: 'bg-rose-400',
+            },
+        };
+
         const optionButtons = options.map((status) => {
             const isCurrent = status === currentStatus;
+            const theme = statusThemes[status] ?? {
+                current: 'border-stone-300 bg-stone-100 text-stone-950 ring-2 ring-stone-100 shadow-sm',
+                idle: 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50',
+                dot: 'bg-stone-400',
+            };
 
             return `
                 <button
@@ -157,12 +331,13 @@ Alpine.data('crudTable', (config = {}) => ({
                     data-action="pick-status"
                     data-status-value="${status}"
                     value="${status}"
-                    class="rounded-2xl border px-4 py-3 text-left text-sm transition ${isCurrent
-                        ? 'border-stone-900 bg-stone-900 text-white shadow-sm'
-                        : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50'}"
+                    class="rounded-2xl border px-4 py-3 text-left text-sm transition ${isCurrent ? theme.current : theme.idle}"
                 >
-                    <span class="block font-medium">${this.humanizeStatus(status)}</span>
-                    <span class="mt-1 block text-xs opacity-70">${isCurrent ? 'Estado actual' : 'Seleccionar este estado'}</span>
+                    <span class="flex items-center gap-2 font-medium">
+                        <span class="h-2.5 w-2.5 rounded-full ${theme.dot}"></span>
+                        <span>${this.humanizeStatus(status)}</span>
+                    </span>
+                    ${isCurrent ? '<span class="mt-1 block text-xs opacity-70">Estado actual</span>' : ''}
                 </button>
             `;
         }).join('');
@@ -374,7 +549,7 @@ Alpine.data('crudTable', (config = {}) => ({
 
     humanizeStatus(status) {
         const labels = {
-            planning: 'Planeación',
+            planning: 'En gestión',
             active: 'Activo',
             paused: 'Pausado',
             completed: 'Completado',

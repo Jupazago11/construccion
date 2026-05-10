@@ -39,7 +39,7 @@ class ProfileController extends Controller
     }
 
     /**
-     * Delete the user's account.
+     * Deactivate the user's account and close the current session.
      */
     public function destroy(Request $request): RedirectResponse
     {
@@ -51,12 +51,12 @@ class ProfileController extends Controller
 
         if ($user->isSuperAdmin()) {
             return Redirect::route('profile.edit')->withErrors([
-                'password' => 'The SuperAdmin account cannot be self-deleted.',
+                'password' => 'La cuenta SuperAdmin no se puede desactivar desde el perfil.',
             ], 'userDeletion');
         }
 
         $user->update([
-            'status' => EntityStatus::Deleted->value,
+            'status' => EntityStatus::Inactive->value,
         ]);
 
         Auth::logout();
