@@ -22,10 +22,6 @@ class ProjectStoreRequest extends FormRequest
             : $user->company_id;
         $statuses = ['planning', 'active', 'paused', 'completed', 'cancelled'];
 
-        if ($user->isSuperAdmin()) {
-            $statuses[] = EntityStatus::Deleted->value;
-        }
-
         return [
             'company_id' => [
                 Rule::requiredIf($user->isSuperAdmin()),

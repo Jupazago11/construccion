@@ -28,6 +28,7 @@ class ProviderController extends Controller
         $providers = Provider::query()
             ->with('company')
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
                     $nested
@@ -139,7 +140,7 @@ class ProviderController extends Controller
             'document_number' => $data['document_number'] ?? null,
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'] ?? null,
-            'status' => $data['status'],
+            'status' => $provider->status,
         ]);
 
         $provider->load('company');
@@ -182,7 +183,7 @@ class ProviderController extends Controller
     {
         $this->authorize('delete', $provider);
 
-        if ($provider->expenses()->exists()) {
+        if ($provider->expenses()->where('status', '!=', EntityStatus::Deleted->value)->exists()) {
             $message = 'El proveedor no puede archivarse porque tiene gastos registrados.';
 
             if ($request->expectsJson()) {

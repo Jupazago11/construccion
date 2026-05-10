@@ -1,17 +1,140 @@
+GUIA PERSONAL - PC DE CAMILO MORALES
+
+Proyecto:
+/home/jupazago/Documentos/construccion/inmobiliaria-saas
+
+Objetivo:
+Tener una guia simple para abrir este proyecto en mi PC personal desde WSL y saber que comandos ejecutar.
+
+==================================================
+RUTA DEL PROYECTO EN ESTE PC
+==================================================
+
 cd /home/jupazago/Documentos/construccion/inmobiliaria-saas
-php artisan serve --host=0.0.0.0 --port=8080
 
+==================================================
+ARRANQUE NORMAL DIARIO EN ESTE PC
+==================================================
 
-npm run dev -- --host 0.0.0.0 --port=5174
+1. Entrar al proyecto
 
+cd /home/jupazago/Documentos/construccion/inmobiliaria-saas
 
-http://127.0.0.1:8080
+2. Levantar contenedores
 
-
-
-portatil
-cd ~/proyectos/Construccion/construccion/inmobiliaria-saas
 ./vendor/bin/sail up -d
 
+3. Levantar Vite
+
+./vendor/bin/sail npm run dev
+
+4. Abrir en navegador
+
+http://localhost:8081/login
+
+Notas:
+- El backend Laravel abre por localhost:8081
+- Vite corre por el puerto 5173
+- El comando de Vite debe quedarse corriendo en la terminal
+- Si el frontend se ve sin estilos, reiniciar Vite y hacer Ctrl + F5 en el navegador
+
+==================================================
+PRIMER ARRANQUE O SI ALGO FALTA
+==================================================
+
+Usar estos comandos solo si el proyecto no levanta bien, faltan dependencias o hubo cambios fuertes:
+
+cd /home/jupazago/Documentos/construccion/inmobiliaria-saas
+./vendor/bin/sail up -d
+./vendor/bin/sail composer install
+./vendor/bin/sail npm install
+./vendor/bin/sail artisan key:generate
 ./vendor/bin/sail artisan migrate
 ./vendor/bin/sail npm run dev
+
+==================================================
+SI SOLO QUIERO REVISAR QUE TODO ESTE ARRIBA
+==================================================
+
+./vendor/bin/sail ps
+
+==================================================
+SI VITE O LOS ESTILOS FALLAN
+==================================================
+
+1. Parar Vite con Ctrl + C
+2. Volver a correr:
+
+./vendor/bin/sail npm run dev
+
+3. En el navegador:
+
+Ctrl + F5
+
+Si aparece error de CORS o no carga app.js o @vite/client:
+- revisar que Vite siga encendido
+- volver a levantar npm run dev
+
+==================================================
+SI QUIERO VERLO EN EL CELULAR
+==================================================
+
+Opcion estable:
+
+./vendor/bin/sail npm run build
+
+Luego abrir desde el celular usando la IP actual del PC:
+
+http://TU_IP_ACTUAL:8081/login
+
+Importante:
+- la IP local del PC cambia a veces
+- para ver la IP actual en Windows usar:
+
+ipconfig
+
+Tomar la Direccion IPv4 del adaptador Wi-Fi.
+
+==================================================
+URLS IMPORTANTES EN ESTE PC
+==================================================
+
+App:
+http://localhost:8081/login
+
+Vite:
+http://localhost:5173
+
+==================================================
+COMANDOS UTILES
+==================================================
+
+Parar contenedores:
+./vendor/bin/sail down
+
+Ver logs basicos:
+./vendor/bin/sail logs
+
+Migraciones:
+./vendor/bin/sail artisan migrate
+
+Tests:
+./vendor/bin/sail artisan test
+
+==================================================
+NOTAS PARA CODEX AL ABRIR ESTE PROYECTO
+==================================================
+
+- Este archivo aplica al PC personal de Camilo
+- La ruta correcta del proyecto es:
+  /home/jupazago/Documentos/construccion/inmobiliaria-saas
+- El proyecto usa Laravel Sail
+- Para arranque normal usar:
+  ./vendor/bin/sail up -d
+  ./vendor/bin/sail npm run dev
+- La app abre en:
+  http://localhost:8081/login
+- Si el usuario menciona celular, recordar:
+  npm run build es mas estable que npm run dev
+- Si el usuario reporta que no cargan estilos o app.js:
+  revisar primero Vite y luego hacer Ctrl + F5

@@ -168,7 +168,7 @@ class ProjectController extends Controller
             'address' => $data['address'] ?? null,
             'location_reference' => $data['location_reference'] ?? null,
             'start_date' => $data['start_date'] ?? null,
-            'status' => $data['status'],
+            'status' => $project->status,
         ]);
 
         $project->load('company');
@@ -191,10 +191,6 @@ class ProjectController extends Controller
         $this->authorize('update', $project);
         $statuses = ['planning', 'active', 'paused', 'completed', 'cancelled'];
 
-        if ($request->user()->isSuperAdmin()) {
-            $statuses[] = EntityStatus::Deleted->value;
-        }
-
         $data = $request->validate([
             'status' => ['required', 'in:'.implode(',', $statuses)],
         ]);
@@ -204,13 +200,6 @@ class ProjectController extends Controller
         ]);
 
         $project->load('company');
-
-        if (! $request->user()->isSuperAdmin() && $project->status === EntityStatus::Deleted->value) {
-            return response()->json([
-                'id' => $project->id,
-                'message' => 'Proyecto archivado correctamente.',
-            ]);
-        }
 
         return response()->json([
             'id' => $project->id,
@@ -272,7 +261,7 @@ class ProjectController extends Controller
 
     protected function projectHasDependencies(Project $project): bool
     {
-        return $project->categories()->count() > 0
-            || $project->expenses()->count() > 0;
+        return $project->categories()->where('status', '!=', EntityStatus::Deleted->value)->exists()
+            || $project->expenses()->where('status', '!=', EntityStatus::Deleted->value)->exists();
     }
 }

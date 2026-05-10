@@ -43,7 +43,7 @@
                     <x-input-label for="status" :value="'Estado'" />
                     <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
                         <option value="">Todos</option>
-                        @foreach (['active', 'inactive', 'deleted'] as $status)
+                        @foreach (auth()->user()->isSuperAdmin() ? ['active', 'inactive', 'deleted'] : ['active', 'inactive'] as $status)
                             <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ ['active' => 'Activo', 'inactive' => 'Inactivo', 'deleted' => 'Eliminado'][$status] }}</option>
                         @endforeach
                     </select>

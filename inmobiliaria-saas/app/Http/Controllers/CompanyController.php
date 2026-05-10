@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EntityStatus;
 use App\Http\Requests\CompanyStoreRequest;
 use App\Http\Requests\CompanyUpdateRequest;
 use App\Models\Company;
@@ -150,7 +151,7 @@ class CompanyController extends Controller
         abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $data = $request->validate([
-            'status' => ['required', 'in:active,inactive,deleted'],
+            'status' => ['required', 'in:active,inactive'],
         ]);
 
         $company->update([
@@ -168,7 +169,7 @@ class CompanyController extends Controller
 
     public function destroy(Request $request, Company $company): JsonResponse|RedirectResponse
     {
-        $this->authorize('update', $company);
+        $this->authorize('delete', $company);
 
         if ($this->companyHasDependencies($company)) {
             $message = 'La empresa no puede eliminarse porque tiene dependencias registradas.';
@@ -196,9 +197,9 @@ class CompanyController extends Controller
 
     protected function companyHasDependencies(Company $company): bool
     {
-        return $company->users()->count() > 0
-            || $company->projects()->count() > 0
-            || $company->providers()->count() > 0
-            || $company->modules()->count() > 0;
+        return $company->users()->where('status', '!=', EntityStatus::Deleted->value)->exists()
+            || $company->projects()->where('status', '!=', EntityStatus::Deleted->value)->exists()
+            || $company->providers()->where('status', '!=', EntityStatus::Deleted->value)->exists()
+            || $company->modules()->where('status', '!=', EntityStatus::Deleted->value)->exists();
     }
 }

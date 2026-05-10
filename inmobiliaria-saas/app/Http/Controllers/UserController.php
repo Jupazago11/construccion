@@ -30,6 +30,7 @@ class UserController extends Controller
         $users = User::query()
             ->with(['company', 'roles'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
                     $nested
@@ -194,7 +195,7 @@ class UserController extends Controller
         abort_unless($this->canManageUserStatus($request->user(), $user), 403);
 
         $data = $request->validate([
-            'status' => ['required', 'in:active,inactive,deleted'],
+            'status' => ['required', 'in:active,inactive'],
         ]);
 
         $this->ensureUserCanRemainActive($request, $user, $data['status']);
@@ -275,8 +276,8 @@ class UserController extends Controller
 
     protected function userHasDependencies(User $user): bool
     {
-        return $user->createdExpenses()->count() > 0
-            || $user->uploadedExpenseAttachments()->count() > 0;
+        return $user->createdExpenses()->where('status', '!=', EntityStatus::Deleted->value)->exists()
+            || $user->uploadedExpenseAttachments()->where('status', '!=', EntityStatus::Deleted->value)->exists();
     }
 
     protected function ensureUserCanRemainActive(Request $request, User $user, string $status): void

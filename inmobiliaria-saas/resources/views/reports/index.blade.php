@@ -5,7 +5,7 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <form method="GET" class="grid gap-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm md:grid-cols-[220px_220px_180px_180px_auto]">
+            <form method="GET" id="reports-filter-form" class="grid gap-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm md:grid-cols-[220px_220px_180px_180px_auto]">
                 @if (auth()->user()->isSuperAdmin())
                     <div>
                         <x-input-label for="company_id" :value="'Empresa'" />
@@ -44,11 +44,17 @@
             </form>
 
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <x-metric-card label="Volumen total" :value="'$ '.number_format((float) $summary['total_amount'], 2, ',', '.')" hint="Suma de gastos filtrados" />
+                <x-metric-card label="Gasto total" :value="'$ '.number_format((float) $summary['total_amount'], 2, ',', '.')" hint="Suma de gastos filtrados" />
                 <x-metric-card label="Gastos" :value="number_format((int) $summary['expenses_count'])" hint="Registros dentro del rango" />
                 <x-metric-card label="Proyectos" :value="number_format((int) $summary['projects_count'])" hint="Proyectos con movimiento" />
-                <x-metric-card label="Ticket promedio" :value="'$ '.number_format((float) $summary['average_ticket'], 2, ',', '.')" hint="Promedio por gasto" />
+                <x-metric-card label="Factura promedio" :value="'$ '.number_format((float) $summary['average_ticket'], 2, ',', '.')" hint="Promedio por gasto" />
             </div>
+
+            @if ($requiresProjectSelection)
+                <div class="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950 shadow-sm">
+                    Selecciona un proyecto para ver tablas y gráficas sin mezclar información de otros proyectos.
+                </div>
+            @endif
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
@@ -218,6 +224,34 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const filterForm = document.getElementById('reports-filter-form');
+            const projectSelect = document.getElementById('project_id');
+            const dateFromInput = document.getElementById('date_from');
+            const dateToInput = document.getElementById('date_to');
+            const projectRanges = @json($projectRanges);
+
+            const applyProjectDateRange = (projectId) => {
+                if (!projectId || !projectRanges[projectId]) {
+                    return false;
+                }
+
+                const range = projectRanges[projectId];
+
+                if (range.oldest_expense_date) {
+                    dateFromInput.value = range.oldest_expense_date;
+                }
+
+                dateToInput.value = range.today;
+
+                return true;
+            };
+
+            projectSelect?.addEventListener('change', () => {
+                if (applyProjectDateRange(projectSelect.value) && filterForm) {
+                    filterForm.submit();
+                }
+            });
+
             if (typeof Chart === 'undefined') {
                 return;
             }
@@ -227,6 +261,7 @@
 
             const categoryLabels = @json($totalsByCategory->take(8)->pluck('name')->values());
             const categoryValues = @json($totalsByCategory->take(8)->pluck('total_amount')->map(fn ($value) => (float) $value)->values());
+            const palette = ['#0f766e', '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#65a30d', '#2563eb'];
 
             new Chart(document.getElementById('expenses-by-date-chart'), {
                 type: 'line',
@@ -235,8 +270,12 @@
                     datasets: [{
                         label: 'Gastos por fecha',
                         data: dateValues,
-                        borderColor: '#1c1917',
-                        backgroundColor: 'rgba(28, 25, 23, 0.08)',
+                        borderColor: '#0284c7',
+                        pointBackgroundColor: palette,
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        backgroundColor: 'rgba(2, 132, 199, 0.18)',
                         tension: 0.35,
                         fill: true,
                     }],
@@ -256,7 +295,9 @@
                     labels: categoryLabels,
                     datasets: [{
                         data: categoryValues,
-                        backgroundColor: ['#1c1917', '#57534e', '#a8a29e', '#0f766e', '#0369a1', '#b45309', '#be123c', '#4d7c0f'],
+                        backgroundColor: palette,
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
                     }],
                 },
                 options: {

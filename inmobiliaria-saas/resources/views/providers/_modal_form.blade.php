@@ -43,15 +43,17 @@
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="email"></p>
             </div>
 
-            <div>
-                <x-input-label for="status" :value="'Estado'" />
-                <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                    @foreach (['active' => 'Activo', 'inactive' => 'Inactivo'] as $value => $label)
-                        <option value="{{ $value }}" @selected(($provider->status ?: 'active') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="status"></p>
-            </div>
+            @unless($provider->exists)
+                <div>
+                    <x-input-label for="status" :value="'Estado'" />
+                    <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                        @foreach (['active' => 'Activo', 'inactive' => 'Inactivo'] as $value => $label)
+                            <option value="{{ $value }}" @selected(($provider->status ?: 'active') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="status"></p>
+                </div>
+            @endunless
         </div>
     </div>
 

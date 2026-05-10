@@ -33,6 +33,7 @@ class ExpenseController extends Controller
         $expenses = Expense::query()
             ->with(['company', 'project', 'category', 'subcategory', 'auxiliary', 'provider'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
@@ -219,7 +220,7 @@ class ExpenseController extends Controller
     {
         $this->authorize('delete', $expense);
 
-        if ($expense->attachments()->exists()) {
+        if ($expense->attachments()->where('status', '!=', EntityStatus::Deleted->value)->exists()) {
             $message = 'El gasto no puede archivarse porque tiene archivos adjuntos registrados.';
 
             if ($request->expectsJson()) {

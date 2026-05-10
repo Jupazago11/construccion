@@ -73,7 +73,9 @@ Alpine.data('crudTable', (config = {}) => ({
         this.error = null;
 
         try {
-            const formData = new FormData(form);
+            const formData = event.submitter
+                ? new FormData(form, event.submitter)
+                : new FormData(form);
             const response = await window.axios.post(form.action, formData, {
                 headers: {
                     'Accept': 'application/json',
@@ -127,6 +129,11 @@ Alpine.data('crudTable', (config = {}) => ({
 
         if (action === 'status-modal') {
             this.openStatusModal(button);
+            return;
+        }
+
+        if (action === 'pick-status') {
+            this.submitPickedStatus(button);
         }
     },
 
@@ -146,8 +153,9 @@ Alpine.data('crudTable', (config = {}) => ({
 
             return `
                 <button
-                    type="submit"
-                    name="status"
+                    type="button"
+                    data-action="pick-status"
+                    data-status-value="${status}"
                     value="${status}"
                     class="rounded-2xl border px-4 py-3 text-left text-sm transition ${isCurrent
                         ? 'border-stone-900 bg-stone-900 text-white shadow-sm'
@@ -167,6 +175,7 @@ Alpine.data('crudTable', (config = {}) => ({
             <form method="POST" action="${url}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
                 <input type="hidden" name="_token" value="${csrf}">
                 <input type="hidden" name="_method" value="PATCH">
+                <input type="hidden" name="status" value="${currentStatus}">
                 <div class="min-h-0 flex-1 overflow-y-auto pr-1">
                     <div class="space-y-4">
                         <div class="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
@@ -192,6 +201,23 @@ Alpine.data('crudTable', (config = {}) => ({
                 Alpine.initTree(this.$refs.modalContent);
             }
         });
+    },
+
+    submitPickedStatus(button) {
+        const form = button.closest('form[data-ajax-form]');
+
+        if (! form) {
+            return;
+        }
+
+        const statusInput = form.querySelector('input[name="status"]');
+
+        if (! statusInput) {
+            return;
+        }
+
+        statusInput.value = button.value || button.dataset.statusValue || '';
+        form.requestSubmit();
     },
 
     async changeStatus(button) {
@@ -423,7 +449,17 @@ window.initializeExpenseForms = (root = document) => {
         };
 
         const normalizeAmount = (value) => {
-            return String(value ?? '').replace(/\D/g, '');
+            const raw = String(value ?? '').trim();
+
+            if (raw === '') {
+                return '';
+            }
+
+            if (/^\d+([.,]00)?$/.test(raw)) {
+                return raw.replace(/[.,]00$/, '');
+            }
+
+            return raw.replace(/\D/g, '');
         };
 
         const formatAmountInput = (value) => {
@@ -433,9 +469,15 @@ window.initializeExpenseForms = (root = document) => {
                 return '';
             }
 
+            const amount = Number(normalized);
+
+            if (Number.isNaN(amount)) {
+                return '';
+            }
+
             return new Intl.NumberFormat('es-CO', {
                 maximumFractionDigits: 0,
-            }).format(Number(normalized));
+            }).format(amount);
         };
 
         const countDigits = (value) => String(value ?? '').replace(/\D/g, '').length;
@@ -777,6 +819,10 @@ window.initializeExpenseForms = (root = document) => {
             subtotalField.addEventListener('input', () => {
                 syncTotalPreview(true);
                 debug('subtotal:input', { subtotal: subtotalField.value });
+            });
+
+            subtotalField.addEventListener('blur', () => {
+                syncTotalPreview();
             });
 
             form.addEventListener('submit', () => {

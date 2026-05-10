@@ -6,10 +6,6 @@
         'completed' => 'Completado',
         'cancelled' => 'Cancelado',
     ];
-
-    if (auth()->user()->isSuperAdmin()) {
-        $statusOptions['deleted'] = 'Eliminado';
-    }
 @endphp
 
 <form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
@@ -45,15 +41,17 @@
             <p class="mt-2 hidden text-sm text-rose-600" data-error-for="project_type"></p>
         </div>
 
-        <div>
-            <x-input-label for="status" :value="'Estado'" />
-            <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                @foreach ($statusOptions as $value => $label)
-                    <option value="{{ $value }}" @selected(($project->status ?: 'planning') === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            <p class="mt-2 hidden text-sm text-rose-600" data-error-for="status"></p>
-        </div>
+        @unless($project->exists)
+            <div>
+                <x-input-label for="status" :value="'Estado'" />
+                <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                    @foreach ($statusOptions as $value => $label)
+                        <option value="{{ $value }}" @selected(($project->status ?: 'planning') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="status"></p>
+            </div>
+        @endunless
 
         <div>
             <x-input-label for="country" :value="'País'" />

@@ -21,7 +21,7 @@ class CompanyStoreRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'primary_color' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
-            'status' => ['required', Rule::in(['active', 'inactive', 'deleted'])],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ];
     }
 }

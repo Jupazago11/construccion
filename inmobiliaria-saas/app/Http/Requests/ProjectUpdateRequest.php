@@ -25,10 +25,6 @@ class ProjectUpdateRequest extends FormRequest
             : $user->company_id;
         $statuses = ['planning', 'active', 'paused', 'completed', 'cancelled'];
 
-        if ($user->isSuperAdmin()) {
-            $statuses[] = EntityStatus::Deleted->value;
-        }
-
         return [
             'company_id' => [
                 Rule::requiredIf($user->isSuperAdmin()),
@@ -52,7 +48,6 @@ class ProjectUpdateRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'location_reference' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
-            'status' => ['required', Rule::in($statuses)],
         ];
     }
 }

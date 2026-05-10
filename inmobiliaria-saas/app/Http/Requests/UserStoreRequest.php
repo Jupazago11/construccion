@@ -7,6 +7,7 @@ use App\Enums\SystemRole;
 use App\Models\Company;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class UserStoreRequest extends FormRequest
 {
@@ -32,8 +33,8 @@ class UserStoreRequest extends FormRequest
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._-]+$/', 'unique:users,username'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', 'min:4', 'max:25'],
-            'status' => ['required', Rule::in(['active', 'inactive', 'deleted'])],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()->symbols()],
+            'status' => ['required', Rule::in([EntityStatus::Active->value, EntityStatus::Inactive->value])],
             'role' => ['required', Rule::in($availableRoles)],
         ];
     }

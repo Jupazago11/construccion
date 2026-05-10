@@ -32,7 +32,9 @@ class CompanyPolicy
 
     public function delete(User $user, Company $company): bool
     {
-        return false;
+        return $user->isSuperAdmin()
+            && $user->hasPermissionTo('companies.manage')
+            && $this->isActiveRecord($company);
     }
 
     public function restore(User $user, Company $company): bool
