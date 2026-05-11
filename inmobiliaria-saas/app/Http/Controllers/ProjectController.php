@@ -31,6 +31,10 @@ class ProjectController extends Controller
 
         $projects = Project::query()
             ->with('company')
+            ->withCount([
+                'categories as active_categories_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+                'expenses as active_expenses_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when($search !== '', function ($query) use ($search) {
@@ -44,7 +48,7 @@ class ProjectController extends Controller
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->latest()
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         return view('projects.index', [
@@ -102,7 +106,7 @@ class ProjectController extends Controller
             'status' => $data['status'],
         ]);
 
-        $project->load('company');
+        $this->loadProjectListRelations($project);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -171,7 +175,7 @@ class ProjectController extends Controller
             'status' => $project->status,
         ]);
 
-        $project->load('company');
+        $this->loadProjectListRelations($project);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -199,7 +203,7 @@ class ProjectController extends Controller
             'status' => $data['status'],
         ]);
 
-        $project->load('company');
+        $this->loadProjectListRelations($project);
 
         return response()->json([
             'id' => $project->id,
@@ -263,5 +267,14 @@ class ProjectController extends Controller
     {
         return $project->categories()->where('status', '!=', EntityStatus::Deleted->value)->exists()
             || $project->expenses()->where('status', '!=', EntityStatus::Deleted->value)->exists();
+    }
+
+    protected function loadProjectListRelations(Project $project): void
+    {
+        $project->load('company');
+        $project->loadCount([
+            'categories as active_categories_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            'expenses as active_expenses_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+        ]);
     }
 }

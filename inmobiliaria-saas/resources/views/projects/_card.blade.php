@@ -2,6 +2,7 @@
     $statusOptions = auth()->user()->isSuperAdmin()
         ? ['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted']
         : ['planning', 'active', 'paused', 'completed', 'cancelled'];
+    $canDeleteProject = (($project->active_categories_count ?? 0) === 0) && (($project->active_expenses_count ?? 0) === 0);
     $isPastelProject = (($loop->index ?? $project->id) % 2) === 0;
     $projectTheme = $isPastelProject
         ? 'border-sky-200 bg-sky-50/40 hover:border-sky-300'
@@ -50,18 +51,20 @@
                     <x-status-badge :value="$project->status" class="cursor-pointer transition hover:opacity-80" />
                 </button>
 
-                <button
-                    type="button"
-                    data-action="delete"
-                    data-url="{{ route('projects.destroy', $project) }}"
-                    data-confirm-message="¿Deseas archivar este proyecto? Solo se permite si no tiene dependencias."
-                    class="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-rose-700 transition hover:bg-rose-100"
-                    title="Eliminar"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                </button>
+                @if ($canDeleteProject)
+                    <button
+                        type="button"
+                        data-action="delete"
+                        data-url="{{ route('projects.destroy', $project) }}"
+                        data-confirm-message="¿Deseas archivar este proyecto? Solo se permite si no tiene dependencias."
+                        class="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-rose-700 transition hover:bg-rose-100"
+                        title="Eliminar"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                @endif
             </div>
         </div>
 
@@ -87,8 +90,13 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-3 border-t border-stone-200 pt-4">
-            <div></div>
+        <div class="grid grid-cols-2 gap-3 border-t border-stone-200 pt-4">
+            <a
+                href="{{ route('expenses.index', ['project_id' => $project->id]) }}"
+                class="inline-flex min-w-0 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900 transition hover:border-rose-300 hover:bg-rose-100"
+            >
+                Gastos
+            </a>
 
             <a
                 href="{{ route('projects.categories.index', $project) }}"
@@ -96,7 +104,9 @@
             >
                 Ver Proyecto
             </a>
+        </div>
 
+        <div class="flex justify-end">
             <button
                 type="button"
                 data-action="edit"

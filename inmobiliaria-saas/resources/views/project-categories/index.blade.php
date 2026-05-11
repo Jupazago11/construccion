@@ -1,6 +1,6 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
-        <x-page-header :title="'Creación de categorías, subcategorías y auxiliares: '.$project->name">
+        <x-page-header :title="'Creación de categorías: '.$project->name">
             <div class="flex flex-wrap items-center gap-3">
                 @can('create', App\Models\Category::class)
                     <button

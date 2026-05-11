@@ -1,4 +1,4 @@
-<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }}, reloadOnMutate: true })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header
             title="Proyectos"
@@ -6,6 +6,14 @@
                 ? 'Administra los proyectos de cada empresa y su estado operativo dentro del módulo financiero.'
                 : '' }}"
         >
+            @can('viewAny', App\Models\Asset::class)
+                <a
+                    href="{{ route('assets.index') }}"
+                    class="inline-flex items-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 transition hover:border-amber-300 hover:bg-amber-100"
+                >
+                    Activos
+                </a>
+            @endcan
             @can('create', App\Models\Project::class)
                 <button
                     type="button"

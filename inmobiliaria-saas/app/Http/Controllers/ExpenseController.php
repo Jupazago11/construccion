@@ -22,7 +22,6 @@ class ExpenseController extends Controller
 
         $authUser = $request->user();
         $search = trim((string) $request->string('search'));
-        $status = $request->string('status')->toString();
         $projectId = $request->integer('project_id') ?: null;
         $companyId = $authUser->isSuperAdmin()
             ? $request->integer('company_id') ?: null
@@ -44,12 +43,11 @@ class ExpenseController extends Controller
                         ->orWhereHas('project', fn ($projectQuery) => $projectQuery->where('name', 'like', "%{$search}%"));
                 });
             })
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->when($dateFrom !== '', fn ($query) => $query->whereDate('expense_date', '>=', $dateFrom))
             ->when($dateTo !== '', fn ($query) => $query->whereDate('expense_date', '<=', $dateTo))
             ->latest('expense_date')
             ->latest('id')
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         return view('expenses.index', [
@@ -60,7 +58,6 @@ class ExpenseController extends Controller
             'projects' => $this->availableProjectsForExpenses($authUser, $companyId),
             'filters' => [
                 'search' => $search,
-                'status' => $status,
                 'company_id' => $companyId,
                 'project_id' => $projectId,
                 'date_from' => $dateFrom,
@@ -73,14 +70,17 @@ class ExpenseController extends Controller
     {
         $this->authorize('create', Expense::class);
 
+        $selectedProjectId = $request->integer('project_id') ?: null;
+
         if ($request->ajax()) {
             return view('expenses._modal_form', [
                 'expense' => new Expense([
+                    'project_id' => $selectedProjectId,
                     'expense_date' => now()->toDateString(),
                     'status' => 'active',
                     'payment_method' => 'cash',
                 ]),
-                'payload' => $this->formPayload($request->user()),
+                'payload' => $this->formPayload($request->user(), null, $selectedProjectId),
                 'action' => route('expenses.store'),
                 'method' => 'POST',
             ])->render();
@@ -246,9 +246,16 @@ class ExpenseController extends Controller
             ->with('status', 'Gasto archivado correctamente.');
     }
 
-    protected function formPayload($authUser, ?Expense $expense = null): array
+    protected function formPayload($authUser, ?Expense $expense = null, ?int $preferredProjectId = null): array
     {
-        $projectsCollection = $this->availableProjectsForExpenses($authUser, null, $expense?->project_id);
+        $currentProjectId = $expense?->project_id ?? $preferredProjectId;
+
+        $projectsCollection = $this->availableProjectsForExpenses($authUser, null, $currentProjectId);
+
+        if ($preferredProjectId) {
+            $projectsCollection = $projectsCollection->where('id', $preferredProjectId)->values();
+        }
+
         $projectsCollection->load([
             'company',
             'categories' => fn ($categoryQuery) => $categoryQuery

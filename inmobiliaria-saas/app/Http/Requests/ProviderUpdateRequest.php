@@ -39,6 +39,7 @@ class ProviderUpdateRequest extends FormRequest
                     ->where(fn ($query) => $query->where('company_id', $companyId))
                     ->ignore($provider?->id),
             ],
+            'location' => ['nullable', 'string', 'max:255'],
             'document_number' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],

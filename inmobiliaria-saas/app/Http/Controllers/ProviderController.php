@@ -33,6 +33,7 @@ class ProviderController extends Controller
                 $query->where(function ($nested) use ($search) {
                     $nested
                         ->where('name', 'like', "%{$search}%")
+                        ->orWhere('location', 'like', "%{$search}%")
                         ->orWhere('document_number', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%");
@@ -40,7 +41,7 @@ class ProviderController extends Controller
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->latest()
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         return view('providers.index', [
@@ -86,6 +87,7 @@ class ProviderController extends Controller
         $provider = Provider::query()->create([
             'company_id' => $authUser->isSuperAdmin() ? $data['company_id'] : $authUser->company_id,
             'name' => $data['name'],
+            'location' => $data['location'] ?? null,
             'document_number' => $data['document_number'] ?? null,
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'] ?? null,
@@ -137,6 +139,7 @@ class ProviderController extends Controller
         $provider->update([
             'company_id' => $authUser->isSuperAdmin() ? ($data['company_id'] ?? $provider->company_id) : $provider->company_id,
             'name' => $data['name'],
+            'location' => $data['location'] ?? null,
             'document_number' => $data['document_number'] ?? null,
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'] ?? null,

@@ -62,51 +62,95 @@ class CamiloDemoSeeder extends Seeder
 
         $user->syncRoles([SystemRole::CompanyAdmin->value]);
 
-        $project = Project::query()->updateOrCreate(
+        $projects = [
             [
-                'company_id' => $company->id,
                 'name' => 'cerroverde',
-            ],
-            [
                 'project_type' => 'mixed',
-                'description' => 'Proyecto demo para control financiero de obra.',
+                'description' => 'Proyecto residencial de uso mixto para control financiero de obra.',
                 'country' => 'Colombia',
                 'state' => 'Antioquia',
-                'city' => 'Medellín',
-                'address' => 'Sector Cerroverde',
-                'location_reference' => 'Zona residencial',
-                'start_date' => today(),
-                'status' => 'active',
-            ]
-        );
+                'city' => 'San Luis',
+                'address' => 'Vereda La Josefina',
+                'location_reference' => 'Corredor vial hacia la autopista Medellín-Bogotá',
+                'start_date' => today()->subDays(90),
+                'status' => EntityStatus::Active->value,
+            ],
+            [
+                'name' => 'altosdelrio',
+                'project_type' => 'apartments',
+                'description' => 'Proyecto multifamiliar con enfoque en acabados y urbanismo.',
+                'country' => 'Colombia',
+                'state' => 'Antioquia',
+                'city' => 'San Luis',
+                'address' => 'Sector El Prodigio',
+                'location_reference' => 'Zona urbana con acceso al parque principal',
+                'start_date' => today()->subDays(60),
+                'status' => EntityStatus::Active->value,
+            ],
+            [
+                'name' => 'miradordelnorte',
+                'project_type' => 'houses',
+                'description' => 'Proyecto de viviendas en etapa avanzada con múltiples frentes de trabajo.',
+                'country' => 'Colombia',
+                'state' => 'Antioquia',
+                'city' => 'San Luis',
+                'address' => 'Vereda Buenos Aires',
+                'location_reference' => 'Ingreso por la vía San Luis - Granada',
+                'start_date' => today()->subDays(30),
+                'status' => EntityStatus::Active->value,
+            ],
+        ];
 
         $structure = [
             'Mano de Obra' => [
                 'description' => 'Costos asociados al personal y contratistas de obra.',
                 'subcategories' => [
-                    'Cuadrilla de obra' => ['Oficiales', 'Ayudantes'],
-                    'Instalaciones especializadas' => ['Electricistas', 'Plomeros'],
-                    'Supervisión técnica' => ['Residente de obra'],
+                    'Cuadrilla de obra' => ['Oficiales', 'Ayudantes', 'Maestro general'],
+                    'Instalaciones especializadas' => ['Electricistas', 'Plomeros', 'Red contra incendios'],
+                    'Supervisión técnica' => ['Residente de obra', 'Inspector SST'],
                 ],
             ],
             'Documentos' => [
                 'description' => 'Trámites, permisos y gestión documental del proyecto.',
                 'subcategories' => [
-                    'Licencias y permisos' => ['Curaduría', 'Planeación municipal'],
-                    'Estudios técnicos' => ['Suelos', 'Topografía'],
-                    'Contratos y pólizas' => [],
+                    'Licencias y permisos' => ['Curaduría', 'Planeación municipal', 'Bomberos'],
+                    'Estudios técnicos' => ['Suelos', 'Topografía', 'Interventoría'],
+                    'Contratos y pólizas' => ['Póliza de cumplimiento', 'Póliza todo riesgo'],
                 ],
             ],
             'Materiales' => [
                 'description' => 'Materiales principales y suministros para construcción.',
                 'subcategories' => [
                     'Obra gris' => ['Cemento', 'Arena', 'Acero'],
-                    'Acabados' => ['Pisos', 'Pintura'],
-                    'Herramientas y consumibles' => [],
+                    'Acabados' => ['Pisos', 'Pintura', 'Carpintería metálica'],
+                    'Herramientas y consumibles' => ['Brocas', 'Discos de corte', 'Elementos de protección'],
+                ],
+            ],
+            'Equipos y Alquileres' => [
+                'description' => 'Costos de alquiler de maquinaria, equipos temporales y apoyo logístico.',
+                'subcategories' => [
+                    'Maquinaria liviana' => ['Cortadora', 'Mezcladora'],
+                    'Equipos de elevación' => ['Andamios', 'Malacate'],
+                    'Servicios temporales' => ['Baños portátiles', 'Cerramiento provisional'],
                 ],
             ],
         ];
 
+        foreach ($projects as $projectData) {
+            $project = Project::query()->updateOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'name' => $projectData['name'],
+                ],
+                $projectData + ['company_id' => $company->id]
+            );
+
+            $this->seedProjectStructure($project, $structure);
+        }
+    }
+
+    protected function seedProjectStructure(Project $project, array $structure): void
+    {
         $categoryOrder = 1;
 
         foreach ($structure as $categoryName => $categoryData) {

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetNoveltyController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
@@ -37,6 +39,15 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     Route::patch('providers/{provider}/status', [ProviderController::class, 'updateStatus'])->name('providers.status');
     Route::resource('providers', ProviderController::class)->except('show');
+
+    Route::resource('assets', AssetController::class)->except('show');
+    Route::prefix('assets/{asset}')->name('assets.')->group(function () {
+        Route::get('novelties/create', [AssetNoveltyController::class, 'create'])->name('novelties.create');
+        Route::post('novelties', [AssetNoveltyController::class, 'store'])->name('novelties.store');
+        Route::get('novelties/{novelty}/edit', [AssetNoveltyController::class, 'edit'])->name('novelties.edit');
+        Route::patch('novelties/{novelty}', [AssetNoveltyController::class, 'update'])->name('novelties.update');
+        Route::delete('novelties/{novelty}', [AssetNoveltyController::class, 'destroy'])->name('novelties.destroy');
+    });
 
     Route::patch('expenses/{expense}/status', [ExpenseController::class, 'updateStatus'])->name('expenses.status');
     Route::resource('expenses', ExpenseController::class)->except('show');

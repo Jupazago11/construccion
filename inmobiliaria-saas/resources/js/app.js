@@ -1,8 +1,10 @@
 import './bootstrap';
 
 import Alpine from 'alpinejs';
+import Chart from 'chart.js/auto';
 
 window.Alpine = Alpine;
+window.Chart = Chart;
 
 const closestFromEvent = (event, selector) => {
     if (! (event.target instanceof Element)) {
@@ -152,10 +154,17 @@ Alpine.data('crudTable', (config = {}) => ({
         }
     },
 
+    shouldReloadAfterMutation() {
+        return this.config.reloadOnMutate === true;
+    },
+
+    reloadCurrentPage() {
+        window.location.assign(window.location.href);
+    },
+
     async openModal(url, title) {
         this.modalOpen = true;
         this.modalTitle = title;
-        this.modalHtml = '';
         this.loading = true;
         this.error = null;
 
@@ -172,6 +181,7 @@ Alpine.data('crudTable', (config = {}) => ({
                 if (this.$refs.modalContent) {
                     Alpine.initTree(this.$refs.modalContent);
                     window.initializeExpenseForms?.(this.$refs.modalContent);
+                    window.initializeAssetForms?.(this.$refs.modalContent);
                 }
             });
         } catch (error) {
@@ -211,6 +221,11 @@ Alpine.data('crudTable', (config = {}) => ({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
             });
+
+            if (this.shouldReloadAfterMutation()) {
+                this.reloadCurrentPage();
+                return;
+            }
 
             this.applyRowChange(response.data);
             this.closeModal();
@@ -415,6 +430,11 @@ Alpine.data('crudTable', (config = {}) => ({
                 },
             });
 
+            if (this.shouldReloadAfterMutation()) {
+                this.reloadCurrentPage();
+                return;
+            }
+
             this.applyRowChange(response.data);
             this.showToast(response.data.message ?? 'Estado actualizado correctamente.');
         } catch (error) {
@@ -434,6 +454,11 @@ Alpine.data('crudTable', (config = {}) => ({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
             });
+
+            if (this.shouldReloadAfterMutation()) {
+                this.reloadCurrentPage();
+                return;
+            }
 
             this.removeRow(response.data.id);
             this.showToast(response.data.message ?? 'Registro eliminado correctamente.');
@@ -562,6 +587,151 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 }));
 
+Alpine.data('reportsPage', () => ({
+    historyLoading: false,
+
+    async handleHistoryClick(event) {
+        const link = event.target.closest('[x-ref="historyBlock"] a');
+
+        if (! link) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (this.historyLoading) {
+            return;
+        }
+
+        this.historyLoading = true;
+
+        try {
+            const url = new URL(link.href, window.location.origin);
+            url.searchParams.set('history_only', '1');
+
+            const response = await window.axios.get(url.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'text/html, application/xhtml+xml',
+                },
+            });
+
+            if (this.$refs.historyBlock) {
+                this.$refs.historyBlock.innerHTML = response.data;
+            }
+
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('page', url.searchParams.get('page') || '1');
+            window.history.replaceState({}, '', currentUrl);
+            window.scrollTo({ top: this.$refs.historyBlock.offsetTop - 96, behavior: 'smooth' });
+        } finally {
+            this.historyLoading = false;
+        }
+    },
+}));
+
+const normalizeIntegerAmount = (value) => {
+    const raw = String(value ?? '').trim();
+
+    if (raw === '') {
+        return '';
+    }
+
+    if (/^\d+([.,]00)?$/.test(raw)) {
+        return raw.replace(/[.,]00$/, '');
+    }
+
+    return raw.replace(/\D/g, '');
+};
+
+const formatIntegerAmount = (value) => {
+    const normalized = normalizeIntegerAmount(value);
+
+    if (normalized === '') {
+        return '';
+    }
+
+    const amount = Number(normalized);
+
+    if (Number.isNaN(amount)) {
+        return '';
+    }
+
+    return new Intl.NumberFormat('es-CO', {
+        maximumFractionDigits: 0,
+    }).format(amount);
+};
+
+const countAmountDigits = (value) => String(value ?? '').replace(/\D/g, '').length;
+
+const caretPositionFromDigits = (formattedValue, digitCount) => {
+    if (digitCount <= 0) {
+        return 0;
+    }
+
+    let digitsSeen = 0;
+
+    for (let index = 0; index < formattedValue.length; index += 1) {
+        if (/\d/.test(formattedValue[index])) {
+            digitsSeen += 1;
+
+            if (digitsSeen === digitCount) {
+                return index + 1;
+            }
+        }
+    }
+
+    return formattedValue.length;
+};
+
+const syncFormattedMoneyInput = (input, preserveCaret = false) => {
+    if (! input) {
+        return;
+    }
+
+    const rawValue = input.value;
+    const selectionStart = input.selectionStart ?? rawValue.length;
+    const digitsBeforeCaret = countAmountDigits(rawValue.slice(0, selectionStart));
+    const formattedValue = formatIntegerAmount(rawValue);
+
+    input.value = formattedValue;
+
+    if (preserveCaret) {
+        const nextCaret = caretPositionFromDigits(formattedValue, digitsBeforeCaret);
+        input.setSelectionRange(nextCaret, nextCaret);
+    }
+};
+
+window.initializeAssetForms = (root = document) => {
+    root.querySelectorAll('form[data-asset-form]').forEach((form) => {
+        if (form.dataset.assetInitialized === 'true') {
+            return;
+        }
+
+        form.dataset.assetInitialized = 'true';
+
+        const moneyInputs = [...form.querySelectorAll('[data-currency-input]')];
+
+        moneyInputs.forEach((input) => {
+            syncFormattedMoneyInput(input);
+
+            input.addEventListener('input', () => {
+                syncFormattedMoneyInput(input, true);
+            });
+
+            input.addEventListener('blur', () => {
+                syncFormattedMoneyInput(input);
+            });
+        });
+
+        form.addEventListener('submit', () => {
+            moneyInputs.forEach((input) => {
+                input.value = normalizeIntegerAmount(input.value);
+            });
+        });
+    });
+};
+
 window.initializeExpenseForms = (root = document) => {
     root.querySelectorAll('form[data-expense-form]').forEach((form) => {
         if (form.dataset.expenseInitialized === 'true') {
@@ -598,7 +768,6 @@ window.initializeExpenseForms = (root = document) => {
         const providers = (payload.providers ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
 
         const projectField = form.querySelector('[data-expense-project]');
-        const projectInfo = form.querySelector('[data-expense-project-info]');
         const categoryWrapper = form.querySelector('[data-expense-category-wrapper]');
         const categoryField = form.querySelector('[data-expense-category]');
         const categoryCards = form.querySelector('[data-expense-category-cards]');
@@ -623,60 +792,6 @@ window.initializeExpenseForms = (root = document) => {
             console.log(`[expenseForm] ${label}`, { ...state, ...extra });
         };
 
-        const normalizeAmount = (value) => {
-            const raw = String(value ?? '').trim();
-
-            if (raw === '') {
-                return '';
-            }
-
-            if (/^\d+([.,]00)?$/.test(raw)) {
-                return raw.replace(/[.,]00$/, '');
-            }
-
-            return raw.replace(/\D/g, '');
-        };
-
-        const formatAmountInput = (value) => {
-            const normalized = normalizeAmount(value);
-
-            if (normalized === '') {
-                return '';
-            }
-
-            const amount = Number(normalized);
-
-            if (Number.isNaN(amount)) {
-                return '';
-            }
-
-            return new Intl.NumberFormat('es-CO', {
-                maximumFractionDigits: 0,
-            }).format(amount);
-        };
-
-        const countDigits = (value) => String(value ?? '').replace(/\D/g, '').length;
-
-        const caretFromDigits = (formattedValue, digitCount) => {
-            if (digitCount <= 0) {
-                return 0;
-            }
-
-            let digitsSeen = 0;
-
-            for (let index = 0; index < formattedValue.length; index += 1) {
-                if (/\d/.test(formattedValue[index])) {
-                    digitsSeen += 1;
-
-                    if (digitsSeen === digitCount) {
-                        return index + 1;
-                    }
-                }
-            }
-
-            return formattedValue.length;
-        };
-
         const syncTotalPreview = (preserveCaret = false) => {
             if (! subtotalField) {
                 return;
@@ -684,13 +799,13 @@ window.initializeExpenseForms = (root = document) => {
 
             const rawValue = subtotalField.value;
             const selectionStart = subtotalField.selectionStart ?? rawValue.length;
-            const digitsBeforeCaret = countDigits(rawValue.slice(0, selectionStart));
-            const formattedValue = formatAmountInput(rawValue);
+            const digitsBeforeCaret = countAmountDigits(rawValue.slice(0, selectionStart));
+            const formattedValue = formatIntegerAmount(rawValue);
 
             subtotalField.value = formattedValue;
 
             if (preserveCaret) {
-                const nextCaret = caretFromDigits(formattedValue, digitsBeforeCaret);
+                const nextCaret = caretPositionFromDigits(formattedValue, digitsBeforeCaret);
                 subtotalField.setSelectionRange(nextCaret, nextCaret);
             }
         };
@@ -782,19 +897,6 @@ window.initializeExpenseForms = (root = document) => {
         };
 
         const getSelectedProject = () => projects.find((item) => item.id === state.projectId) ?? null;
-
-        const syncProjectInfo = () => {
-            const project = getSelectedProject();
-
-            if (! projectInfo) {
-                return;
-            }
-
-            projectInfo.textContent = project
-                ? `Empresa: ${project.company_name ?? 'Sin empresa'} | Estado: ${project.status}`
-                : '';
-            projectInfo.style.display = project ? '' : 'none';
-        };
 
         const syncProviders = () => {
             const project = getSelectedProject();
@@ -937,7 +1039,6 @@ window.initializeExpenseForms = (root = document) => {
         };
 
         const syncProject = () => {
-            syncProjectInfo();
             syncProviders();
             syncCategories();
             debug('syncProject');
@@ -1001,7 +1102,7 @@ window.initializeExpenseForms = (root = document) => {
             });
 
             form.addEventListener('submit', () => {
-                subtotalField.value = normalizeAmount(subtotalField.value);
+                subtotalField.value = normalizeIntegerAmount(subtotalField.value);
             });
         }
 

@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout x-data="reportsPage()" x-on:click="handleHistoryClick($event)">
     <x-slot name="header">
         <x-page-header title="Reportes" description="" />
     </x-slot>
@@ -43,11 +43,10 @@
                 </div>
             </form>
 
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <x-metric-card label="Gasto total" :value="'$ '.number_format((float) $summary['total_amount'], 2, ',', '.')" hint="Suma de gastos filtrados" />
-                <x-metric-card label="Gastos" :value="number_format((int) $summary['expenses_count'])" hint="Registros dentro del rango" />
-                <x-metric-card label="Proyectos" :value="number_format((int) $summary['projects_count'])" hint="Proyectos con movimiento" />
-                <x-metric-card label="Factura promedio" :value="'$ '.number_format((float) $summary['average_ticket'], 2, ',', '.')" hint="Promedio por gasto" />
+            <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Gasto total</p>
+                <p class="mt-3 text-3xl font-semibold tracking-tight text-stone-900">$ {{ number_format((float) $summary['total_amount'], 0, ',', '.') }}</p>
+                <p class="mt-2 text-sm text-stone-500">Suma de gastos filtrados</p>
             </div>
 
             @if ($requiresProjectSelection)
@@ -56,77 +55,7 @@
                 </div>
             @endif
 
-            <div class="grid gap-6 lg:grid-cols-2">
-                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Gastos por fecha</h2>
-                    <div class="mt-4 h-80">
-                        <canvas id="expenses-by-date-chart"></canvas>
-                    </div>
-                </div>
-
-                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Participación por categoría</h2>
-                    <div class="mt-4 h-80">
-                        <canvas id="expenses-by-category-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid gap-6 xl:grid-cols-2">
-                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Total por proyecto</h2>
-                    <div class="mt-4 overflow-x-auto">
-                        <table class="min-w-full divide-y divide-stone-200 text-sm">
-                            <thead class="bg-stone-50 text-left text-stone-500">
-                                <tr>
-                                    <th class="px-4 py-3 font-medium">Proyecto</th>
-                                    <th class="px-4 py-3 font-medium">Gastos</th>
-                                    <th class="px-4 py-3 font-medium">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-stone-100">
-                                @forelse ($totalsByProject as $item)
-                                    <tr>
-                                        <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
-                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">{{ number_format((float) $item->total_amount, 2, ',', '.') }}</td>
-                                    </tr>
-                                @empty
-                                    <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Total por auxiliar</h2>
-                    <div class="mt-4 overflow-x-auto">
-                        <table class="min-w-full divide-y divide-stone-200 text-sm">
-                            <thead class="bg-stone-50 text-left text-stone-500">
-                                <tr>
-                                    <th class="px-4 py-3 font-medium">Auxiliar</th>
-                                    <th class="px-4 py-3 font-medium">Gastos</th>
-                                    <th class="px-4 py-3 font-medium">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-stone-100">
-                                @forelse ($totalsByAuxiliary as $item)
-                                    <tr>
-                                        <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
-                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">{{ number_format((float) $item->total_amount, 2, ',', '.') }}</td>
-                                    </tr>
-                                @empty
-                                    <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid gap-6 xl:grid-cols-2">
+            <div class="grid gap-6 xl:grid-cols-3">
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                     <h2 class="text-lg font-semibold text-stone-900">Total por categoría</h2>
                     <div class="mt-4 overflow-x-auto">
@@ -143,7 +72,7 @@
                                     <tr>
                                         <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
                                         <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">{{ number_format((float) $item->total_amount, 2, ',', '.') }}</td>
+                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
@@ -169,7 +98,33 @@
                                     <tr>
                                         <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
                                         <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">{{ number_format((float) $item->total_amount, 2, ',', '.') }}</td>
+                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold text-stone-900">Total por auxiliar</h2>
+                    <div class="mt-4 overflow-x-auto">
+                        <table class="min-w-full divide-y divide-stone-200 text-sm">
+                            <thead class="bg-stone-50 text-left text-stone-500">
+                                <tr>
+                                    <th class="px-4 py-3 font-medium">Auxiliar</th>
+                                    <th class="px-4 py-3 font-medium">Gastos</th>
+                                    <th class="px-4 py-3 font-medium">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-stone-100">
+                                @forelse ($totalsByAuxiliary as $item)
+                                    <tr>
+                                        <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
+                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
+                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
@@ -180,48 +135,34 @@
                 </div>
             </div>
 
+            <div class="grid gap-6 lg:grid-cols-2">
+                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold text-stone-900">Gastos por fecha</h2>
+                    <div class="mt-4 h-80">
+                        <canvas id="expenses-by-date-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold text-stone-900">Participación por categoría</h2>
+                    <div class="mt-4 h-80">
+                        <canvas id="expenses-by-category-chart"></canvas>
+                    </div>
+                    <div id="category-chart-detail" class="mt-4 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+                        Toca un color de la gráfica para ver valor y porcentaje.
+                    </div>
+                </div>
+            </div>
+
             <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                 <h2 class="text-lg font-semibold text-stone-900">Histórico detallado</h2>
-                <div class="mt-4 overflow-x-auto">
-                    <table class="min-w-full divide-y divide-stone-200 text-sm">
-                        <thead class="bg-stone-50 text-left text-stone-500">
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Fecha</th>
-                                <th class="px-4 py-3 font-medium">Número</th>
-                                <th class="px-4 py-3 font-medium">Proyecto</th>
-                                <th class="px-4 py-3 font-medium">Clasificación</th>
-                                <th class="px-4 py-3 font-medium">Proveedor</th>
-                                <th class="px-4 py-3 font-medium">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-stone-100">
-                            @forelse ($history as $expense)
-                                <tr>
-                                    <td class="px-4 py-3 text-stone-600">{{ $expense->expense_date?->format('Y-m-d') }}</td>
-                                    <td class="px-4 py-3 text-stone-900">{{ $expense->expense_number }}</td>
-                                    <td class="px-4 py-3 text-stone-600">{{ $expense->project?->name }}</td>
-                                    <td class="px-4 py-3 text-stone-600">
-                                        <div>{{ $expense->category?->name }}</div>
-                                        <div>{{ $expense->subcategory?->name }}</div>
-                                        <div>{{ $expense->auxiliary?->name ?: 'Sin auxiliar' }}</div>
-                                    </td>
-                                    <td class="px-4 py-3 text-stone-600">{{ $expense->provider?->name ?: 'Sin proveedor' }}</td>
-                                    <td class="px-4 py-3 text-stone-900">{{ number_format((float) $expense->total_amount, 2, ',', '.') }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="6" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-4">
-                    {{ $history->links() }}
+                <div x-ref="historyBlock">
+                    @include('reports._history', ['history' => $history])
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const filterForm = document.getElementById('reports-filter-form');
@@ -262,6 +203,7 @@
             const categoryLabels = @json($totalsByCategory->take(8)->pluck('name')->values());
             const categoryValues = @json($totalsByCategory->take(8)->pluck('total_amount')->map(fn ($value) => (float) $value)->values());
             const palette = ['#0f766e', '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#65a30d', '#2563eb'];
+            const currency = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
             new Chart(document.getElementById('expenses-by-date-chart'), {
                 type: 'line',
@@ -289,7 +231,39 @@
                 },
             });
 
-            new Chart(document.getElementById('expenses-by-category-chart'), {
+            const categoryChartDetail = document.getElementById('category-chart-detail');
+            const categoryTotal = categoryValues.reduce((sum, value) => sum + value, 0);
+
+            const renderCategoryDetail = (index) => {
+                if (!categoryChartDetail || index === null || categoryLabels[index] === undefined) {
+                    return;
+                }
+
+                const value = Number(categoryValues[index] ?? 0);
+                const percentage = categoryTotal > 0 ? ((value / categoryTotal) * 100) : 0;
+
+                categoryChartDetail.innerHTML = `
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Categoría</div>
+                            <div class="mt-1 font-semibold text-stone-900">${categoryLabels[index]}</div>
+                        </div>
+                        <span class="inline-flex h-3.5 w-3.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
+                    </div>
+                    <div class="mt-3 flex items-end justify-between gap-3">
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Valor</div>
+                            <div class="mt-1 text-lg font-semibold text-stone-900">$ ${currency.format(value)}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Participación</div>
+                            <div class="mt-1 text-lg font-semibold text-stone-900">${percentage.toFixed(1)}%</div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            const categoryChart = new Chart(document.getElementById('expenses-by-category-chart'), {
                 type: 'doughnut',
                 data: {
                     labels: categoryLabels,
@@ -303,13 +277,39 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: (_, elements) => {
+                        if (!elements.length) {
+                            return;
+                        }
+
+                        renderCategoryDetail(elements[0].index);
+                    },
                     plugins: {
                         legend: {
                             position: 'bottom',
+                            onClick: (_, legendItem) => {
+                                renderCategoryDetail(legendItem.index);
+                            },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const value = Number(context.raw ?? 0);
+                                    const percentage = categoryTotal > 0 ? ((value / categoryTotal) * 100) : 0;
+
+                                    return `${context.label}: $ ${currency.format(value)} (${percentage.toFixed(1)}%)`;
+                                },
+                            },
                         },
                     },
                 },
             });
+
+            if (categoryLabels.length > 0) {
+                renderCategoryDetail(0);
+                categoryChart.setActiveElements([{ datasetIndex: 0, index: 0 }]);
+                categoryChart.update();
+            }
         });
     </script>
 </x-app-layout>

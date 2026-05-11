@@ -49,7 +49,6 @@
                         @endforeach
                     </select>
                 @endif
-                <p class="mt-2 text-xs text-stone-500" data-expense-project-info style="display:none;"></p>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="project_id"></p>
             </div>
 
@@ -144,7 +143,6 @@
                     :value="$expense->subtotal_amount ?? $expense->total_amount ?? 0"
                     required
                 />
-                <p class="mt-2 text-xs text-stone-500">Usaremos este valor como total final del gasto.</p>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="subtotal_amount"></p>
             </div>
 

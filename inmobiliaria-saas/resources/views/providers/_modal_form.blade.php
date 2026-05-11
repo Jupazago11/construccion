@@ -25,6 +25,12 @@
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="name"></p>
             </div>
 
+            <div class="md:col-span-2">
+                <x-input-label for="location" :value="'Ubicación'" />
+                <x-text-input id="location" name="location" type="text" class="mt-1 block w-full" :value="$provider->location" placeholder="Ej. Rionegro, Antioquia" />
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="location"></p>
+            </div>
+
             <div>
                 <x-input-label for="document_number" :value="'Documento'" />
                 <x-text-input id="document_number" name="document_number" type="text" class="mt-1 block w-full" :value="$provider->document_number" />

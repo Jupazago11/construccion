@@ -1,4 +1,4 @@
-<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }}, reloadOnMutate: true })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Proveedores" description="">
             @can('create', App\Models\Provider::class)
@@ -14,7 +14,7 @@
             <form method="GET" class="grid gap-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_220px_220px_auto]">
                 <div>
                     <x-input-label for="search" :value="'Buscar'" />
-                    <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="$filters['search']" placeholder="Nombre, documento, correo o teléfono" />
+                    <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="$filters['search']" placeholder="Nombre, ubicación, documento, correo o teléfono" />
                 </div>
 
                 @if (auth()->user()->isSuperAdmin())
@@ -51,7 +51,9 @@
                     <table class="min-w-full divide-y divide-stone-200 text-sm">
                         <thead class="bg-stone-50 text-left text-stone-500">
                             <tr>
+                                <th class="w-36 whitespace-nowrap px-6 py-4 font-medium">Fecha</th>
                                 <th class="px-6 py-4 font-medium">Proveedor</th>
+                                <th class="px-6 py-4 font-medium">Ubicación</th>
                                 <th class="px-6 py-4 font-medium">Empresa</th>
                                 <th class="px-6 py-4 font-medium">Contacto</th>
                                 <th class="px-6 py-4 font-medium">Estado</th>
@@ -63,7 +65,7 @@
                                 @include('providers._row', ['provider' => $provider])
                             @empty
                                 <tr data-empty-state>
-                                    <td colspan="5" class="px-6 py-10 text-center text-stone-500">
+                                    <td colspan="7" class="px-6 py-10 text-center text-stone-500">
                                         No se encontraron proveedores con los filtros actuales.
                                     </td>
                                 </tr>

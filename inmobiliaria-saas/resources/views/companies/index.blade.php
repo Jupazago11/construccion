@@ -1,4 +1,4 @@
-<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }}, reloadOnMutate: true })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Empresas" description="Administra las empresas del SaaS, su estado operativo y la base multiempresa de la plataforma.">
             @can('create', App\Models\Company::class)

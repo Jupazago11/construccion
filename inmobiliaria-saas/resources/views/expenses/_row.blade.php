@@ -1,17 +1,16 @@
 <tr data-row-id="{{ $expense->id }}">
-    <td class="px-6 py-4">
-        <div class="font-semibold text-stone-900">{{ $expense->expense_number ?: 'Gasto sin número' }}</div>
-        <div class="text-stone-500">{{ $expense->expense_date?->format('Y-m-d') }}</div>
-        <div class="text-stone-500">{{ $expense->description }}</div>
+    <td class="w-32 whitespace-nowrap px-6 py-4">
+        <div class="font-semibold text-stone-900">{{ $expense->expense_date?->format('Y-m-d') ?: 'Sin fecha' }}</div>
     </td>
     <td class="px-6 py-4 text-stone-600">
-        <div>{{ $expense->project?->name ?: 'Sin proyecto' }}</div>
-        <div>{{ $expense->company?->name ?: 'Sin empresa' }}</div>
+        {{ $expense->project?->name ?: 'Sin proyecto' }}
     </td>
-    <td class="px-6 py-4 text-stone-600">
-        <div>{{ $expense->category?->name ?: 'Sin categoría' }}</div>
-        <div>{{ $expense->subcategory?->name ?: 'Sin subcategoría' }}</div>
-        <div>{{ $expense->auxiliary?->name ?: 'Sin auxiliar' }}</div>
+    <td class="w-72 px-6 py-4 text-stone-600">
+        <div class="font-medium text-stone-700">{{ $expense->category?->name ?: 'Sin categoría' }}</div>
+        <div><span class="font-semibold text-stone-700">Sub:</span> {{ $expense->subcategory?->name ?: 'Sin subcategoría' }}</div>
+        @if ($expense->auxiliary)
+            <div><span class="font-semibold text-stone-700">Aux:</span> {{ $expense->auxiliary->name }}</div>
+        @endif
     </td>
     <td class="px-6 py-4 text-stone-600">
         {{ $expense->provider?->name ?: 'Sin proveedor' }}

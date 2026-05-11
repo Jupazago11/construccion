@@ -1,7 +1,13 @@
 <tr data-row-id="{{ $provider->id }}">
+    <td class="w-36 whitespace-nowrap px-6 py-4">
+        <div class="font-semibold text-stone-900">{{ $provider->created_at?->format('Y-m-d') ?: 'Sin fecha' }}</div>
+    </td>
     <td class="px-6 py-4">
         <div class="font-semibold text-stone-900">{{ $provider->name }}</div>
         <div class="text-stone-500">{{ $provider->document_number ?: 'Sin documento' }}</div>
+    </td>
+    <td class="px-6 py-4 text-stone-600">
+        {{ $provider->location ?: 'Sin ubicación' }}
     </td>
     <td class="px-6 py-4 text-stone-600">
         {{ $provider->company?->name ?: 'Sin empresa' }}

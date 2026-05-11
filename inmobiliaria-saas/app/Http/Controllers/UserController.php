@@ -41,7 +41,7 @@ class UserController extends Controller
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->latest()
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         return view('users.index', [

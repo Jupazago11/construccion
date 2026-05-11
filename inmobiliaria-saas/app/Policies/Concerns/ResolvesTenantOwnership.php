@@ -3,6 +3,8 @@
 namespace App\Policies\Concerns;
 
 use App\Enums\EntityStatus;
+use App\Models\Asset;
+use App\Models\AssetNovelty;
 use App\Models\Auxiliary;
 use App\Models\Category;
 use App\Models\Company;
@@ -42,8 +44,10 @@ trait ResolvesTenantOwnership
             $record instanceof CompanyModule => $record->company_id,
             $record instanceof Project => $record->company_id,
             $record instanceof Provider => $record->company_id,
+            $record instanceof Asset => $record->company_id,
             $record instanceof Expense => $record->company_id,
             $record instanceof User => $record->company_id,
+            $record instanceof AssetNovelty => $record->loadMissing('asset')->asset?->company_id,
             $record instanceof Category => $record->loadMissing('project')->project?->company_id,
             $record instanceof Subcategory => $record->loadMissing('category.project')->category?->project?->company_id,
             $record instanceof Auxiliary => $record->loadMissing('subcategory.category.project')->subcategory?->category?->project?->company_id,

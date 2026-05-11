@@ -66,6 +66,11 @@ class User extends Authenticatable
         return $this->hasRole(SystemRole::SuperAdmin->value);
     }
 
+    public function homeRouteName(): string
+    {
+        return $this->isSuperAdmin() ? 'dashboard' : 'projects.index';
+    }
+
     public function belongsToCompany(?int $companyId): bool
     {
         return $companyId !== null && $this->company_id === $companyId;

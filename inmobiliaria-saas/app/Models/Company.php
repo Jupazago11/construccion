@@ -44,6 +44,11 @@ class Company extends Model
         return $this->hasMany(Provider::class);
     }
 
+    public function assets(): HasMany
+    {
+        return $this->hasMany(Asset::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === EntityStatus::Active->value;

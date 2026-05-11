@@ -8,12 +8,13 @@ use App\Models\Expense;
 use App\Models\Project;
 use Illuminate\Support\Carbon;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $user = $request->user();
 
@@ -119,8 +120,14 @@ class ReportController extends Controller
             ->with(['project', 'category', 'subcategory', 'auxiliary', 'provider'])
             ->latest('expenses.expense_date')
             ->latest('expenses.id')
-            ->paginate(20)
+            ->paginate(10)
             ->withQueryString();
+
+        if ($request->ajax() && $request->boolean('history_only')) {
+            return response()->view('reports._history', [
+                'history' => $history,
+            ]);
+        }
 
         return view('reports.index', [
             'summary' => $summary,

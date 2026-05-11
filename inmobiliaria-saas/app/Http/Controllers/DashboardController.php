@@ -7,19 +7,22 @@ use App\Models\Company;
 use App\Models\Expense;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Contracts\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(): View|RedirectResponse
     {
         $user = auth()->user();
 
+        if (! $user->isSuperAdmin()) {
+            return redirect()->route($user->homeRouteName());
+        }
+
         $companyId = $user->company_id;
 
-        $stats = $user->isSuperAdmin()
-            ? $this->superAdminStats()
-            : $this->companyStats($companyId);
+        $stats = $this->superAdminStats();
 
         return view('dashboard', [
             'stats' => $stats,

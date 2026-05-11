@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             SuperAdminSeeder::class,
             CamiloDemoSeeder::class,
             ProviderDemoSeeder::class,
+            AssetDemoSeeder::class,
         ]);
     }
 }
