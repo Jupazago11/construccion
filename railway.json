@@ -1,11 +1,11 @@
 {
     "$schema": "https://railway.com/railway.schema.json",
     "build": {
-        "builder": "RAILPACK",
-        "buildCommand": "npm run build"
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile"
     },
     "deploy": {
-        "preDeployCommand": "chmod +x ./railway/init-app.sh && sh ./railway/init-app.sh",
+        "preDeployCommand": "sh ./railway/init-app.sh",
         "healthcheckPath": "/login",
         "healthcheckTimeout": 300,
         "restartPolicyType": "ON_FAILURE",

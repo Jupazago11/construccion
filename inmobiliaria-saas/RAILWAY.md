@@ -2,10 +2,14 @@
 
 ## Service settings
 
-- Root Directory: `inmobiliaria-saas`
-- Config file path: `/inmobiliaria-saas/railway.json`
-- Builder: Nixpacks
+- Recommended Root Directory: `inmobiliaria-saas`
+- Recommended Config file path: `/inmobiliaria-saas/railway.json`
+- Builder: Railpack
 - Public domain: generate it only for the app service
+
+If Railway still builds from the repository root, the root `Dockerfile` and root
+`railway.json` are prepared as a fallback and will build the Laravel app from the
+`inmobiliaria-saas` directory.
 
 ## Required variables
 
