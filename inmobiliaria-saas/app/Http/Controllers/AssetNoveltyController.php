@@ -6,6 +6,7 @@ use App\Enums\EntityStatus;
 use App\Http\Requests\AssetNoveltyStoreRequest;
 use App\Models\Asset;
 use App\Models\AssetNovelty;
+use App\Models\AssetNoveltyType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +25,8 @@ class AssetNoveltyController extends Controller
             return view('assets._novelty_modal_form', [
                 'asset' => $asset,
                 'novelty' => new AssetNovelty(['novelty_date' => today()]),
+                'noveltyTypes' => $this->noveltyTypesForForm($asset),
+                'activeNoveltyTypes' => $this->activeNoveltyTypesForForm($asset),
                 'action' => route('assets.novelties.store', ['asset' => $asset] + $request->query()),
                 'method' => 'POST',
             ])->render();
@@ -44,6 +47,7 @@ class AssetNoveltyController extends Controller
         AssetNovelty::query()->create([
             'asset_id' => $asset->id,
             'created_by' => $request->user()->id,
+            'asset_novelty_type_id' => $data['asset_novelty_type_id'],
             'cost' => $data['cost'],
             'description' => $data['description'],
             'asset_status' => $data['asset_status'],
@@ -73,6 +77,8 @@ class AssetNoveltyController extends Controller
             return view('assets._novelty_modal_form', [
                 'asset' => $asset,
                 'novelty' => $novelty,
+                'noveltyTypes' => $this->noveltyTypesForForm($asset),
+                'activeNoveltyTypes' => $this->activeNoveltyTypesForForm($asset),
                 'action' => route('assets.novelties.update', ['asset' => $asset, 'novelty' => $novelty] + $request->query()),
                 'method' => 'PATCH',
             ])->render();
@@ -93,6 +99,7 @@ class AssetNoveltyController extends Controller
         $data = $request->validated();
 
         $novelty->update([
+            'asset_novelty_type_id' => $data['asset_novelty_type_id'],
             'cost' => $data['cost'],
             'description' => $data['description'],
             'asset_status' => $data['asset_status'],
@@ -113,6 +120,17 @@ class AssetNoveltyController extends Controller
         abort_unless($novelty->asset_id === $asset->id, 404);
 
         $this->authorize('update', $asset);
+
+        if ($novelty->status === EntityStatus::Deleted->value) {
+            if ($request->expectsJson()) {
+                return $this->assetListResponse($request, $asset, 'La novedad ya estaba eliminada.', true);
+            }
+
+            return redirect()
+                ->route('assets.index')
+                ->with('status', 'La novedad ya estaba eliminada.');
+        }
+
         $this->authorize('delete', $novelty);
 
         $novelty->update([
@@ -120,7 +138,7 @@ class AssetNoveltyController extends Controller
         ]);
 
         if ($request->expectsJson()) {
-            return $this->assetListResponse($request, $asset, 'Novedad eliminada correctamente.');
+            return $this->assetListResponse($request, $asset, 'Novedad eliminada correctamente.', true);
         }
 
         return redirect()
@@ -128,7 +146,7 @@ class AssetNoveltyController extends Controller
             ->with('status', 'Novedad eliminada correctamente.');
     }
 
-    protected function assetListResponse(Request $request, Asset $asset, string $message): JsonResponse
+    protected function assetListResponse(Request $request, Asset $asset, string $message, bool $includeNoveltyModal = false): JsonResponse
     {
         $this->loadAssetListRelations($asset);
         $summary = $this->resolveSummary(
@@ -139,12 +157,27 @@ class AssetNoveltyController extends Controller
             )
         );
 
-        return response()->json([
+        $payload = [
             'id' => $asset->id,
             'row_html' => view('assets._row', compact('asset'))->render(),
             'summary_html' => view('assets._summary', compact('summary'))->render(),
             'message' => $message,
-        ]);
+        ];
+
+        if ($includeNoveltyModal) {
+            $this->loadNoveltyContext($asset);
+
+            $payload['modal_html'] = view('assets._novelty_modal_form', [
+                'asset' => $asset,
+                'novelty' => new AssetNovelty(['novelty_date' => today()]),
+                'noveltyTypes' => $this->noveltyTypesForForm($asset),
+                'activeNoveltyTypes' => $this->activeNoveltyTypesForForm($asset),
+                'action' => route('assets.novelties.store', ['asset' => $asset] + $request->query()),
+                'method' => 'POST',
+            ])->render();
+        }
+
+        return response()->json($payload);
     }
 
     protected function loadNoveltyContext(Asset $asset): void
@@ -152,7 +185,7 @@ class AssetNoveltyController extends Controller
         $asset->load([
             'novelties' => fn ($query) => $query
                 ->where('status', '!=', EntityStatus::Deleted->value)
-                ->with('creator')
+                ->with(['creator', 'type'])
                 ->latest('novelty_date')
                 ->latest('id')
                 ->limit(8),
@@ -162,12 +195,15 @@ class AssetNoveltyController extends Controller
     protected function loadAssetListRelations(Asset $asset): void
     {
         $asset->refresh();
-        $asset->load('company');
+        $asset->load(['company', 'type']);
         $asset->loadCount([
             'novelties as active_novelties_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            'media as active_media_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
         ]);
         $asset->loadSum([
-            'novelties as active_novelties_cost_sum' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            'novelties as active_novelties_cost_sum' => fn ($query) => $query
+                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true)),
         ], 'cost');
     }
 
@@ -195,7 +231,37 @@ class AssetNoveltyController extends Controller
             'novelties_cost_total' => AssetNovelty::query()
                 ->where('status', '!=', EntityStatus::Deleted->value)
                 ->whereIn('asset_id', $assetIds)
+                ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true))
                 ->sum('cost'),
         ];
+    }
+
+    protected function noveltyTypesForForm(Asset $asset)
+    {
+        return AssetNoveltyType::query()
+            ->where('company_id', $asset->company_id)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->withCount([
+                'novelties as active_novelties_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (AssetNoveltyType $type) => [
+                'id' => $type->id,
+                'name' => $type->name,
+                'adds_value' => (bool) $type->adds_value,
+                'status' => $type->status,
+                'can_delete' => ((int) $type->active_novelties_count) === 0,
+                'update_url' => route('asset-novelty-types.update', $type),
+                'delete_url' => route('asset-novelty-types.destroy', $type),
+            ])
+            ->values();
+    }
+
+    protected function activeNoveltyTypesForForm(Asset $asset)
+    {
+        return $this->noveltyTypesForForm($asset)
+            ->where('status', EntityStatus::Active->value)
+            ->values();
     }
 }

@@ -1,9 +1,24 @@
+@php
+    $authUser = auth()->user();
+    $tenantColor = null;
+
+    if ($authUser && ! $authUser->isSuperAdmin()) {
+        $rawTenantColor = $authUser->company?->primary_color;
+
+        if (is_string($rawTenantColor) && preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $rawTenantColor)) {
+            $tenantColor = $rawTenantColor;
+        }
+    }
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="current-route" content="{{ request()->route()?->getName() }}">
+        <meta name="current-path" content="{{ request()->path() }}">
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
@@ -18,23 +33,30 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div {{ $attributes->merge(['class' => 'min-h-screen bg-gray-100']) }}>
+    <body
+        @class(['font-sans antialiased app-shell', 'tenant-branded' => $tenantColor])
+        @style([$tenantColor ? '--app-accent: '.$tenantColor : null])
+        data-current-route="{{ request()->route()?->getName() }}"
+        data-current-path="{{ request()->path() }}"
+    >
+        <div class="min-h-screen bg-gray-100">
             @include('layouts.navigation')
 
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
+            <div {{ $attributes }}>
+                <!-- Page Heading -->
+                @isset($header)
+                    <header class="app-page-heading border-b border-stone-200 bg-white shadow">
+                        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                            {{ $header }}
+                        </div>
+                    </header>
+                @endisset
 
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
+                <!-- Page Content -->
+                <main>
+                    {{ $slot }}
+                </main>
+            </div>
         </div>
     </body>
 </html>

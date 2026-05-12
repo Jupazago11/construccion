@@ -33,33 +33,41 @@ class ExpenseStoreRequest extends FormRequest
             ],
             'expense_date' => ['required', 'date'],
             'payment_method' => ['nullable', Rule::in(['cash', 'bank_transfer', 'credit_card', 'debit_card', 'other'])],
-            'description' => ['required', 'string'],
+            'description' => ['nullable', 'string'],
             'category_id' => [
                 'required',
                 'integer',
                 Rule::exists(Category::class, 'id')->where(
-                    fn ($query) => $query->where('project_id', $this->input('project_id'))
+                    fn ($query) => $query
+                        ->where('project_id', $this->input('project_id'))
+                        ->where('status', 'active')
                 ),
             ],
             'subcategory_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists(Subcategory::class, 'id')->where(
-                    fn ($query) => $query->where('category_id', $this->input('category_id'))
+                    fn ($query) => $query
+                        ->where('category_id', $this->input('category_id'))
+                        ->where('status', 'active')
                 ),
             ],
             'auxiliary_id' => [
                 'nullable',
                 'integer',
                 Rule::exists(Auxiliary::class, 'id')->where(
-                    fn ($query) => $query->where('subcategory_id', $this->input('subcategory_id'))
+                    fn ($query) => $query
+                        ->where('subcategory_id', $this->input('subcategory_id'))
+                        ->where('status', 'active')
                 ),
             ],
             'provider_id' => [
                 'nullable',
                 'integer',
                 Rule::exists(Provider::class, 'id')->where(function ($query) {
-                    $query->where('company_id', $this->resolvedCompanyId());
+                    $query
+                        ->where('company_id', $this->resolvedCompanyId())
+                        ->where('status', 'active');
                 }),
             ],
             'subtotal_amount' => ['required', 'numeric', 'min:0'],

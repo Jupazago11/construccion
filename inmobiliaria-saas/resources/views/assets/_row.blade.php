@@ -1,34 +1,46 @@
 @php
-    $typeLabels = ['tool' => 'Herramienta', 'equipment' => 'Equipo'];
     $conditionLabels = ['new' => 'Nuevo', 'used' => 'De segunda'];
 @endphp
 
 <tr data-row-id="{{ $asset->id }}">
     <td class="px-6 py-4">
-        <div class="font-semibold text-stone-900">{{ $asset->name }}</div>
+        <div class="whitespace-nowrap font-semibold text-stone-900">{{ $asset->name }}</div>
         <div class="text-stone-500">{{ $asset->purchase_date?->format('Y-m-d') ?: 'Sin fecha de compra' }}</div>
     </td>
     <td class="px-6 py-4 text-stone-600">
-        {{ $typeLabels[$asset->asset_type] ?? $asset->asset_type }}
+        {{ $asset->type?->name ?: $asset->asset_type }}
     </td>
     <td class="px-6 py-4 text-stone-600">
         {{ $conditionLabels[$asset->asset_condition] ?? $asset->asset_condition }}
     </td>
-    <td class="px-6 py-4 text-stone-900">
+    <td class="whitespace-nowrap px-6 py-4 text-stone-900">
         $ {{ number_format((float) $asset->purchase_value, 0, ',', '.') }}
     </td>
     <td class="px-6 py-4 text-stone-600">
-        <div>{{ number_format((int) ($asset->active_novelties_count ?? 0)) }} registros</div>
-        <div class="text-stone-500">Costo acumulado: $ {{ number_format((float) ($asset->active_novelties_cost_sum ?? 0), 0, ',', '.') }}</div>
+        <div class="app-three-line-text min-w-52">
+            <div>{{ number_format((int) ($asset->active_novelties_count ?? 0)) }} registros</div>
+            <div class="text-stone-500">Costo acumulado: $ {{ number_format((float) ($asset->active_novelties_cost_sum ?? 0), 0, ',', '.') }}</div>
+            <div class="text-stone-500">Fotos/videos: {{ number_format((int) ($asset->active_media_count ?? 0)) }}</div>
+        </div>
     </td>
     <td class="px-6 py-4">
         <div class="flex items-center justify-end gap-2">
+            <a
+                href="{{ route('assets.media.index', $asset) }}"
+                class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                title="Fotos y videos"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M1 5a2 2 0 012-2h2.586a1 1 0 01.707.293L8 5h9a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V5zm9 3a3 3 0 100 6 3 3 0 000-6zm-1 3a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd" />
+                </svg>
+            </a>
             <button
                 type="button"
                 data-action="create"
                 data-url="{{ route('assets.novelties.create', ['asset' => $asset] + request()->query()) }}"
                 data-title="Registrar novedad"
-                class="rounded-2xl border border-sky-200 p-2 text-sky-700 transition hover:bg-sky-50"
+                x-on:click.prevent.stop="openModal($el.dataset.url, $el.dataset.title)"
+                class="app-create-icon-button"
                 title="Registrar novedad"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

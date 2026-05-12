@@ -105,14 +105,14 @@ class ExpenseController extends Controller
             'company_id' => $project->company_id,
             'project_id' => $project->id,
             'category_id' => $data['category_id'],
-            'subcategory_id' => $data['subcategory_id'],
+            'subcategory_id' => $data['subcategory_id'] ?? null,
             'auxiliary_id' => $data['auxiliary_id'] ?? null,
             'provider_id' => $data['provider_id'] ?? null,
             'created_by' => $request->user()->id,
             'expense_number' => $data['expense_number'] ?? null,
             'expense_date' => $data['expense_date'],
             'payment_method' => $data['payment_method'] ?? null,
-            'description' => $data['description'],
+            'description' => $data['description'] ?? null,
             'subtotal_amount' => $data['subtotal_amount'],
             'tax_amount' => 0,
             'discount_amount' => 0,
@@ -167,13 +167,13 @@ class ExpenseController extends Controller
             'company_id' => $project->company_id,
             'project_id' => $project->id,
             'category_id' => $data['category_id'],
-            'subcategory_id' => $data['subcategory_id'],
+            'subcategory_id' => $data['subcategory_id'] ?? null,
             'auxiliary_id' => $data['auxiliary_id'] ?? null,
             'provider_id' => $data['provider_id'] ?? null,
             'expense_number' => $data['expense_number'] ?? null,
             'expense_date' => $data['expense_date'],
             'payment_method' => $data['payment_method'] ?? null,
-            'description' => $data['description'],
+            'description' => $data['description'] ?? null,
             'subtotal_amount' => $data['subtotal_amount'],
             'tax_amount' => 0,
             'discount_amount' => 0,
@@ -259,17 +259,17 @@ class ExpenseController extends Controller
         $projectsCollection->load([
             'company',
             'categories' => fn ($categoryQuery) => $categoryQuery
-                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->where('status', EntityStatus::Active->value)
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->with([
                     'subcategories' => fn ($subcategoryQuery) => $subcategoryQuery
-                        ->where('status', '!=', EntityStatus::Deleted->value)
+                        ->where('status', EntityStatus::Active->value)
                         ->orderBy('sort_order')
                         ->orderBy('name')
                         ->with([
                             'auxiliaries' => fn ($auxiliaryQuery) => $auxiliaryQuery
-                                ->where('status', '!=', EntityStatus::Deleted->value)
+                                ->where('status', EntityStatus::Active->value)
                                 ->orderBy('sort_order')
                                 ->orderBy('name'),
                         ]),
@@ -347,7 +347,7 @@ class ExpenseController extends Controller
                     $query->where('company_id', $companyId);
                 }
             }, fn ($query) => $query->where('company_id', $authUser->company_id))
-            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->where('status', EntityStatus::Active->value)
             ->orderBy('name')
             ->get();
     }
@@ -400,35 +400,60 @@ class ExpenseController extends Controller
 
     protected function guardExpenseHierarchy(array $data, Project $project): void
     {
-        $category = $project->categories()->whereKey($data['category_id'])->first();
+        $category = $project->categories()
+            ->whereKey($data['category_id'])
+            ->where('status', EntityStatus::Active->value)
+            ->first();
 
         if (! $category) {
             throw ValidationException::withMessages([
-                'category_id' => 'La categoría seleccionada no pertenece al proyecto.',
+                'category_id' => 'La categoría seleccionada no está activa o no pertenece al proyecto.',
             ]);
         }
 
-        $subcategory = $category->subcategories()->whereKey($data['subcategory_id'])->first();
+        if (empty($data['subcategory_id'])) {
+            if (! empty($data['auxiliary_id'])) {
+                throw ValidationException::withMessages([
+                    'auxiliary_id' => 'Selecciona una subcategoría antes de elegir un auxiliar.',
+                ]);
+            }
+
+            if (! empty($data['provider_id']) && ! $project->company->providers()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
+                throw ValidationException::withMessages([
+                    'provider_id' => 'El proveedor seleccionado no está activo o no pertenece a la empresa del proyecto.',
+                ]);
+            }
+
+            return;
+        }
+
+        $subcategory = $category->subcategories()
+            ->whereKey($data['subcategory_id'])
+            ->where('status', EntityStatus::Active->value)
+            ->first();
 
         if (! $subcategory) {
             throw ValidationException::withMessages([
-                'subcategory_id' => 'La subcategoría seleccionada no pertenece a la categoría indicada.',
+                'subcategory_id' => 'La subcategoría seleccionada no está activa o no pertenece a la categoría indicada.',
             ]);
         }
 
         if (! empty($data['auxiliary_id'])) {
-            $auxiliary = $subcategory->auxiliaries()->whereKey($data['auxiliary_id'])->first();
+            $auxiliary = $subcategory->auxiliaries()
+                ->whereKey($data['auxiliary_id'])
+                ->where('status', EntityStatus::Active->value)
+                ->first();
 
             if (! $auxiliary) {
                 throw ValidationException::withMessages([
-                    'auxiliary_id' => 'El auxiliar seleccionado no pertenece a la subcategoría indicada.',
+                    'auxiliary_id' => 'El auxiliar seleccionado no está activo o no pertenece a la subcategoría indicada.',
                 ]);
             }
         }
 
-        if (! empty($data['provider_id']) && ! $project->company->providers()->whereKey($data['provider_id'])->exists()) {
+        if (! empty($data['provider_id']) && ! $project->company->providers()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
             throw ValidationException::withMessages([
-                'provider_id' => 'El proveedor seleccionado no pertenece a la empresa del proyecto.',
+                'provider_id' => 'El proveedor seleccionado no está activo o no pertenece a la empresa del proyecto.',
             ]);
         }
     }

@@ -2,7 +2,7 @@
 
 <div class="space-y-2">
     <div class="flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ $title }}</h1>
+        <h1 class="app-page-title text-2xl font-semibold tracking-tight text-stone-900">{{ $title }}</h1>
         @if (trim($slot))
             <div class="flex flex-wrap items-center gap-2">
                 {{ $slot }}

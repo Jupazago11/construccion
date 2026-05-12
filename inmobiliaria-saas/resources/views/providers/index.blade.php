@@ -1,8 +1,8 @@
-<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }}, reloadOnMutate: true })" x-on:click="handleClick($event)">
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Proveedores" description="">
             @can('create', App\Models\Provider::class)
-                <button type="button" data-action="create" data-url="{{ route('providers.create') }}" data-title="Nuevo proveedor" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-xl font-semibold leading-none text-amber-900 transition hover:border-amber-300 hover:bg-amber-100" title="Nuevo proveedor">
+                <button type="button" data-action="create" data-url="{{ route('providers.create') }}" data-title="Nuevo proveedor" class="app-create-button" title="Nuevo proveedor">
                     +
                 </button>
             @endcan
@@ -54,7 +54,6 @@
                                 <th class="w-36 whitespace-nowrap px-6 py-4 font-medium">Fecha</th>
                                 <th class="px-6 py-4 font-medium">Proveedor</th>
                                 <th class="px-6 py-4 font-medium">Ubicación</th>
-                                <th class="px-6 py-4 font-medium">Empresa</th>
                                 <th class="px-6 py-4 font-medium">Contacto</th>
                                 <th class="px-6 py-4 font-medium">Estado</th>
                                 <th class="px-6 py-4 font-medium"></th>
@@ -65,7 +64,7 @@
                                 @include('providers._row', ['provider' => $provider])
                             @empty
                                 <tr data-empty-state>
-                                    <td colspan="7" class="px-6 py-10 text-center text-stone-500">
+                                    <td colspan="6" class="px-6 py-10 text-center text-stone-500">
                                         No se encontraron proveedores con los filtros actuales.
                                     </td>
                                 </tr>

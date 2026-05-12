@@ -7,7 +7,9 @@
     </td>
     <td class="w-72 px-6 py-4 text-stone-600">
         <div class="font-medium text-stone-700">{{ $expense->category?->name ?: 'Sin categoría' }}</div>
-        <div><span class="font-semibold text-stone-700">Sub:</span> {{ $expense->subcategory?->name ?: 'Sin subcategoría' }}</div>
+        @if ($expense->subcategory)
+            <div><span class="font-semibold text-stone-700">Sub:</span> {{ $expense->subcategory->name }}</div>
+        @endif
         @if ($expense->auxiliary)
             <div><span class="font-semibold text-stone-700">Aux:</span> {{ $expense->auxiliary->name }}</div>
         @endif
@@ -16,7 +18,7 @@
         {{ $expense->provider?->name ?: 'Sin proveedor' }}
     </td>
     <td class="px-6 py-4 text-stone-900">
-        {{ number_format((float) $expense->total_amount, 2, ',', '.') }}
+        $ {{ number_format((float) $expense->total_amount, 0, ',', '.') }}
     </td>
     <td class="px-6 py-4">
         <button

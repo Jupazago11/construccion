@@ -1,8 +1,8 @@
-<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }}, reloadOnMutate: true })" x-on:click="handleClick($event)">
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Usuarios" description="">
             @can('create', App\Models\User::class)
-                <button type="button" data-action="create" data-url="{{ route('users.create') }}" data-title="Nuevo usuario" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 text-xl font-semibold leading-none text-sky-900 transition hover:border-sky-300 hover:bg-sky-100" title="Nuevo usuario">
+                <button type="button" data-action="create" data-url="{{ route('users.create') }}" data-title="Nuevo usuario" class="app-create-button" title="Nuevo usuario">
                     +
                 </button>
             @endcan

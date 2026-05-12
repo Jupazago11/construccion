@@ -10,9 +10,6 @@
         {{ $provider->location ?: 'Sin ubicación' }}
     </td>
     <td class="px-6 py-4 text-stone-600">
-        {{ $provider->company?->name ?: 'Sin empresa' }}
-    </td>
-    <td class="px-6 py-4 text-stone-600">
         <div>{{ $provider->email ?: 'Sin correo' }}</div>
         <div>{{ $provider->phone ?: 'Sin teléfono' }}</div>
     </td>

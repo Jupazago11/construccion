@@ -15,6 +15,8 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'r2_root_prefix' => trim(env('R2_ROOT_PREFIX', 'inmobiliaria-saas'), '/'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -69,8 +71,8 @@ return [
             'url' => env('R2_URL', env('AWS_URL')),
             'endpoint' => env('R2_ENDPOINT', env('AWS_ENDPOINT')),
             'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
-            'throw' => false,
-            'report' => false,
+            'throw' => true,
+            'report' => true,
         ],
 
     ],

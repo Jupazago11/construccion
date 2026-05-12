@@ -6,6 +6,12 @@ $classes = ($active ?? false)
             : 'block w-full touch-manipulation ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-stone-600 active:bg-stone-50 active:text-stone-900 focus:outline-none focus:text-stone-800 focus:bg-stone-50 focus:border-stone-300 transition duration-150 ease-in-out';
 @endphp
 
-<a {{ $attributes->merge(['class' => $classes, 'data-mobile-nav-link' => true]) }}>
+<a
+    {{ $attributes->merge(['class' => $classes]) }}
+    @if (! $attributes->has('onclick'))
+        onclick="event.preventDefault(); window.location.assign(this.href);"
+        onpointerup="if (event.pointerType !== 'mouse') { event.preventDefault(); window.location.assign(this.href); }"
+    @endif
+>
     {{ $slot }}
 </a>

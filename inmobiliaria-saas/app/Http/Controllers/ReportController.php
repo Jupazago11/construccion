@@ -39,16 +39,11 @@ class ReportController extends Controller
             ->get()
             ->keyBy('project_id');
 
-        $projectId = $request->integer('project_id') ?: null;
-
-        if (! $projectId && $projects->count() === 1) {
-            $projectId = $projects->first()->id;
-        }
-
-        $selectedProject = $projectId
-            ? $projects->firstWhere('id', $projectId)
+        $requestedProjectId = $request->integer('project_id') ?: null;
+        $selectedProject = $requestedProjectId
+            ? $projects->firstWhere('id', $requestedProjectId)
             : null;
-        $requiresProjectSelection = $projects->count() > 1 && ! $selectedProject;
+        $projectId = $selectedProject?->id;
 
         $selectedProjectRange = $projectId ? $projectRanges->get($projectId) : null;
         $oldestExpenseDate = $selectedProjectRange?->oldest_expense_date
@@ -67,13 +62,15 @@ class ReportController extends Controller
         $baseQuery = Expense::query()
             ->where('expenses.status', EntityStatus::Active->value)
             ->when($companyId, fn ($query) => $query->where('expenses.company_id', $companyId))
-            ->when($projectId, fn ($query) => $query->where('expenses.project_id', $projectId))
+            ->when(
+                $projectId,
+                fn ($query) => $query->where('expenses.project_id', $projectId),
+                fn ($query) => $query->whereRaw('1 = 0'),
+            )
             ->when($dateFrom !== '', fn ($query) => $query->whereDate('expenses.expense_date', '>=', $dateFrom))
             ->when($dateTo !== '', fn ($query) => $query->whereDate('expenses.expense_date', '<=', $dateTo));
 
-        $detailQuery = $requiresProjectSelection
-            ? Expense::query()->whereRaw('1 = 0')
-            : clone $baseQuery;
+        $detailQuery = clone $baseQuery;
 
         $summary = [
             'total_amount' => (clone $baseQuery)->sum('expenses.total_amount'),
@@ -81,13 +78,6 @@ class ReportController extends Controller
             'projects_count' => (clone $baseQuery)->distinct('expenses.project_id')->count('expenses.project_id'),
             'average_ticket' => (clone $baseQuery)->avg('expenses.total_amount') ?: 0,
         ];
-
-        $totalsByProject = (clone $detailQuery)
-            ->join('projects', 'projects.id', '=', 'expenses.project_id')
-            ->selectRaw('projects.id, projects.name, SUM(expenses.total_amount) as total_amount, COUNT(expenses.id) as expenses_count')
-            ->groupBy('projects.id', 'projects.name')
-            ->orderByDesc('total_amount')
-            ->get();
 
         $totalsByCategory = (clone $detailQuery)
             ->join('categories', 'categories.id', '=', 'expenses.category_id')
@@ -131,14 +121,12 @@ class ReportController extends Controller
 
         return view('reports.index', [
             'summary' => $summary,
-            'totalsByProject' => $totalsByProject,
             'totalsByCategory' => $totalsByCategory,
             'totalsBySubcategory' => $totalsBySubcategory,
             'totalsByAuxiliary' => $totalsByAuxiliary,
             'seriesByDate' => $seriesByDate,
             'history' => $history,
             'selectedProject' => $selectedProject,
-            'requiresProjectSelection' => $requiresProjectSelection,
             'companies' => $user->isSuperAdmin()
                 ? Company::query()->where('status', '!=', EntityStatus::Deleted->value)->orderBy('name')->get()
                 : collect(),

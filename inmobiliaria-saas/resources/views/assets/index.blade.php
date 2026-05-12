@@ -2,7 +2,7 @@
     <x-slot name="header">
         <x-page-header title="Activos" description="">
             @can('create', App\Models\Asset::class)
-                <button type="button" data-action="create" data-url="{{ route('assets.create', request()->query()) }}" data-title="Nuevo activo" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-xl font-semibold leading-none text-emerald-900 transition hover:border-emerald-300 hover:bg-emerald-100" title="Nuevo activo">
+                <button type="button" data-action="create" data-url="{{ route('assets.create', request()->query()) }}" data-title="Nuevo activo" class="app-create-button" title="Nuevo activo">
                     +
                 </button>
             @endcan

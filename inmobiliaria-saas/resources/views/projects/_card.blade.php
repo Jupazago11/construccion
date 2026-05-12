@@ -3,10 +3,6 @@
         ? ['planning', 'active', 'paused', 'completed', 'cancelled', 'deleted']
         : ['planning', 'active', 'paused', 'completed', 'cancelled'];
     $canDeleteProject = (($project->active_categories_count ?? 0) === 0) && (($project->active_expenses_count ?? 0) === 0);
-    $isPastelProject = (($loop->index ?? $project->id) % 2) === 0;
-    $projectTheme = $isPastelProject
-        ? 'border-sky-200 bg-sky-50/40 hover:border-sky-300'
-        : 'border-stone-200 bg-white hover:border-stone-300';
 
     $elapsedTime = null;
 
@@ -30,15 +26,15 @@
     }
 @endphp
 
-<article data-row-id="{{ $project->id }}" class="rounded-3xl border {{ $projectTheme }} p-6 shadow-sm transition hover:shadow-md">
-    <div class="flex flex-col gap-4">
-        <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0 space-y-1">
-                <h3 class="break-words text-xl font-semibold text-stone-900">{{ $project->name }}</h3>
-                <p class="text-sm text-stone-500">{{ $project->project_type ?: 'Sin tipo definido' }}</p>
+<article data-row-id="{{ $project->id }}" class="rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:border-stone-300 hover:shadow-md">
+    <div class="flex h-full flex-col">
+        <div class="flex items-start justify-between gap-4 border-b border-stone-100 px-5 py-4">
+            <div class="min-w-0">
+                <h3 class="break-words text-base font-semibold leading-6 text-stone-950">{{ $project->name }}</h3>
+                <p class="mt-1 text-sm text-stone-500">{{ $project->project_type ?: 'Sin tipo definido' }}</p>
             </div>
 
-            <div class="flex shrink-0 items-center gap-2">
+            <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
                     type="button"
                     data-action="status-modal"
@@ -48,7 +44,20 @@
                     data-entity-label="proyecto"
                     title="Cambiar estado"
                 >
-                    <x-status-badge :value="$project->status" class="cursor-pointer transition hover:opacity-80" />
+                    <x-status-badge :value="$project->status" class="cursor-pointer transition hover:opacity-85" />
+                </button>
+
+                <button
+                    type="button"
+                    data-action="edit"
+                    data-url="{{ route('projects.edit', $project) }}"
+                    data-title="Editar proyecto"
+                    class="rounded-xl border border-stone-200 bg-white p-2 text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900"
+                    title="Editar"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M17.414 2.586a2 2 0 010 2.828l-8.5 8.5a2 2 0 01-.878.497l-3 1a1 1 0 01-1.265-1.265l1-3a2 2 0 01.497-.878l8.5-8.5a2 2 0 012.828 0z" />
+                    </svg>
                 </button>
 
                 @if ($canDeleteProject)
@@ -57,7 +66,7 @@
                         data-action="delete"
                         data-url="{{ route('projects.destroy', $project) }}"
                         data-confirm-message="¿Deseas archivar este proyecto? Solo se permite si no tiene dependencias."
-                        class="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-rose-700 transition hover:bg-rose-100"
+                        class="rounded-xl border border-stone-200 bg-white p-2 text-stone-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
                         title="Eliminar"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -68,57 +77,42 @@
             </div>
         </div>
 
-        <div class="grid gap-4 text-sm text-stone-600 sm:grid-cols-2">
-            <div class="rounded-2xl bg-white/85 px-4 py-3 ring-1 ring-stone-200">
-                <p class="text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Ubicacion</p>
-                <p class="mt-2">{{ $project->city ?: 'Sin ciudad' }}</p>
-                <p>{{ $project->country ?: 'Sin pais' }}</p>
+        <div class="grid gap-0 border-b border-stone-100 text-sm sm:grid-cols-2">
+            <div class="border-b border-stone-100 px-5 py-4 sm:border-b-0 sm:border-r">
+                <p class="text-xs font-medium uppercase tracking-wide text-stone-400">Ubicación</p>
+                <p class="mt-1 font-medium text-stone-800">{{ $project->city ?: 'Sin ciudad' }}</p>
+                <p class="text-stone-500">{{ $project->country ?: 'Sin país' }}</p>
             </div>
 
-            <div class="rounded-2xl bg-white/85 px-4 py-3 ring-1 ring-stone-200">
-                <p class="text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Inicio</p>
-                <p class="mt-2">{{ $project->start_date?->format('Y-m-d') ?: 'Sin fecha' }}</p>
+            <div class="px-5 py-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-stone-400">Inicio</p>
+                <p class="mt-1 font-medium text-stone-800">{{ $project->start_date?->format('Y-m-d') ?: 'Sin fecha' }}</p>
                 @if ($elapsedTime)
-                    <p class="mt-1 text-xs font-semibold text-stone-600">Tiempo: {{ $elapsedTime }}</p>
+                    <p class="mt-1 text-xs text-stone-500">Tiempo: {{ $elapsedTime }}</p>
                 @endif
             </div>
         </div>
 
         @if ($project->description)
-            <div class="rounded-2xl border border-stone-200 bg-white/85 px-4 py-3 text-sm text-stone-600">
+            <div class="border-b border-stone-100 px-5 py-4 text-sm leading-6 text-stone-600">
                 {{ $project->description }}
             </div>
         @endif
 
-        <div class="grid grid-cols-2 gap-3 border-t border-stone-200 pt-4">
-            <a
-                href="{{ route('expenses.index', ['project_id' => $project->id]) }}"
-                class="inline-flex min-w-0 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900 transition hover:border-rose-300 hover:bg-rose-100"
-            >
-                Gastos
-            </a>
-
+        <div class="mt-auto grid gap-2 px-5 py-4">
             <a
                 href="{{ route('projects.categories.index', $project) }}"
-                class="inline-flex min-w-0 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900 transition hover:border-sky-300 hover:bg-sky-100"
+                class="inline-flex min-w-0 items-center justify-center rounded-xl border border-sky-700 bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-sky-800 hover:bg-sky-800"
             >
                 Ver Proyecto
             </a>
-        </div>
 
-        <div class="flex justify-end">
-            <button
-                type="button"
-                data-action="edit"
-                data-url="{{ route('projects.edit', $project) }}"
-                data-title="Editar proyecto"
-                class="rounded-2xl border border-amber-200 bg-amber-50 p-2 text-amber-800 transition hover:bg-amber-100"
-                title="Editar"
+            <a
+                href="{{ route('expenses.index', ['project_id' => $project->id]) }}"
+                class="inline-flex min-w-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-800 transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-900"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M17.414 2.586a2 2 0 010 2.828l-8.5 8.5a2 2 0 01-.878.497l-3 1a1 1 0 01-1.265-1.265l1-3a2 2 0 01.497-.878l8.5-8.5a2 2 0 012.828 0z" />
-                </svg>
-            </button>
+                Gastos
+            </a>
         </div>
     </div>
 </article>

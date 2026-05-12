@@ -6,139 +6,12 @@ import Chart from 'chart.js/auto';
 window.Alpine = Alpine;
 window.Chart = Chart;
 
-const closestFromEvent = (event, selector) => {
-    if (! (event.target instanceof Element)) {
-        return null;
-    }
-
-    return event.target.closest(selector);
-};
-
-const logMobileTap = (scope, payload = {}) => {
-    const entry = {
-        time: new Date().toISOString(),
-        href: window.location.href,
-        ...payload,
-    };
-
-    const storageKey = 'inmobiliaria-mobile-tap-debug';
-    const entries = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
-    entries.push({ scope, ...entry });
-    window.localStorage.setItem(storageKey, JSON.stringify(entries.slice(-30)));
-
-    console.log(`[${scope}]`, entry);
-};
-
-window.showMobileTapDebug = () => JSON.parse(window.localStorage.getItem('inmobiliaria-mobile-tap-debug') || '[]');
-window.clearMobileTapDebug = () => window.localStorage.removeItem('inmobiliaria-mobile-tap-debug');
-
-let syntheticActionClick = false;
-let lastTouchActionClickAt = 0;
-
-document.addEventListener('touchend', (event) => {
-    const actionButton = closestFromEvent(event, '[data-action]');
-
-    if (! actionButton || actionButton.disabled) {
-        return;
-    }
-
-    logMobileTap('mobile-action-debug:touchend', {
-        action: actionButton.dataset.action,
-        title: actionButton.dataset.title,
-        url: actionButton.dataset.url,
-        tag: actionButton.tagName,
-    });
-
-    event.preventDefault();
-    lastTouchActionClickAt = Date.now();
-    syntheticActionClick = true;
-    actionButton.dispatchEvent(new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-    }));
-    syntheticActionClick = false;
-}, { passive: false });
-
-document.addEventListener('click', (event) => {
-    if (syntheticActionClick) {
-        const actionButton = closestFromEvent(event, '[data-action]');
-
-        logMobileTap('mobile-action-debug:synthetic-click', {
-            action: actionButton?.dataset.action,
-            tag: actionButton?.tagName,
-        });
-
-        return;
-    }
-
-    const actionButton = closestFromEvent(event, '[data-action]');
-
-    if (! actionButton) {
-        return;
-    }
-
-    if (Date.now() - lastTouchActionClickAt < 700) {
-        logMobileTap('mobile-action-debug:block-ghost-click', {
-            action: actionButton.dataset.action,
-            tag: actionButton.tagName,
-        });
-
-        event.preventDefault();
-        event.stopImmediatePropagation();
-    }
-}, true);
-
-document.addEventListener('touchend', (event) => {
-    const link = closestFromEvent(event, 'a[data-mobile-nav-link]');
-
-    if (! link) {
-        return;
-    }
-
-    const targetUrl = new URL(link.href);
-    const targetPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
-
-    logMobileTap('mobile-nav-debug:touchend', {
-        text: link.textContent.trim(),
-        targetHref: link.href,
-        targetPath,
-        hasForm: Boolean(link.closest('form')),
-        defaultPreventedBefore: event.defaultPrevented,
-    });
-
-    event.preventDefault();
-
-    const form = link.closest('form');
-
-    if (form) {
-        logMobileTap('mobile-nav-debug:submit-form', {
-            text: link.textContent.trim(),
-            action: form.action,
-        });
-
-        if (typeof form.requestSubmit === 'function') {
-            form.requestSubmit();
-        } else {
-            form.submit();
-        }
-
-        return;
-    }
-
-    logMobileTap('mobile-nav-debug:navigate', {
-        text: link.textContent.trim(),
-        targetHref: link.href,
-        targetPath,
-    });
-
-    window.location.assign(targetPath);
-}, { passive: false });
-
 Alpine.data('crudTable', (config = {}) => ({
     modalOpen: false,
     modalTitle: '',
     modalHtml: '',
+    modalUrl: '',
+    nestedModalOpen: false,
     loading: false,
     saving: false,
     error: null,
@@ -152,6 +25,20 @@ Alpine.data('crudTable', (config = {}) => ({
         if (this.config.flash) {
             this.showToast(this.config.flash);
         }
+
+        window.addEventListener('crud-toast', (event) => {
+            this.showToast(event.detail?.message, event.detail?.type ?? 'success');
+        });
+
+        window.addEventListener('asset-type-manager-closed', (event) => {
+            this.refreshOpenModalPreservingForm(event.detail?.values ?? null, true);
+        });
+
+        window.addEventListener('asset-type-manager-opened', () => {
+            if (this.modalOpen) {
+                this.nestedModalOpen = true;
+            }
+        });
     },
 
     shouldReloadAfterMutation() {
@@ -163,8 +50,13 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 
     async openModal(url, title) {
+        if (this.loading) {
+            return;
+        }
+
         this.modalOpen = true;
         this.modalTitle = title;
+        this.modalUrl = url;
         this.loading = true;
         this.error = null;
 
@@ -197,13 +89,128 @@ Alpine.data('crudTable', (config = {}) => ({
         this.modalOpen = false;
         this.modalTitle = '';
         this.modalHtml = '';
+        this.modalUrl = '';
+        this.nestedModalOpen = false;
         this.error = null;
+    },
+
+    async refreshOpenModalPreservingForm(values = null, revealWhenDone = false) {
+        if (! this.modalOpen || ! this.modalUrl || this.loading) {
+            if (revealWhenDone) {
+                this.nestedModalOpen = false;
+            }
+
+            return;
+        }
+
+        const preservedValues = values ?? this.collectModalFormValues();
+
+        this.loading = true;
+        this.error = null;
+
+        try {
+            const response = await window.axios.get(this.modalUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html, application/xhtml+xml',
+                },
+            });
+
+            this.modalHtml = response.data;
+            this.$nextTick(() => {
+                if (! this.$refs.modalContent) {
+                    return;
+                }
+
+                Alpine.initTree(this.$refs.modalContent);
+                window.initializeExpenseForms?.(this.$refs.modalContent);
+                window.initializeAssetForms?.(this.$refs.modalContent);
+
+                window.requestAnimationFrame(() => {
+                    this.restoreModalFormValues(preservedValues);
+                });
+            });
+        } catch (error) {
+            this.error = this.resolveErrorMessage(error, 'No fue posible actualizar el formulario.');
+            this.showToast(this.error, 'error');
+        } finally {
+            this.loading = false;
+            if (revealWhenDone) {
+                this.nestedModalOpen = false;
+            }
+        }
+    },
+
+    collectModalFormValues() {
+        const form = this.$refs.modalContent?.querySelector('form[data-ajax-form]');
+
+        if (! form) {
+            return [];
+        }
+
+        return this.collectFormValues(form);
+    },
+
+    collectFormValues(form) {
+        return Array.from(form.elements)
+            .filter((field) => field.name && field.type !== 'file')
+            .map((field) => ({
+                name: field.name,
+                type: field.type,
+                value: field.value,
+                checked: field.checked,
+            }));
+    },
+
+    restoreModalFormValues(values) {
+        const form = this.$refs.modalContent?.querySelector('form[data-ajax-form]');
+
+        if (! form || values.length === 0) {
+            return;
+        }
+
+        values.forEach((savedField) => {
+            const fields = Array.from(form.elements).filter((field) => field.name === savedField.name);
+
+            fields.forEach((field) => {
+                if (field.type === 'file') {
+                    return;
+                }
+
+                if (field.tagName === 'SELECT') {
+                    const hasOption = Array.from(field.options).some((option) => option.value === savedField.value && ! option.disabled);
+
+                    if (! hasOption) {
+                        return;
+                    }
+                }
+
+                if (field.type === 'checkbox' || field.type === 'radio') {
+                    field.checked = savedField.checked;
+                } else {
+                    field.value = savedField.value;
+                }
+
+                if (field.matches('[data-currency-input]')) {
+                    syncFormattedMoneyInput(field);
+                }
+
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
     },
 
     async submitForm(event) {
         const form = event.target.closest('form[data-ajax-form]');
 
         if (! form) {
+            return;
+        }
+
+        const openStructureModal = form.querySelector('[data-expense-structure-modal]:not(.hidden)');
+
+        if (openStructureModal && openStructureModal.contains(document.activeElement)) {
             return;
         }
 
@@ -228,11 +235,16 @@ Alpine.data('crudTable', (config = {}) => ({
             }
 
             this.applyRowChange(response.data);
+            form.reset();
             this.closeModal();
             this.showToast(response.data.message ?? 'Operación realizada correctamente.');
         } catch (error) {
             if (error.response?.status === 422 && error.response.data?.errors) {
                 this.applyFormErrors(form, error.response.data.errors);
+                this.showToast(
+                    Object.values(error.response.data.errors).flat()[0] ?? 'Revisa la información enviada.',
+                    'error',
+                );
             } else {
                 this.error = this.resolveErrorMessage(error, 'No fue posible guardar la información.');
                 this.showToast(this.error, 'error');
@@ -250,6 +262,7 @@ Alpine.data('crudTable', (config = {}) => ({
         }
 
         event.preventDefault();
+        event.stopPropagation();
 
         const action = button.dataset.action;
 
@@ -460,7 +473,12 @@ Alpine.data('crudTable', (config = {}) => ({
                 return;
             }
 
-            this.removeRow(response.data.id);
+            this.applyRowChange(response.data);
+
+            if (! response.data.row_html) {
+                this.removeRow(response.data.id);
+            }
+
             this.showToast(response.data.message ?? 'Registro eliminado correctamente.');
         } catch (error) {
             this.showToast(this.resolveErrorMessage(error, 'No fue posible eliminar el registro.'), 'error');
@@ -474,11 +492,51 @@ Alpine.data('crudTable', (config = {}) => ({
 
         if (payload.attachments_html && this.$refs.attachments) {
             this.$refs.attachments.innerHTML = payload.attachments_html;
+            Alpine.initTree(this.$refs.attachments);
+        }
+
+        if (payload.modal_html) {
+            this.modalHtml = payload.modal_html;
+            this.$nextTick(() => {
+                if (this.$refs.modalContent) {
+                    Alpine.initTree(this.$refs.modalContent);
+                    window.initializeExpenseForms?.(this.$refs.modalContent);
+                    window.initializeAssetForms?.(this.$refs.modalContent);
+                }
+            });
         }
 
         if (payload.structure_html && this.$refs.structure) {
-            this.$refs.structure.innerHTML = payload.structure_html;
-            this.$nextTick(() => Alpine.initTree(this.$refs.structure));
+            const currentStructure = this.$refs.structure.querySelector('[data-project-structure-root]');
+            const selectedCategoryId = currentStructure?.dataset.selectedCategoryId
+                || window.projectStructureSelection?.selectedCategoryId
+                || '';
+            const selectedSubcategoryId = currentStructure?.dataset.selectedSubcategoryId
+                || window.projectStructureSelection?.selectedSubcategoryId
+                || '';
+            const preservedScroll = collectPreservedScroll(this.$refs.structure);
+            const scrollY = window.scrollY;
+            const template = document.createElement('template');
+
+            template.innerHTML = payload.structure_html.trim();
+
+            const nextStructure = template.content.firstElementChild;
+
+            if (! nextStructure) {
+                return;
+            }
+
+            nextStructure.dataset.initialSelectedCategoryId = selectedCategoryId;
+            nextStructure.dataset.initialSelectedSubcategoryId = selectedSubcategoryId;
+            this.$refs.structure.replaceChildren(nextStructure);
+            this.$nextTick(() => {
+                Alpine.initTree(nextStructure);
+                window.initializeProjectStructureSorting?.(nextStructure);
+                window.requestAnimationFrame(() => {
+                    restorePreservedScroll(this.$refs.structure, preservedScroll);
+                    window.scrollTo({ top: scrollY });
+                });
+            });
             return;
         }
 
@@ -509,6 +567,8 @@ Alpine.data('crudTable', (config = {}) => ({
         } else {
             tbody.prepend(newRow);
         }
+
+        Alpine.initTree(newRow);
     },
 
     removeRow(id) {
@@ -567,6 +627,10 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 
     resolveErrorMessage(error, fallback) {
+        if (error.response?.status === 403) {
+            return 'No tienes autorización para realizar esta acción.';
+        }
+
         return error.response?.data?.message
             || error.message
             || fallback;
@@ -627,6 +691,348 @@ Alpine.data('reportsPage', () => ({
         } finally {
             this.historyLoading = false;
         }
+    },
+}));
+
+Alpine.data('projectStructureState', () => ({
+    selectedCategoryId: null,
+    selectedSubcategoryId: null,
+
+    restoreSelection(element) {
+        this.selectedCategoryId = Number(element.dataset.initialSelectedCategoryId || element.dataset.selectedCategoryId) || null;
+        this.selectedSubcategoryId = Number(element.dataset.initialSelectedSubcategoryId || element.dataset.selectedSubcategoryId) || null;
+        this.persistSelection(element);
+    },
+
+    persistSelection(element) {
+        element.dataset.selectedCategoryId = this.selectedCategoryId ?? '';
+        element.dataset.selectedSubcategoryId = this.selectedSubcategoryId ?? '';
+        window.projectStructureSelection = {
+            selectedCategoryId: element.dataset.selectedCategoryId,
+            selectedSubcategoryId: element.dataset.selectedSubcategoryId,
+        };
+    },
+}));
+
+Alpine.data('assetTypeManager', (config = {}) => ({
+    types: config.types ?? [],
+    selectedTypeId: String(config.selectedTypeId ?? ''),
+    previousTypeId: String(config.selectedTypeId ?? ''),
+    companyId: String(config.initialCompanyId ?? ''),
+    entityName: config.entityName ?? 'activo',
+    storeUrl: config.storeUrl,
+    indexUrl: config.indexUrl,
+    managerOpen: false,
+    managerSaving: false,
+    managerLoading: false,
+    managerError: '',
+    draft: {
+        id: null,
+        name: '',
+        adds_value: true,
+        status: 'active',
+        update_url: '',
+        delete_url: '',
+    },
+
+    init() {
+        this.normalizeTypeSelection();
+    },
+
+    get activeTypes() {
+        return this.types.filter((type) => type.status === 'active');
+    },
+
+    get selectedType() {
+        return this.types.find((type) => String(type.id) === String(this.selectedTypeId)) ?? null;
+    },
+
+    get selectedTypeAddsValue() {
+        return this.selectedType?.adds_value !== false;
+    },
+
+    handleTypeChange(event) {
+        if (event.target.value === '__manage__') {
+            this.selectedTypeId = this.previousTypeId || '';
+            this.openManager();
+            return;
+        }
+
+        this.previousTypeId = this.selectedTypeId;
+    },
+
+    openManager() {
+        this.managerOpen = true;
+        this.managerError = '';
+        this.resetDraft();
+        window.dispatchEvent(new CustomEvent('asset-type-manager-opened'));
+        this.$nextTick(() => {
+            this.loadTypes(true);
+        });
+    },
+
+    closeManager() {
+        const form = this.$root.closest('form[data-ajax-form]');
+        const values = form
+            ? Array.from(form.elements)
+                .filter((field) => field.name && field.type !== 'file')
+                .map((field) => ({
+                    name: field.name,
+                    type: field.type,
+                    value: field.value,
+                    checked: field.checked,
+                }))
+            : [];
+
+        this.managerOpen = false;
+        this.resetDraft();
+        window.dispatchEvent(new CustomEvent('asset-type-manager-closed', {
+            detail: { values },
+        }));
+    },
+
+    resetDraft() {
+        this.managerError = '';
+        this.draft = {
+            id: null,
+            name: '',
+            adds_value: true,
+            status: 'active',
+            update_url: '',
+            delete_url: '',
+        };
+    },
+
+    editType(type) {
+        this.managerError = '';
+        this.draft = {
+            id: type.id,
+            name: type.name,
+            adds_value: Boolean(type.adds_value),
+            status: type.status,
+            update_url: type.update_url,
+            delete_url: type.delete_url,
+        };
+    },
+
+    async loadTypes(showLoading = false) {
+        if (! this.companyId || ! this.indexUrl) {
+            this.types = [];
+            this.selectedTypeId = '';
+            this.previousTypeId = '';
+            return;
+        }
+
+        if (showLoading) {
+            this.managerLoading = true;
+        }
+
+        const startedAt = Date.now();
+        try {
+            const response = await window.axios.get(this.indexUrl, {
+                params: { company_id: this.companyId },
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            this.applyTypes(response.data.types ?? []);
+        } catch (error) {
+            this.managerError = error.response?.data?.message || error.message || 'No fue posible cargar los tipos.';
+        } finally {
+            if (! showLoading) {
+                this.managerLoading = false;
+                return;
+            }
+
+            const elapsed = Date.now() - startedAt;
+            const remaining = Math.max(0, 1000 - elapsed);
+
+            window.setTimeout(() => {
+                this.managerLoading = false;
+            }, remaining);
+        }
+    },
+
+    async saveType() {
+        if (! this.draft.name.trim()) {
+            this.managerError = 'Escribe el nombre del tipo.';
+            return;
+        }
+
+        if (! this.companyId) {
+            this.managerError = 'Selecciona una empresa antes de crear tipos.';
+            return;
+        }
+
+        this.managerSaving = true;
+        this.managerError = '';
+
+        try {
+            const payload = {
+                company_id: this.companyId,
+                name: this.draft.name.trim(),
+                adds_value: this.draft.adds_value ? 1 : 0,
+                status: this.draft.status,
+            };
+
+            const response = this.draft.id
+                ? await window.axios.patch(this.draft.update_url, payload, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                : await window.axios.post(this.storeUrl, payload, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+            this.applyTypes(response.data.types ?? []);
+
+            if (! this.draft.id) {
+                const created = this.types.find((type) => type.name.toLowerCase() === payload.name.toLowerCase());
+                if (created?.status === 'active') {
+                    this.selectedTypeId = String(created.id);
+                    this.previousTypeId = this.selectedTypeId;
+                }
+            }
+
+            this.resetDraft();
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: response.data.message ?? 'Tipo actualizado correctamente.' },
+            }));
+        } catch (error) {
+            this.managerError = error.response?.data?.message
+                || Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                || error.message
+                || 'No fue posible guardar el tipo.';
+        } finally {
+            this.managerSaving = false;
+        }
+    },
+
+    async quickUpdateType(type, changes, event = null) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+
+        if (! type?.update_url) {
+            return;
+        }
+
+        const previousType = { ...type };
+        const nextType = {
+            ...type,
+            ...(Object.prototype.hasOwnProperty.call(changes, 'adds_value')
+                ? { adds_value: Boolean(changes.adds_value) }
+                : {}),
+            ...(Object.prototype.hasOwnProperty.call(changes, 'status')
+                ? { status: changes.status }
+                : {}),
+        };
+
+        this.updateTypeInPlace(nextType);
+        this.managerOpen = true;
+        this.managerSaving = true;
+        this.managerError = '';
+
+        try {
+            const response = await window.axios.patch(nextType.update_url, {
+                company_id: this.companyId,
+                name: nextType.name,
+                adds_value: nextType.adds_value ? 1 : 0,
+                status: nextType.status,
+            }, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const savedType = (response.data.types ?? [])
+                .find((currentType) => String(currentType.id) === String(nextType.id));
+
+            if (savedType) {
+                this.updateTypeInPlace(savedType);
+            }
+
+            this.managerOpen = true;
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: response.data.message ?? 'Tipo actualizado correctamente.' },
+            }));
+        } catch (error) {
+            this.updateTypeInPlace(previousType);
+            this.managerOpen = true;
+            this.managerError = error.response?.data?.message
+                || Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                || error.message
+                || 'No fue posible actualizar el tipo.';
+        } finally {
+            this.managerSaving = false;
+        }
+    },
+
+    updateTypeInPlace(nextType) {
+        const index = this.types.findIndex((currentType) => String(currentType.id) === String(nextType.id));
+
+        if (index === -1) {
+            return;
+        }
+
+        this.types[index] = { ...this.types[index], ...nextType };
+        this.types = [...this.types];
+
+        this.normalizeTypeSelection();
+    },
+
+    normalizeTypeSelection() {
+        if (! this.selectedType || this.selectedType.status !== 'active') {
+            this.selectedTypeId = this.activeTypes.length > 0 ? String(this.activeTypes[0].id) : '';
+        }
+
+        this.previousTypeId = this.selectedTypeId;
+    },
+
+    async deleteType(type) {
+        if (! type.can_delete) {
+            this.managerError = `No puedes eliminar un tipo que ya tiene ${this.entityName === 'novedad' ? 'novedades' : 'activos'} asociados.`;
+            return;
+        }
+
+        if (! window.confirm(`¿Deseas eliminar este tipo de ${this.entityName}?`)) {
+            return;
+        }
+
+        this.managerSaving = true;
+        this.managerError = '';
+
+        try {
+            const response = await window.axios.delete(type.delete_url, {
+                params: { company_id: this.companyId },
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            this.applyTypes(response.data.types ?? []);
+            this.resetDraft();
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: response.data.message ?? 'Tipo eliminado correctamente.' },
+            }));
+        } catch (error) {
+            this.managerError = error.response?.data?.message || error.message || 'No fue posible eliminar el tipo.';
+        } finally {
+            this.managerSaving = false;
+        }
+    },
+
+    applyTypes(types) {
+        this.types = types;
+        this.normalizeTypeSelection();
     },
 }));
 
@@ -751,20 +1157,24 @@ window.initializeExpenseForms = (root = document) => {
         const selected = JSON.parse(selectedNode.textContent || '{}');
 
         const projects = (payload.projects ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
-        const categories = (payload.categories ?? []).map((item) => ({ ...item, id: String(item.id), project_id: String(item.project_id) }));
-        const subcategories = (payload.subcategories ?? []).map((item) => ({
+        const normalizeCategories = (items = []) => items.map((item) => ({ ...item, id: String(item.id), project_id: String(item.project_id) }));
+        const normalizeSubcategories = (items = []) => items.map((item) => ({
             ...item,
             id: String(item.id),
             project_id: String(item.project_id),
             category_id: String(item.category_id),
         }));
-        const auxiliaries = (payload.auxiliaries ?? []).map((item) => ({
+        const normalizeAuxiliaries = (items = []) => items.map((item) => ({
             ...item,
             id: String(item.id),
             project_id: String(item.project_id),
             category_id: String(item.category_id),
             subcategory_id: String(item.subcategory_id),
         }));
+
+        let categories = normalizeCategories(payload.categories ?? []);
+        let subcategories = normalizeSubcategories(payload.subcategories ?? []);
+        let auxiliaries = normalizeAuxiliaries(payload.auxiliaries ?? []);
         const providers = (payload.providers ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
 
         const projectField = form.querySelector('[data-expense-project]');
@@ -774,11 +1184,21 @@ window.initializeExpenseForms = (root = document) => {
         const subcategoryWrapper = form.querySelector('[data-expense-subcategory-wrapper]');
         const subcategoryField = form.querySelector('[data-expense-subcategory]');
         const subcategoryCards = form.querySelector('[data-expense-subcategory-cards]');
+        const subcategoryEmpty = form.querySelector('[data-expense-subcategory-empty]');
         const auxiliaryWrapper = form.querySelector('[data-expense-auxiliary-wrapper]');
         const auxiliaryField = form.querySelector('[data-expense-auxiliary]');
         const auxiliaryCards = form.querySelector('[data-expense-auxiliary-cards]');
         const providerField = form.querySelector('[data-expense-provider]');
         const subtotalField = form.querySelector('#subtotal_amount');
+        const createStructureButtons = [...form.querySelectorAll('[data-expense-create-structure]')];
+        const structureModal = form.querySelector('[data-expense-structure-modal]');
+        const structureTitle = form.querySelector('[data-structure-modal-title]');
+        const structureContext = form.querySelector('[data-structure-modal-context]');
+        const structureAlert = form.querySelector('[data-structure-modal-alert]');
+        const structureNameField = form.querySelector('[data-structure-name]');
+        const structureDescriptionField = form.querySelector('[data-structure-description]');
+        const structureSaveButton = form.querySelector('[data-structure-save]');
+        const structureCloseButtons = [...form.querySelectorAll('[data-structure-modal-close]')];
 
         const state = {
             projectId: selected.project_id ? String(selected.project_id) : '',
@@ -788,8 +1208,65 @@ window.initializeExpenseForms = (root = document) => {
             providerId: selected.provider_id ? String(selected.provider_id) : '',
         };
 
-        const debug = (label, extra = {}) => {
-            console.log(`[expenseForm] ${label}`, { ...state, ...extra });
+        const quickCreate = {
+            type: null,
+            saving: false,
+        };
+
+        const debug = () => {};
+
+        const selectedCategory = () => categories.find((item) => item.id === state.categoryId) ?? null;
+        const selectedSubcategory = () => subcategories.find((item) => item.id === state.subcategoryId) ?? null;
+
+        const urlFromTemplate = (template, projectId) => {
+            if (! template || ! projectId) {
+                return null;
+            }
+
+            return template.replace('__PROJECT__', encodeURIComponent(projectId));
+        };
+
+        const clearStructureErrors = () => {
+            if (structureAlert) {
+                structureAlert.textContent = '';
+                structureAlert.classList.add('hidden');
+            }
+
+            form.querySelectorAll('[data-structure-error-for]').forEach((element) => {
+                element.textContent = '';
+                element.classList.add('hidden');
+            });
+        };
+
+        const showStructureErrors = (errors = {}, fallback = 'No fue posible crear el registro.') => {
+            clearStructureErrors();
+
+            const entries = Object.entries(errors);
+
+            entries.forEach(([field, messages]) => {
+                const element = form.querySelector(`[data-structure-error-for="${field}"]`);
+
+                if (! element) {
+                    return;
+                }
+
+                element.textContent = Array.isArray(messages) ? messages[0] : String(messages);
+                element.classList.remove('hidden');
+            });
+
+            if (structureAlert && entries.length === 0) {
+                structureAlert.textContent = fallback;
+                structureAlert.classList.remove('hidden');
+            }
+        };
+
+        const setStructureSaving = (saving) => {
+            quickCreate.saving = saving;
+
+            if (structureSaveButton) {
+                structureSaveButton.disabled = saving;
+                structureSaveButton.textContent = saving ? 'Creando...' : 'Crear';
+            }
         };
 
         const syncTotalPreview = (preserveCaret = false) => {
@@ -898,6 +1375,175 @@ window.initializeExpenseForms = (root = document) => {
 
         const getSelectedProject = () => projects.find((item) => item.id === state.projectId) ?? null;
 
+        const refreshCreateButtons = () => {
+            createStructureButtons.forEach((button) => {
+                const type = button.dataset.expenseCreateStructure;
+                const disabled = (type === 'category' && ! state.projectId)
+                    || (type === 'subcategory' && ! state.categoryId)
+                    || (type === 'auxiliary' && ! state.subcategoryId);
+
+                button.disabled = disabled;
+            });
+        };
+
+        const openStructureModal = (type) => {
+            if (! structureModal || ! state.projectId) {
+                return;
+            }
+
+            if (type === 'subcategory' && ! state.categoryId) {
+                return;
+            }
+
+            if (type === 'auxiliary' && ! state.subcategoryId) {
+                return;
+            }
+
+            const category = selectedCategory();
+            const subcategory = selectedSubcategory();
+            const copy = {
+                category: {
+                    title: 'Nueva categoría',
+                    context: getSelectedProject() ? `Proyecto: ${getSelectedProject().name}` : '',
+                },
+                subcategory: {
+                    title: 'Nueva subcategoría',
+                    context: category ? `Categoría: ${category.name}` : '',
+                },
+                auxiliary: {
+                    title: 'Nuevo auxiliar',
+                    context: subcategory ? `Subcategoría: ${subcategory.name}` : '',
+                },
+            };
+
+            quickCreate.type = type;
+            clearStructureErrors();
+
+            if (structureTitle) {
+                structureTitle.textContent = copy[type]?.title ?? 'Nuevo registro';
+            }
+
+            if (structureContext) {
+                structureContext.textContent = copy[type]?.context ?? '';
+            }
+
+            if (structureNameField) {
+                structureNameField.value = '';
+            }
+
+            if (structureDescriptionField) {
+                structureDescriptionField.value = '';
+            }
+
+            setStructureSaving(false);
+            structureModal.classList.remove('hidden');
+            structureModal.classList.add('flex');
+            window.setTimeout(() => structureNameField?.focus(), 0);
+        };
+
+        const closeStructureModal = () => {
+            if (! structureModal) {
+                return;
+            }
+
+            quickCreate.type = null;
+            clearStructureErrors();
+            structureModal.classList.add('hidden');
+            structureModal.classList.remove('flex');
+        };
+
+        const mergeExpenseStructure = (structure = {}) => {
+            if (structure.categories) {
+                categories = normalizeCategories(structure.categories);
+            }
+
+            if (structure.subcategories) {
+                subcategories = normalizeSubcategories(structure.subcategories);
+            }
+
+            if (structure.auxiliaries) {
+                auxiliaries = normalizeAuxiliaries(structure.auxiliaries);
+            }
+        };
+
+        const applyCreatedStructure = (payload = {}) => {
+            mergeExpenseStructure(payload.expense_structure ?? {});
+
+            const created = payload.created ?? {};
+            const createdId = created.id ? String(created.id) : '';
+
+            if (created.type === 'category' && createdId) {
+                state.categoryId = createdId;
+                state.subcategoryId = '';
+                state.auxiliaryId = '';
+            }
+
+            if (created.type === 'subcategory' && createdId) {
+                state.subcategoryId = createdId;
+                state.auxiliaryId = '';
+            }
+
+            if (created.type === 'auxiliary' && createdId) {
+                state.auxiliaryId = createdId;
+            }
+
+            syncCategories();
+        };
+
+        const storeStructureRecord = async () => {
+            if (! quickCreate.type || quickCreate.saving) {
+                return;
+            }
+
+            const name = structureNameField?.value.trim() ?? '';
+            const description = structureDescriptionField?.value.trim() ?? '';
+            const formData = new FormData();
+            const urlTemplates = {
+                category: form.dataset.categoryStoreUrlTemplate,
+                subcategory: form.dataset.subcategoryStoreUrlTemplate,
+                auxiliary: form.dataset.auxiliaryStoreUrlTemplate,
+            };
+            const url = urlFromTemplate(urlTemplates[quickCreate.type], state.projectId);
+
+            if (! url) {
+                showStructureErrors({}, 'Selecciona un proyecto antes de crear el registro.');
+                return;
+            }
+
+            formData.append('name', name);
+            formData.append('description', description);
+
+            if (quickCreate.type === 'subcategory') {
+                formData.append('category_id', state.categoryId);
+            }
+
+            if (quickCreate.type === 'auxiliary') {
+                formData.append('subcategory_id', state.subcategoryId);
+            }
+
+            setStructureSaving(true);
+
+            try {
+                const response = await window.axios.post(url, formData, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                applyCreatedStructure(response.data);
+                closeStructureModal();
+            } catch (error) {
+                if (error.response?.status === 422 && error.response.data?.errors) {
+                    showStructureErrors(error.response.data.errors);
+                } else {
+                    showStructureErrors({}, error.response?.data?.message || error.message || 'No fue posible crear el registro.');
+                }
+            } finally {
+                setStructureSaving(false);
+            }
+        };
+
         const syncProviders = () => {
             const project = getSelectedProject();
             const availableProviders = project
@@ -950,9 +1596,10 @@ window.initializeExpenseForms = (root = document) => {
             }
 
             if (auxiliaryWrapper) {
-                auxiliaryWrapper.style.display = availableAuxiliaries.length > 0 ? '' : 'none';
+                auxiliaryWrapper.style.display = state.subcategoryId ? '' : 'none';
             }
 
+            refreshCreateButtons();
             debug('syncAuxiliaries', { availableAuxiliaries });
         };
 
@@ -962,7 +1609,7 @@ window.initializeExpenseForms = (root = document) => {
                 && item.category_id === state.categoryId
             ));
 
-            replaceOptions(subcategoryField, availableSubcategories, 'Selecciona una subcategoría');
+            replaceOptions(subcategoryField, availableSubcategories, 'Solo categoría');
             renderCards({
                 container: subcategoryCards,
                 items: availableSubcategories,
@@ -976,6 +1623,8 @@ window.initializeExpenseForms = (root = document) => {
                     syncSubcategories();
                 },
                 tone: 'sky',
+                emptyLabel: 'Solo categoría',
+                emptyDescription: 'El gasto queda clasificado en la categoría',
                 meta: (item) => {
                     const count = auxiliaries.filter((auxiliary) => auxiliary.subcategory_id === item.id).length;
                     return count > 0 ? `${count} auxiliares` : 'Sin auxiliares';
@@ -994,7 +1643,12 @@ window.initializeExpenseForms = (root = document) => {
                 subcategoryWrapper.style.display = state.categoryId ? '' : 'none';
             }
 
+            if (subcategoryEmpty) {
+                subcategoryEmpty.classList.toggle('hidden', ! state.categoryId || availableSubcategories.length > 0);
+            }
+
             syncAuxiliaries();
+            refreshCreateButtons();
             debug('syncSubcategories', { availableSubcategories });
         };
 
@@ -1035,6 +1689,7 @@ window.initializeExpenseForms = (root = document) => {
             }
 
             syncSubcategories();
+            refreshCreateButtons();
             debug('syncCategories', { availableCategories });
         };
 
@@ -1091,6 +1746,48 @@ window.initializeExpenseForms = (root = document) => {
             });
         }
 
+        createStructureButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openStructureModal(button.dataset.expenseCreateStructure);
+            });
+        });
+
+        structureCloseButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeStructureModal();
+            });
+        });
+
+        structureModal?.addEventListener('click', (event) => {
+            event.stopPropagation();
+
+            if (event.target === structureModal) {
+                closeStructureModal();
+            }
+        });
+
+        structureSaveButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            storeStructureRecord();
+        });
+
+        structureModal?.addEventListener('keydown', (event) => {
+            if (event.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                storeStructureRecord();
+            }
+        });
+
         if (subtotalField) {
             subtotalField.addEventListener('input', () => {
                 syncTotalPreview(true);
@@ -1111,5 +1808,297 @@ window.initializeExpenseForms = (root = document) => {
         debug('init:complete');
     });
 };
+
+window.initializeProjectStructureSorting = (root = document) => {
+    root.querySelectorAll('[data-sortable-list]').forEach((list) => {
+        if (list.dataset.sortableInitialized === 'true') {
+            return;
+        }
+
+        list.dataset.sortableInitialized = 'true';
+        list.querySelectorAll('[data-sortable-item]').forEach((item) => {
+            item.draggable = false;
+        });
+    });
+};
+
+let draggedSortableItem = null;
+let draggedSortableList = null;
+let pointerSortableItem = null;
+let pointerSortableList = null;
+let pointerStartY = 0;
+let pointerMoved = false;
+
+const sortableItems = (list) => [...list.querySelectorAll(':scope > [data-sortable-item]')];
+
+const sortablePayload = (list) => {
+    const payload = {
+        order: sortableItems(list).map((item) => Number(item.dataset.sortableId)),
+    };
+
+    if (list.dataset.sortableParentName && list.dataset.sortableParentId) {
+        payload[list.dataset.sortableParentName] = Number(list.dataset.sortableParentId);
+    }
+
+    return payload;
+};
+
+const sortableAfterElement = (list, clientY) => {
+    return sortableItems(list)
+        .filter((item) => item !== draggedSortableItem)
+        .reduce((closest, item) => {
+            const box = item.getBoundingClientRect();
+            const offset = clientY - box.top - (box.height / 2);
+
+            if (offset < 0 && offset > closest.offset) {
+                return { offset, element: item };
+            }
+
+            return closest;
+        }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+};
+
+const dispatchCrudToast = (message, type = 'success') => {
+    window.dispatchEvent(new CustomEvent('crud-toast', {
+        detail: { message, type },
+    }));
+};
+
+const collectPreservedScroll = (root = document) => {
+    const positions = {};
+
+    root.querySelectorAll('[data-preserve-scroll-key]').forEach((element) => {
+        positions[element.dataset.preserveScrollKey] = {
+            left: element.scrollLeft,
+            top: element.scrollTop,
+        };
+    });
+
+    return positions;
+};
+
+const restorePreservedScroll = (root = document, positions = {}) => {
+    root.querySelectorAll('[data-preserve-scroll-key]').forEach((element) => {
+        const position = positions[element.dataset.preserveScrollKey];
+
+        if (! position) {
+            return;
+        }
+
+        element.scrollLeft = position.left;
+        element.scrollTop = position.top;
+    });
+};
+
+const persistSortableOrder = async (list) => {
+    if (! list?.dataset.sortableUrl) {
+        return;
+    }
+
+    try {
+        const response = await window.axios.patch(list.dataset.sortableUrl, sortablePayload(list), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        dispatchCrudToast(response.data?.message ?? 'Orden actualizado correctamente.');
+    } catch (error) {
+        dispatchCrudToast(
+            error.response?.data?.message || error.message || 'No fue posible guardar el nuevo orden.',
+            'error',
+        );
+    }
+};
+
+document.addEventListener('submit', async (event) => {
+    const form = event.target.closest('form[data-ajax-form]');
+
+    if (! form || event.defaultPrevented) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+        const response = await window.axios.post(form.action, new FormData(form), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const payload = response.data ?? {};
+
+        if (payload.structure_html) {
+            const currentStructure = document.querySelector('[data-project-structure-root]');
+            const selectedCategoryId = currentStructure?.dataset.selectedCategoryId
+                || window.projectStructureSelection?.selectedCategoryId
+                || '';
+            const selectedSubcategoryId = currentStructure?.dataset.selectedSubcategoryId
+                || window.projectStructureSelection?.selectedSubcategoryId
+                || '';
+            const preservedScroll = collectPreservedScroll(document);
+            const scrollY = window.scrollY;
+            const template = document.createElement('template');
+            template.innerHTML = payload.structure_html.trim();
+            const nextStructure = template.content.firstElementChild;
+
+            if (currentStructure && nextStructure) {
+                nextStructure.dataset.initialSelectedCategoryId = selectedCategoryId;
+                nextStructure.dataset.initialSelectedSubcategoryId = selectedSubcategoryId;
+                currentStructure.replaceWith(nextStructure);
+                Alpine.initTree(nextStructure);
+                window.initializeProjectStructureSorting?.(nextStructure);
+                window.requestAnimationFrame(() => {
+                    restorePreservedScroll(document, preservedScroll);
+                    window.scrollTo({ top: scrollY });
+                });
+            }
+        }
+
+        document.querySelector('[data-action="close-modal"]')?.click();
+        dispatchCrudToast(payload.message ?? 'Operación realizada correctamente.');
+    } catch (error) {
+        dispatchCrudToast(
+            error.response?.data?.message || error.message || 'No fue posible guardar la información.',
+            'error',
+        );
+    }
+});
+
+document.addEventListener('pointerdown', (event) => {
+    const handle = event.target.closest('[data-sortable-handle]');
+
+    if (! handle) {
+        return;
+    }
+
+    const item = handle.closest('[data-sortable-item]');
+
+    if (! item) {
+        return;
+    }
+
+    item.draggable = true;
+    item.dataset.sortableHandleActive = 'true';
+    pointerSortableItem = item;
+    pointerSortableList = item.closest('[data-sortable-list]');
+    pointerStartY = event.clientY;
+    pointerMoved = false;
+
+    if (event.pointerType !== 'mouse') {
+        handle.setPointerCapture?.(event.pointerId);
+    }
+});
+
+document.addEventListener('pointermove', (event) => {
+    if (! pointerSortableItem || ! pointerSortableList || event.pointerType === 'mouse') {
+        return;
+    }
+
+    if (Math.abs(event.clientY - pointerStartY) < 8 && ! pointerMoved) {
+        return;
+    }
+
+    event.preventDefault();
+    pointerMoved = true;
+    pointerSortableItem.classList.add('opacity-50', 'ring-2', 'ring-stone-300');
+
+    const afterElement = sortableAfterElement(pointerSortableList, event.clientY);
+
+    if (afterElement) {
+        pointerSortableList.insertBefore(pointerSortableItem, afterElement);
+    } else {
+        pointerSortableList.appendChild(pointerSortableItem);
+    }
+}, { passive: false });
+
+document.addEventListener('pointerup', () => {
+    document.querySelectorAll('[data-sortable-item][draggable="true"]').forEach((item) => {
+        if (item !== draggedSortableItem) {
+            item.draggable = false;
+            delete item.dataset.sortableHandleActive;
+        }
+    });
+
+    if (pointerSortableItem && pointerSortableList) {
+        pointerSortableItem.classList.remove('opacity-50', 'ring-2', 'ring-stone-300');
+
+        if (pointerMoved) {
+            persistSortableOrder(pointerSortableList);
+        }
+    }
+
+    pointerSortableItem = null;
+    pointerSortableList = null;
+    pointerMoved = false;
+});
+
+document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-sortable-handle]')) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+}, true);
+
+document.addEventListener('dragstart', (event) => {
+    const item = event.target.closest('[data-sortable-item]');
+
+    if (! item || item.dataset.sortableHandleActive !== 'true') {
+        event.preventDefault();
+        return;
+    }
+
+    draggedSortableItem = item;
+    draggedSortableList = item.closest('[data-sortable-list]');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', item.dataset.sortableId ?? '');
+    window.requestAnimationFrame(() => {
+        item.classList.add('opacity-50', 'ring-2', 'ring-stone-300');
+    });
+});
+
+document.addEventListener('dragover', (event) => {
+    const list = event.target.closest('[data-sortable-list]');
+
+    if (! list || ! draggedSortableItem || list !== draggedSortableList) {
+        return;
+    }
+
+    event.preventDefault();
+    const afterElement = sortableAfterElement(list, event.clientY);
+
+    if (afterElement) {
+        list.insertBefore(draggedSortableItem, afterElement);
+    } else {
+        list.appendChild(draggedSortableItem);
+    }
+});
+
+document.addEventListener('drop', (event) => {
+    const list = event.target.closest('[data-sortable-list]');
+
+    if (! list || ! draggedSortableItem || list !== draggedSortableList) {
+        return;
+    }
+
+    event.preventDefault();
+    persistSortableOrder(list);
+});
+
+document.addEventListener('dragend', () => {
+    if (draggedSortableItem) {
+        draggedSortableItem.classList.remove('opacity-50', 'ring-2', 'ring-stone-300');
+        draggedSortableItem.draggable = false;
+        delete draggedSortableItem.dataset.sortableHandleActive;
+    }
+
+    draggedSortableItem = null;
+    draggedSortableList = null;
+});
+
+window.initializeProjectStructureSorting();
 
 Alpine.start();

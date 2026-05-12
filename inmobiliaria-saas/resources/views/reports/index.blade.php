@@ -21,7 +21,7 @@
                 <div>
                     <x-input-label for="project_id" :value="'Proyecto'" />
                     <select id="project_id" name="project_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                        <option value="">Todos</option>
+                        <option value="">Selecciona un proyecto</option>
                         @foreach ($projects as $project)
                             <option value="{{ $project->id }}" @selected((string) $filters['project_id'] === (string) $project->id)>{{ $project->name }}</option>
                         @endforeach
@@ -43,17 +43,12 @@
                 </div>
             </form>
 
+            @if ($selectedProject)
             <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Gasto total</p>
                 <p class="mt-3 text-3xl font-semibold tracking-tight text-stone-900">$ {{ number_format((float) $summary['total_amount'], 0, ',', '.') }}</p>
-                <p class="mt-2 text-sm text-stone-500">Suma de gastos filtrados</p>
+                <p class="mt-2 text-sm text-stone-500">Suma de gastos de {{ $selectedProject->name }}</p>
             </div>
-
-            @if ($requiresProjectSelection)
-                <div class="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950 shadow-sm">
-                    Selecciona un proyecto para ver tablas y gráficas sin mezclar información de otros proyectos.
-                </div>
-            @endif
 
             <div class="grid gap-6 xl:grid-cols-3">
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
@@ -160,6 +155,7 @@
                     @include('reports._history', ['history' => $history])
                 </div>
             </div>
+            @endif
         </div>
     </div>
 
@@ -170,6 +166,7 @@
             const dateFromInput = document.getElementById('date_from');
             const dateToInput = document.getElementById('date_to');
             const projectRanges = @json($projectRanges);
+            const hasSelectedProject = @json((bool) $selectedProject);
 
             const applyProjectDateRange = (projectId) => {
                 if (!projectId || !projectRanges[projectId]) {
@@ -193,7 +190,7 @@
                 }
             });
 
-            if (typeof Chart === 'undefined') {
+            if (!hasSelectedProject || typeof Chart === 'undefined') {
                 return;
             }
 

@@ -2,6 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+    .app-shell {
+        --app-accent: #1c1917;
+        --app-accent-hover: color-mix(in srgb, var(--app-accent) 88%, black);
+        --app-accent-soft: color-mix(in srgb, var(--app-accent) 10%, white);
+        --app-accent-border: color-mix(in srgb, var(--app-accent) 24%, white);
+    }
+
+    .app-create-button,
+    .app-create-button-sm,
+    .app-create-icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--app-accent);
+        background-color: var(--app-accent);
+        color: #fff;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease,
+            box-shadow 150ms ease,
+            opacity 150ms ease;
+    }
+
+    .app-create-button:hover:not(:disabled),
+    .app-create-button-sm:hover:not(:disabled),
+    .app-create-icon-button:hover:not(:disabled) {
+        border-color: var(--app-accent-hover);
+        background-color: var(--app-accent-hover);
+        box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
+    }
+
+    .app-create-button:disabled,
+    .app-create-button-sm:disabled,
+    .app-create-icon-button:disabled {
+        cursor: not-allowed;
+        border-color: #e7e5e4;
+        background-color: #f5f5f4;
+        color: #a8a29e;
+        box-shadow: none;
+    }
+
+    .app-create-button {
+        position: fixed;
+        right: max(1rem, env(safe-area-inset-right));
+        bottom: max(1rem, env(safe-area-inset-bottom));
+        z-index: 40;
+        width: 3.25rem;
+        height: 3.25rem;
+        border-radius: 9999px;
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1;
+        box-shadow: 0 14px 28px rgb(0 0 0 / 0.18);
+    }
+
+    .app-shell:has(.app-create-button) main {
+        padding-bottom: 5rem;
+    }
+
+    .app-create-button-sm {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 9999px;
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1;
+    }
+
+    .app-create-icon-button {
+        padding: 0.5rem;
+        border-radius: 1rem;
+    }
+
+    .app-create-text-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 1rem;
+        background-color: var(--app-accent);
+        padding: 0.5rem 1rem;
+        color: #fff;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.25rem;
+        transition: background-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .app-create-text-button:hover:not(:disabled) {
+        background-color: var(--app-accent-hover);
+        box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
+    }
+
+    .app-create-text-button:disabled {
+        cursor: not-allowed;
+        background-color: #f5f5f4;
+        color: #a8a29e;
+        box-shadow: none;
+    }
+
+    .tenant-branded .app-page-heading {
+        border-bottom-color: var(--app-accent-border);
+        box-shadow: inset 0 -2px 0 var(--app-accent-soft);
+    }
+
+    .tenant-branded .app-page-title {
+        text-decoration-line: underline;
+        text-decoration-color: var(--app-accent-border);
+        text-decoration-thickness: 3px;
+        text-underline-offset: 0.35rem;
+    }
+
+    .tenant-branded .app-logo {
+        color: var(--app-accent);
+    }
+
+    .app-two-line-text {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+    }
+
+    .app-three-line-text {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+    }
+}
+
 @layer base {
     a,
     button,

@@ -15,11 +15,13 @@
                     <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $expense->expense_date?->format('Y-m-d') }}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $expense->project?->name }}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-600">
-                        {{ $expense->category?->name ?: 'Sin categoría' }}
-                        /
-                        {{ $expense->subcategory?->name ?: 'Sin subcategoría' }}
-                        /
-                        {{ $expense->auxiliary?->name ?: 'Sin auxiliar' }}
+                        <div>{{ $expense->category?->name ?: 'Sin categoría' }}</div>
+                        @if ($expense->subcategory)
+                            <div class="text-xs text-stone-500">{{ $expense->subcategory->name }}</div>
+                        @endif
+                        @if ($expense->auxiliary)
+                            <div class="text-xs text-stone-500">{{ $expense->auxiliary->name }}</div>
+                        @endif
                     </td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $expense->provider?->name ?: 'Sin proveedor' }}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-900">$ {{ number_format((float) $expense->total_amount, 0, ',', '.') }}</td>

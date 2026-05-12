@@ -7,6 +7,7 @@ use App\Http\Requests\AssetStoreRequest;
 use App\Http\Requests\AssetUpdateRequest;
 use App\Models\Asset;
 use App\Models\AssetNovelty;
+use App\Models\AssetType;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\View\View;
@@ -29,12 +30,15 @@ class AssetController extends Controller
         $baseQuery = $this->buildIndexBaseQuery($request, $companyId, $search);
 
         $assets = (clone $baseQuery)
-            ->with('company')
+            ->with(['company', 'type'])
             ->withCount([
                 'novelties as active_novelties_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+                'media as active_media_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
             ])
             ->withSum([
-                'novelties as active_novelties_cost_sum' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+                'novelties as active_novelties_cost_sum' => fn ($query) => $query
+                    ->where('status', '!=', EntityStatus::Deleted->value)
+                    ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true)),
             ], 'cost')
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
@@ -43,6 +47,7 @@ class AssetController extends Controller
                     $nested
                         ->where('name', 'like', "%{$search}%")
                         ->orWhere('asset_type', 'like', "%{$search}%")
+                        ->orWhereHas('type', fn ($typeQuery) => $typeQuery->where('name', 'like', "%{$search}%"))
                         ->orWhere('asset_condition', 'like', "%{$search}%");
                 });
             })
@@ -71,6 +76,7 @@ class AssetController extends Controller
             return view('assets._modal_form', [
                 'asset' => new Asset(['purchase_date' => today()]),
                 'companies' => $this->companiesForForm($request->user()),
+                'assetTypes' => $this->assetTypesForForm($request, $request->user()->isSuperAdmin() ? $request->integer('company_id') ?: null : $request->user()->company_id),
                 'action' => route('assets.store', $request->query()),
                 'method' => 'POST',
             ])->render();
@@ -91,9 +97,10 @@ class AssetController extends Controller
         $asset = Asset::query()->create([
             'company_id' => $authUser->isSuperAdmin() ? $data['company_id'] : $authUser->company_id,
             'name' => $data['name'],
-            'asset_type' => $data['asset_type'],
+            'asset_type_id' => $data['asset_type_id'],
+            'asset_type' => AssetType::query()->find($data['asset_type_id'])?->name ?? '',
             'asset_condition' => $data['asset_condition'],
-            'purchase_value' => $data['purchase_value'],
+            'purchase_value' => (float) ($data['purchase_value'] ?? 0),
             'purchase_date' => $data['purchase_date'] ?? null,
             'status' => EntityStatus::Active->value,
         ]);
@@ -128,6 +135,7 @@ class AssetController extends Controller
             return view('assets._modal_form', [
                 'asset' => $asset,
                 'companies' => $this->companiesForForm($request->user()),
+                'assetTypes' => $this->assetTypesForForm($request, $asset->company_id),
                 'action' => route('assets.update', ['asset' => $asset] + $request->query()),
                 'method' => 'PATCH',
             ])->render();
@@ -148,9 +156,10 @@ class AssetController extends Controller
         $asset->update([
             'company_id' => $authUser->isSuperAdmin() ? ($data['company_id'] ?? $asset->company_id) : $asset->company_id,
             'name' => $data['name'],
-            'asset_type' => $data['asset_type'],
+            'asset_type_id' => $data['asset_type_id'],
+            'asset_type' => AssetType::query()->find($data['asset_type_id'])?->name ?? $asset->asset_type,
             'asset_condition' => $data['asset_condition'],
-            'purchase_value' => $data['purchase_value'],
+            'purchase_value' => (float) ($data['purchase_value'] ?? 0),
             'purchase_date' => $data['purchase_date'] ?? null,
         ]);
 
@@ -219,12 +228,15 @@ class AssetController extends Controller
 
     protected function loadAssetListRelations(Asset $asset): void
     {
-        $asset->load('company');
+        $asset->load(['company', 'type']);
         $asset->loadCount([
             'novelties as active_novelties_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            'media as active_media_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
         ]);
         $asset->loadSum([
-            'novelties as active_novelties_cost_sum' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            'novelties as active_novelties_cost_sum' => fn ($query) => $query
+                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true)),
         ], 'cost');
     }
 
@@ -238,6 +250,7 @@ class AssetController extends Controller
                     $nested
                         ->where('name', 'like', "%{$search}%")
                         ->orWhere('asset_type', 'like', "%{$search}%")
+                        ->orWhereHas('type', fn (Builder $typeQuery) => $typeQuery->where('name', 'like', "%{$search}%"))
                         ->orWhere('asset_condition', 'like', "%{$search}%");
                 });
             });
@@ -252,7 +265,33 @@ class AssetController extends Controller
             'novelties_cost_total' => AssetNovelty::query()
                 ->where('status', '!=', EntityStatus::Deleted->value)
                 ->whereIn('asset_id', $assetIds)
+                ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true))
                 ->sum('cost'),
         ];
+    }
+
+    protected function assetTypesForForm(Request $request, ?int $companyId)
+    {
+        if (! $companyId) {
+            return collect();
+        }
+
+        return AssetType::query()
+            ->where('company_id', $companyId)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->withCount([
+                'assets as active_assets_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (AssetType $type) => [
+                'id' => $type->id,
+                'name' => $type->name,
+                'status' => $type->status,
+                'can_delete' => ((int) $type->active_assets_count) === 0,
+                'update_url' => route('asset-types.update', $type),
+                'delete_url' => route('asset-types.destroy', $type),
+            ])
+            ->values();
     }
 }

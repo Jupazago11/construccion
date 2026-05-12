@@ -2,17 +2,18 @@
     x-cloak
     x-show="modalOpen"
     class="fixed inset-0 z-50 overflow-hidden"
+    x-bind:class="nestedModalOpen ? 'pointer-events-none' : ''"
     style="display: none;"
 >
     <div
-        x-show="modalOpen"
+        x-show="modalOpen && ! nestedModalOpen"
         class="fixed inset-0 bg-stone-900/50"
         x-on:click="closeModal()"
     ></div>
 
     <div class="relative flex h-full w-full items-center justify-center px-3 py-3 sm:px-6 sm:py-6">
         <div
-            x-show="modalOpen"
+            x-show="modalOpen && ! nestedModalOpen"
             class="grid max-h-[92dvh] w-full max-w-3xl grid-rows-[auto,minmax(0,1fr)] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
         >
             <div class="flex items-start justify-between border-b border-stone-200 px-6 py-5">
@@ -26,7 +27,11 @@
                 </button>
             </div>
 
-            <div class="min-h-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-6" x-on:submit.prevent="submitForm($event)" x-on:click="handleClick($event)">
+            <div
+                class="min-h-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-6"
+                x-on:submit.prevent.stop="submitForm($event)"
+                x-on:click.stop="handleClick($event)"
+            >
                 <template x-if="loading">
                     <div class="flex items-center justify-center py-12 text-sm text-stone-500">
                         Cargando formulario...

@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Enums\EntityStatus;
 use App\Models\Asset;
 use App\Models\AssetNovelty;
+use App\Models\AssetNoveltyType;
+use App\Models\AssetType;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -20,6 +22,20 @@ class AssetDemoSeeder extends Seeder
         }
 
         $creator = User::query()->where('username', 'camilomorales')->first();
+        $assetTypes = [
+            'tool' => AssetType::query()->updateOrCreate(
+                ['company_id' => $company->id, 'name' => 'Herramienta'],
+                ['status' => EntityStatus::Active->value]
+            ),
+            'equipment' => AssetType::query()->updateOrCreate(
+                ['company_id' => $company->id, 'name' => 'Equipo'],
+                ['status' => EntityStatus::Active->value]
+            ),
+        ];
+        $maintenanceType = AssetNoveltyType::query()->updateOrCreate(
+            ['company_id' => $company->id, 'name' => 'Mantenimiento'],
+            ['adds_value' => false, 'status' => EntityStatus::Active->value]
+        );
 
         $assets = [
             [
@@ -60,6 +76,7 @@ class AssetDemoSeeder extends Seeder
                 ],
                 [
                     ...$data,
+                    'asset_type_id' => $assetTypes[$data['asset_type']]?->id,
                     'status' => EntityStatus::Active->value,
                 ]
             );
@@ -89,6 +106,7 @@ class AssetDemoSeeder extends Seeder
                     [
                         ...$novelty,
                         'created_by' => $creator?->id,
+                        'asset_novelty_type_id' => $maintenanceType->id,
                         'status' => EntityStatus::Active->value,
                     ]
                 );

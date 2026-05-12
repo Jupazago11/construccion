@@ -17,6 +17,7 @@ class Asset extends Model
         'company_id',
         'name',
         'asset_type',
+        'asset_type_id',
         'asset_condition',
         'purchase_value',
         'purchase_date',
@@ -36,8 +37,18 @@ class Asset extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function type(): BelongsTo
+    {
+        return $this->belongsTo(AssetType::class, 'asset_type_id');
+    }
+
     public function novelties(): HasMany
     {
         return $this->hasMany(AssetNovelty::class)->latest('novelty_date')->latest('id');
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(AssetMedia::class)->latest();
     }
 }

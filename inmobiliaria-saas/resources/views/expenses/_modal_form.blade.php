@@ -17,6 +17,9 @@
     action="{{ $action }}"
     data-ajax-form
     data-expense-form
+    data-category-store-url-template="{{ route('projects.categories.store', ['project' => '__PROJECT__'], false) }}"
+    data-subcategory-store-url-template="{{ route('projects.subcategories.store', ['project' => '__PROJECT__'], false) }}"
+    data-auxiliary-store-url-template="{{ route('projects.auxiliaries.store', ['project' => '__PROJECT__'], false) }}"
     class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6"
 >
     @csrf
@@ -53,7 +56,17 @@
             </div>
 
             <div class="md:col-span-2" data-expense-category-wrapper style="display:none;">
-                <x-input-label for="category_id" :value="'Categoría'" />
+                <div class="flex items-center justify-between gap-3">
+                    <x-input-label for="category_id" :value="'Categoría'" />
+                    <button
+                        type="button"
+                        data-expense-create-structure="category"
+                        class="app-create-button-sm"
+                        title="Crear categoría"
+                    >
+                        +
+                    </button>
+                </div>
                 <select
                     id="category_id"
                     name="category_id"
@@ -67,21 +80,44 @@
             </div>
 
             <div class="md:col-span-2" data-expense-subcategory-wrapper style="display:none;">
-                <x-input-label for="subcategory_id" :value="'Subcategoría'" />
+                <div class="flex items-center justify-between gap-3">
+                    <x-input-label for="subcategory_id" :value="'Subcategoría (opcional)'" />
+                    <button
+                        type="button"
+                        data-expense-create-structure="subcategory"
+                        class="app-create-button-sm"
+                        title="Crear subcategoría"
+                    >
+                        +
+                    </button>
+                </div>
                 <select
                     id="subcategory_id"
                     name="subcategory_id"
                     data-expense-subcategory
                     class="sr-only"
                 >
-                    <option value="">Selecciona una subcategoría</option>
+                    <option value="">Solo categoría</option>
                 </select>
                 <div class="mt-2 grid gap-2 sm:grid-cols-2" data-expense-subcategory-cards></div>
+                <p class="mt-2 hidden rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-500" data-expense-subcategory-empty>
+                    Puedes guardar el gasto solo con la categoría.
+                </p>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="subcategory_id"></p>
             </div>
 
             <div class="md:col-span-2" data-expense-auxiliary-wrapper style="display:none;">
-                <x-input-label for="auxiliary_id" :value="'Auxiliar'" />
+                <div class="flex items-center justify-between gap-3">
+                    <x-input-label for="auxiliary_id" :value="'Auxiliar'" />
+                    <button
+                        type="button"
+                        data-expense-create-structure="auxiliary"
+                        class="app-create-button-sm"
+                        title="Crear auxiliar"
+                    >
+                        +
+                    </button>
+                </div>
                 <select
                     id="auxiliary_id"
                     name="auxiliary_id"
@@ -147,8 +183,8 @@
             </div>
 
             <div class="md:col-span-2">
-                <x-input-label for="description" :value="'Descripción'" />
-                <textarea id="description" name="description" rows="5" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" required>{{ $expense->description }}</textarea>
+                <x-input-label for="description" :value="'Descripción (opcional)'" />
+                <textarea id="description" name="description" rows="5" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">{{ $expense->description }}</textarea>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="description"></p>
             </div>
         </div>
@@ -162,6 +198,54 @@
             <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
                 {{ $expense->exists ? 'Actualizar gasto' : 'Crear gasto' }}
             </button>
+        </div>
+    </div>
+
+    <div
+        data-expense-structure-modal
+        class="fixed inset-0 z-[60] hidden items-center justify-center bg-stone-950/45 px-4 py-6"
+    >
+        <div class="grid max-h-[88dvh] w-full max-w-xl grid-rows-[auto,minmax(0,1fr)] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl">
+            <div class="flex items-start justify-between gap-4 border-b border-stone-200 px-6 py-5">
+                <div>
+                    <h3 class="text-lg font-semibold text-stone-900" data-structure-modal-title></h3>
+                    <p class="mt-1 text-sm text-stone-500" data-structure-modal-context></p>
+                </div>
+                <button type="button" data-structure-modal-close class="rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="min-h-0 overflow-y-auto px-6 py-5">
+                <div data-structure-modal-alert class="mb-4 hidden rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
+
+                <div class="space-y-5">
+                    <div>
+                        <x-input-label for="expense_structure_name" :value="'Nombre'" />
+                        <x-text-input id="expense_structure_name" type="text" class="mt-1 block w-full" data-structure-name />
+                        <p class="mt-2 hidden text-sm text-rose-600" data-structure-error-for="name"></p>
+                    </div>
+
+                    <div>
+                        <x-input-label for="expense_structure_description" :value="'Descripción'" />
+                        <textarea id="expense_structure_description" rows="4" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" data-structure-description></textarea>
+                        <p class="mt-2 hidden text-sm text-rose-600" data-structure-error-for="description"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-stone-200 bg-white px-6 py-4">
+                <div class="flex items-center justify-end gap-3">
+                    <button type="button" data-structure-modal-close class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
+                        Cancelar
+                    </button>
+                    <button type="button" data-structure-save class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60">
+                        Crear
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </form>

@@ -21,7 +21,7 @@
                         data-url="{{ route('projects.categories.create', $project) }}"
                         data-title="Nueva categoría"
                         @disabled(! $projectAllowsNewRecords)
-                        class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 text-xl font-semibold leading-none text-sky-900 transition hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400"
+                        class="app-create-button"
                         title="Nueva categoría"
                     >
                         +

@@ -1,8 +1,8 @@
-<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }}, reloadOnMutate: true })" x-on:click="handleClick($event)">
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Empresas" description="Administra las empresas del SaaS, su estado operativo y la base multiempresa de la plataforma.">
             @can('create', App\Models\Company::class)
-                <button type="button" data-action="create" data-url="{{ route('companies.create') }}" data-title="Nueva empresa" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-xl font-semibold leading-none text-emerald-900 transition hover:border-emerald-300 hover:bg-emerald-100" title="Nueva empresa">
+                <button type="button" data-action="create" data-url="{{ route('companies.create') }}" data-title="Nueva empresa" class="app-create-button" title="Nueva empresa">
                     +
                 </button>
             @endcan

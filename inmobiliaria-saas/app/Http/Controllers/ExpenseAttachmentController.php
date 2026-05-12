@@ -10,6 +10,8 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class ExpenseAttachmentController extends Controller
 {
@@ -19,7 +21,6 @@ class ExpenseAttachmentController extends Controller
 
         return view('expense-attachments.index', [
             'expense' => $this->loadExpenseAttachments($expense),
-            'summary' => $this->summaryData($expense),
         ]);
     }
 
@@ -34,9 +35,11 @@ class ExpenseAttachmentController extends Controller
 
         foreach ($uploadedFiles as $uploadedFile) {
             $path = $uploadedFile->store(
-                sprintf('companies/%d/projects/%d/expenses/%d', $expense->company_id, $expense->project_id, $expense->id),
+                $this->storageDirectory($expense),
                 'r2'
             );
+
+            abort_unless($path, 500, 'No fue posible cargar el archivo.');
 
             ExpenseAttachment::query()->create([
                 'expense_id' => $expense->id,
@@ -70,9 +73,39 @@ class ExpenseAttachmentController extends Controller
         $this->authorize('view', $attachment);
 
         return Storage::disk($attachment->disk)->download(
-            $attachment->path,
+            $this->readableStoragePath(Storage::disk($attachment->disk), $attachment->path),
             $attachment->original_name ?: basename($attachment->path)
         );
+    }
+
+    public function preview(Expense $expense, ExpenseAttachment $attachment)
+    {
+        $this->authorize('view', $expense);
+        $this->guardAttachmentBelongsToExpense($expense, $attachment);
+        $this->authorize('view', $attachment);
+
+        $disk = Storage::disk($attachment->disk);
+        $path = $this->readableStoragePath($disk, $attachment->path);
+        $stream = $disk->readStream($path);
+
+        abort_unless($stream, 404);
+
+        $fileName = $attachment->original_name ?: basename($attachment->path);
+        $fallbackName = str_replace('%', '', Str::ascii($fileName)) ?: 'archivo';
+        $disposition = HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $fileName, $fallbackName);
+        $headers = [
+            'Content-Type' => $attachment->mime_type ?: 'application/octet-stream',
+            'Content-Disposition' => $disposition,
+        ];
+
+        if ($attachment->size) {
+            $headers['Content-Length'] = (string) $attachment->size;
+        }
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, $headers);
     }
 
     public function destroy(Expense $expense, ExpenseAttachment $attachment): JsonResponse|RedirectResponse
@@ -103,10 +136,6 @@ class ExpenseAttachmentController extends Controller
         $loadedExpense = $this->loadExpenseAttachments($expense->fresh());
 
         return response()->json([
-            'summary_html' => view('expense-attachments._summary', [
-                'expense' => $loadedExpense,
-                'summary' => $this->summaryData($loadedExpense),
-            ])->render(),
             'attachments_html' => view('expense-attachments._list', [
                 'expense' => $loadedExpense,
             ])->render(),
@@ -130,23 +159,40 @@ class ExpenseAttachmentController extends Controller
         ]);
     }
 
-    protected function summaryData(Expense $expense): array
-    {
-        return [
-            'attachments' => ExpenseAttachment::query()
-                ->where('expense_id', $expense->id)
-                ->where('status', '!=', EntityStatus::Deleted->value)
-                ->count(),
-            'size' => ExpenseAttachment::query()
-                ->where('expense_id', $expense->id)
-                ->where('status', '!=', EntityStatus::Deleted->value)
-                ->sum('size'),
-        ];
-    }
-
     protected function guardAttachmentBelongsToExpense(Expense $expense, ExpenseAttachment $attachment): void
     {
         abort_unless($attachment->expense_id === $expense->id, 404);
+    }
+
+    protected function storageDirectory(Expense $expense): string
+    {
+        return collect([
+            trim((string) config('filesystems.r2_root_prefix', env('R2_ROOT_PREFIX', 'inmobiliaria-saas')), '/'),
+            'companies',
+            $expense->company_id,
+            'projects',
+            $expense->project_id,
+            'expenses',
+            $expense->id,
+            'attachments',
+        ])->filter(fn ($segment) => $segment !== null && $segment !== '')->implode('/');
+    }
+
+    protected function readableStoragePath($disk, string $path): string
+    {
+        if ($disk->exists($path)) {
+            return $path;
+        }
+
+        $prefix = trim((string) config('filesystems.r2_root_prefix', env('R2_ROOT_PREFIX', 'inmobiliaria-saas')), '/');
+
+        if ($prefix === '' || str_starts_with($path, $prefix.'/')) {
+            return $path;
+        }
+
+        $prefixedPath = $prefix.'/'.$path;
+
+        return $disk->exists($prefixedPath) ? $prefixedPath : $path;
     }
 
     protected function guardProjectState(Expense $expense): void

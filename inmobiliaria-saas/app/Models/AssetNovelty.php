@@ -15,6 +15,7 @@ class AssetNovelty extends Model
     protected $fillable = [
         'asset_id',
         'created_by',
+        'asset_novelty_type_id',
         'cost',
         'description',
         'asset_status',
@@ -38,6 +39,11 @@ class AssetNovelty extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function type(): BelongsTo
+    {
+        return $this->belongsTo(AssetNoveltyType::class, 'asset_novelty_type_id');
     }
 
     protected function resolveAuditCompanyId(): ?int

@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\EntityStatus;
+use App\Models\AssetNoveltyType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class AssetNoveltyStoreRequest extends FormRequest
 {
@@ -21,6 +24,12 @@ class AssetNoveltyStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'asset_novelty_type_id' => [
+                'required',
+                'integer',
+                Rule::exists(AssetNoveltyType::class, 'id')
+                    ->where(fn ($query) => $query->where('status', EntityStatus::Active->value)),
+            ],
             'cost' => ['required', 'numeric', 'min:0'],
             'description' => ['required', 'string', 'max:1000'],
             'asset_status' => ['required', 'string', 'max:255'],
