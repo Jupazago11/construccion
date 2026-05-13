@@ -8,6 +8,7 @@ if [ -z "${DATABASE_URL:-}" ] && [ -z "${DB_URL:-}" ]; then
 fi
 
 export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
+export DB_URL="${DB_URL:-${DATABASE_URL:-}}"
 
 echo "Railway init: clearing cached Laravel files"
 php artisan config:clear

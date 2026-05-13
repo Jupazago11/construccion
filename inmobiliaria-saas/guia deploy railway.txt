@@ -1,0 +1,652 @@
+GUIA PARA DESPLEGAR PROYECTOS EN RAILWAY
+========================================
+
+Objetivo
+--------
+Esta guia sirve como checklist para preparar un proyecto antes de subirlo a Railway,
+especialmente proyectos Laravel, Node, apps con Docker, monorepos y servicios con
+PostgreSQL.
+
+
+1. Revisar la estructura del repositorio
+---------------------------------------
+Antes de desplegar, confirmar donde vive realmente la app.
+
+Ejemplos:
+
+Caso simple:
+
+repo/
+  composer.json
+  artisan
+  package.json
+
+Railway puede construir desde la raiz.
+
+Caso monorepo:
+
+repo/
+  backend/
+  frontend/
+  app-laravel/
+    composer.json
+    artisan
+    package.json
+
+En Railway hay que configurar Root Directory con la carpeta real de la app.
+
+Ejemplo:
+
+Root Directory: app-laravel
+
+Si Railway analiza solo:
+
+./
+└── app-laravel/
+
+y dice que no puede detectar el proyecto, casi siempre falta configurar Root
+Directory.
+
+
+2. Variables necesarias en Railway
+----------------------------------
+Las variables deben configurarse en el servicio de la APP, no solo en el servicio
+de base de datos.
+
+Para Laravel con PostgreSQL:
+
+APP_NAME="Nombre App"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://tu-dominio.up.railway.app
+APP_KEY=base64:...
+
+DB_CONNECTION=pgsql
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+DB_URL=${{Postgres.DATABASE_URL}}
+DB_SSLMODE=require
+
+LOG_CHANNEL=stderr
+LOG_LEVEL=info
+
+CACHE_STORE=database
+SESSION_DRIVER=database
+SESSION_ENCRYPT=false
+QUEUE_CONNECTION=database
+
+IMPORTANTE:
+Las variables como DATABASE_URL, PGHOST, PGUSER, PGPASSWORD que aparecen dentro
+del servicio Postgres no se pasan solas al servicio de la app. Deben referenciarse
+desde la app usando ${{Postgres.DATABASE_URL}}.
+
+Si el servicio de base de datos no se llama Postgres, usar el nombre real.
+Railway suele autocompletar cuando escribes ${{.
+
+
+3. APP_KEY en Laravel
+---------------------
+Laravel necesita APP_KEY en produccion.
+
+Para generar una:
+
+php artisan key:generate --show
+
+o con Sail:
+
+./vendor/bin/sail artisan key:generate --show
+
+Copiar el resultado en Railway:
+
+APP_KEY=base64:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+4. PostgreSQL: error comun con SQLite
+-------------------------------------
+Error tipico:
+
+SQLSTATE[HY000]: General error: 1 near "ALTER": syntax error
+Database: /var/www/html/database/database.sqlite
+
+Significa que Laravel esta usando SQLite, no Postgres.
+
+Solucion:
+
+En el servicio de la app agregar:
+
+DB_CONNECTION=pgsql
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+DB_URL=${{Postgres.DATABASE_URL}}
+DB_SSLMODE=require
+
+Ademas, en config/database.php conviene permitir DATABASE_URL:
+
+'url' => env('DB_URL', env('DATABASE_URL')),
+
+en la conexion pgsql.
+
+
+5. Build en Railway: Railpack, Nixpacks o Docker
+------------------------------------------------
+Railway puede construir con Railpack/Nixpacks automaticamente, pero en proyectos
+Laravel con dependencias PHP, Node, Vite, extensiones o monorepo, a veces es mas
+estable usar Dockerfile.
+
+Sintomas:
+
+"Railpack could not determine how to build the app"
+"Script start.sh not found"
+"Failed to build an image"
+
+Posibles causas:
+
+- Railway esta mirando la raiz equivocada del repo.
+- No se configuro Root Directory.
+- composer.json o package.json estan en una subcarpeta.
+- El proyecto necesita extensiones PHP no detectadas.
+- El start command no esta claro.
+
+Soluciones:
+
+- Configurar Root Directory.
+- Agregar railway.json.
+- Usar Dockerfile si el autodetect falla.
+
+
+6. Ejemplo de railway.json
+--------------------------
+Para app con Dockerfile en la raiz:
+
+{
+    "$schema": "https://railway.com/railway.schema.json",
+    "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile"
+    },
+    "deploy": {
+        "preDeployCommand": "sh ./railway/init-app.sh",
+        "healthcheckPath": "/login",
+        "healthcheckTimeout": 300,
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+    }
+}
+
+Para app donde Railway entra directo al Laravel:
+
+{
+    "$schema": "https://railway.com/railway.schema.json",
+    "build": {
+        "builder": "RAILPACK",
+        "buildCommand": "npm run build"
+    },
+    "deploy": {
+        "preDeployCommand": "chmod +x ./railway/init-app.sh && sh ./railway/init-app.sh",
+        "healthcheckPath": "/login",
+        "healthcheckTimeout": 300,
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+    }
+}
+
+
+7. Script de pre-deploy para Laravel
+------------------------------------
+Crear:
+
+railway/init-app.sh
+
+Contenido recomendado:
+
+#!/usr/bin/env sh
+set -e
+
+if [ -z "${DATABASE_URL:-}" ] && [ -z "${DB_URL:-}" ]; then
+    echo "Railway init error: configure DATABASE_URL or DB_URL with the Postgres service URL before deploying."
+    echo "Example: DATABASE_URL=\${{Postgres.DATABASE_URL}} and DB_CONNECTION=pgsql"
+    exit 1
+fi
+
+export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
+export DB_URL="${DB_URL:-${DATABASE_URL:-}}"
+
+echo "Railway init: clearing cached Laravel files"
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+
+echo "Railway init: running database migrations"
+php artisan migrate --force
+
+echo "Railway init: caching views"
+php artisan view:cache
+
+if [ "${RAILWAY_CACHE_CONFIG:-false}" = "true" ]; then
+    echo "Railway init: caching config"
+    php artisan config:cache
+fi
+
+if [ "${RAILWAY_CACHE_ROUTES:-false}" = "true" ]; then
+    echo "Railway init: caching routes"
+    php artisan route:cache
+fi
+
+echo "Railway init: done"
+
+Nota:
+No activar config:cache o route:cache al inicio si todavia se estan afinando
+variables. Se pueden activar despues con:
+
+RAILWAY_CACHE_CONFIG=true
+RAILWAY_CACHE_ROUTES=true
+
+
+8. Dockerfile para Laravel con Apache
+-------------------------------------
+Ejemplo base:
+
+FROM php:8.4-apache
+
+WORKDIR /var/www/html
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gettext-base \
+        git \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libonig-dev \
+        libpng-dev \
+        libpq-dev \
+        libwebp-dev \
+        libzip-dev \
+        unzip \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install -j"$(nproc)" bcmath exif gd mbstring pcntl pdo_pgsql pgsql zip \
+    && a2enmod rewrite headers \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --optimize-autoloader
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . ./
+RUN npm run build \
+    && composer dump-autoload --optimize \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rwX storage bootstrap/cache
+
+CMD ["docker/start-container.sh"]
+
+Si la app esta en una subcarpeta, ajustar COPY:
+
+COPY app-laravel/composer.json app-laravel/composer.lock ./
+COPY app-laravel/package.json app-laravel/package-lock.json ./
+COPY app-laravel ./
+
+
+9. Apache config para Laravel
+-----------------------------
+Crear:
+
+docker/apache.conf
+
+Contenido:
+
+<VirtualHost *:${PORT}>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html/public
+
+    <Directory /var/www/html/public>
+        AllowOverride All
+        Require all granted
+        Options -Indexes +FollowSymLinks
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+
+
+10. Start script para contenedor
+--------------------------------
+Crear:
+
+docker/start-container.sh
+
+Contenido:
+
+#!/usr/bin/env sh
+set -e
+
+: "${PORT:=80}"
+
+sed -i "s/Listen 80/Listen ${PORT}/" /etc/apache2/ports.conf
+envsubst '${PORT}' < /etc/apache2/sites-available/000-default.conf > /tmp/000-default.conf
+cat /tmp/000-default.conf > /etc/apache2/sites-available/000-default.conf
+
+mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R ug+rwX storage bootstrap/cache
+
+exec apache2-foreground
+
+
+11. .dockerignore recomendado
+-----------------------------
+Crear .dockerignore:
+
+.git
+.github
+**/.env
+**/.env.*
+**/node_modules
+**/vendor
+**/storage/logs/*
+**/storage/framework/cache/*
+**/storage/framework/sessions/*
+**/storage/framework/testing/*
+**/storage/framework/views/*
+**/.phpunit.result.cache
+
+
+12. PHP version
+---------------
+Revisar composer.lock y composer.json.
+
+Error tipico:
+
+package requires php >=8.4 -> your php version (8.3.x) does not satisfy that requirement
+
+Solucion:
+
+- Usar una imagen PHP compatible, por ejemplo php:8.4-apache.
+- Actualizar composer.json:
+
+"php": "^8.4"
+
+- Ejecutar:
+
+composer update --lock
+
+o con Sail:
+
+./vendor/bin/sail composer update --lock --ignore-platform-req=php
+
+
+13. Extensiones PHP comunes para Laravel
+----------------------------------------
+Segun el proyecto, puede necesitar:
+
+- pdo_pgsql, pgsql: PostgreSQL
+- gd: Excel, imagenes, thumbnails, algunos PDF
+- zip: Excel y archivos
+- mbstring: strings
+- fileinfo: uploads y mime types
+- bcmath: calculos
+- exif: imagenes
+- pcntl: workers/queues
+
+En composer.json se pueden declarar:
+
+"ext-fileinfo": "*",
+"ext-gd": "*",
+"ext-pdo_pgsql": "*",
+"ext-pgsql": "*",
+"ext-zip": "*"
+
+
+14. Vite y assets
+-----------------
+Para Laravel con Vite:
+
+npm ci
+npm run build
+
+El build debe generar:
+
+public/build/manifest.json
+
+Si aparece error de import:
+
+Failed to resolve import "chart.js/auto"
+
+Solucion:
+
+npm install chart.js
+
+Confirmar que package.json y package-lock.json esten actualizados y commiteados.
+
+
+15. Storage externo: S3/R2
+--------------------------
+Para Cloudflare R2 o S3:
+
+FILESYSTEM_DISK=r2
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_DEFAULT_REGION=auto
+R2_BUCKET=...
+R2_ENDPOINT=...
+R2_ROOT_PREFIX=nombre-del-proyecto
+R2_USE_PATH_STYLE_ENDPOINT=true
+
+Error tipico:
+
+The PutObject operation requires non-empty parameter: Bucket
+
+Solucion:
+
+Falta R2_BUCKET o AWS_BUCKET en variables.
+
+
+16. Logs en Railway
+-------------------
+Usar:
+
+LOG_CHANNEL=stderr
+LOG_LEVEL=info
+
+Asi los errores aparecen en los logs de Railway, no solo en storage/logs.
+
+
+17. Queue worker
+----------------
+Si el proyecto usa colas:
+
+QUEUE_CONNECTION=database
+
+Crear un servicio separado opcional con start command:
+
+php artisan queue:work --sleep=3 --tries=3 --timeout=120
+
+O script:
+
+railway/run-worker.sh
+
+#!/usr/bin/env sh
+set -e
+
+php artisan queue:work --sleep=3 --tries=3 --timeout=120
+
+
+18. Scheduler / cron
+--------------------
+Si el proyecto usa tareas programadas:
+
+Crear servicio separado con:
+
+while [ true ]; do
+    php artisan schedule:run --verbose --no-interaction
+    sleep 60
+done
+
+
+19. Healthcheck
+---------------
+Para apps con login, usar una ruta publica:
+
+healthcheckPath: "/login"
+
+Evitar "/" si redirige raro, requiere auth, o depende de datos iniciales.
+
+
+20. Errores frecuentes y solucion
+---------------------------------
+
+Error:
+Railpack could not determine how to build the app.
+
+Causa:
+Railway mira la carpeta equivocada o el proyecto esta en subcarpeta.
+
+Solucion:
+Configurar Root Directory o usar Dockerfile.
+
+
+Error:
+Script start.sh not found
+
+Causa:
+Railpack espera un script de inicio y no lo encuentra.
+
+Solucion:
+Definir start command, railway.json o Dockerfile con CMD.
+
+
+Error:
+Failed to build an image. composer install exit code 2.
+
+Causa:
+Version de PHP incompatible o extension faltante.
+
+Solucion:
+Revisar composer output completo.
+Usar PHP correcto, por ejemplo php:8.4-apache.
+Instalar extensiones requeridas.
+
+
+Error:
+Laravel defaulted to SQLite.
+
+Causa:
+No se configuro DB_CONNECTION / DATABASE_URL en el servicio de la app.
+
+Solucion:
+En servicio app:
+
+DB_CONNECTION=pgsql
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+DB_URL=${{Postgres.DATABASE_URL}}
+
+
+Error:
+near "ALTER": syntax error, Database sqlite
+
+Causa:
+Migracion con SQL PostgreSQL corriendo sobre SQLite.
+
+Solucion:
+Configurar Postgres. Si se quiere blindar, hacer migraciones database-agnostic
+con Schema Builder o condicional por driver.
+
+
+Error:
+APP_KEY missing
+
+Causa:
+No se configuro APP_KEY.
+
+Solucion:
+php artisan key:generate --show
+Copiar en Railway.
+
+
+Error:
+Unable to write file at location... Bucket empty
+
+Causa:
+Variables R2/S3 incompletas.
+
+Solucion:
+Configurar R2_BUCKET, R2_ENDPOINT, keys y FILESYSTEM_DISK.
+
+
+Error:
+403 o imagen rota en archivos R2
+
+Causa:
+URL publica no configurada, bucket privado, o se esta intentando mostrar una URL
+no firmada.
+
+Solucion:
+Usar URLs firmadas desde Storage::temporaryUrl si el bucket es privado, o
+configurar public/custom domain si se desea publico.
+
+
+21. Checklist final antes de deploy
+-----------------------------------
+
+[ ] La app real esta en la carpeta que Railway construye.
+[ ] Root Directory esta bien configurado si es monorepo.
+[ ] APP_KEY existe.
+[ ] APP_ENV=production.
+[ ] APP_DEBUG=false.
+[ ] APP_URL apunta al dominio de Railway.
+[ ] DB_CONNECTION=pgsql.
+[ ] DATABASE_URL apunta al servicio Postgres.
+[ ] DB_URL tambien apunta al servicio Postgres, si Laravel lo usa.
+[ ] LOG_CHANNEL=stderr.
+[ ] npm run build funciona localmente.
+[ ] composer install --no-dev funciona en entorno similar.
+[ ] php artisan migrate --force funciona contra Postgres.
+[ ] R2/S3 variables configuradas si hay uploads.
+[ ] Healthcheck usa una ruta publica.
+[ ] No se sube .env al repo.
+
+
+22. Comandos utiles de verificacion local
+-----------------------------------------
+
+Validar Composer:
+
+composer validate --strict
+
+Build frontend:
+
+npm run build
+
+Migrar con Sail:
+
+./vendor/bin/sail artisan migrate --force
+
+Probar build Docker:
+
+docker build --progress=plain -t app-railway-test .
+
+Ver extensiones PHP:
+
+php -m
+
+Ver config de Laravel:
+
+php artisan config:clear
+php artisan about
+
+
+23. Recomendacion para pedir ayuda en otro chat
+-----------------------------------------------
+Pegar esta guia y decir:
+
+"Prepara este proyecto para Railway. Primero detecta si es monorepo, revisa
+composer.json/package.json, confirma la version de PHP requerida, configura
+Postgres con DATABASE_URL, y deja railway.json/Dockerfile/scripts listos. Luego
+haz una lista de variables de entorno necesarias y errores esperados."
+

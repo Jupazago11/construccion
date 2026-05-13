@@ -20,7 +20,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" bcmath exif gd mbstring pcntl pdo_pgsql pgsql zip \
-    && a2enmod rewrite headers \
+    && a2dismod -f mpm_event mpm_worker \
+    && a2enmod mpm_prefork rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
