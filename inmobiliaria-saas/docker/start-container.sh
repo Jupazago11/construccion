@@ -3,6 +3,9 @@ set -e
 
 : "${PORT:=80}"
 
+rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf
+a2enmod mpm_prefork >/dev/null
+
 sed -i "s/Listen 80/Listen ${PORT}/" /etc/apache2/ports.conf
 envsubst '${PORT}' < /etc/apache2/sites-available/000-default.conf > /tmp/000-default.conf
 cat /tmp/000-default.conf > /etc/apache2/sites-available/000-default.conf
