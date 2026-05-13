@@ -446,10 +446,30 @@ return new class extends Migration
 
     protected function indexExists(string $table, string $index): bool
     {
-        return DB::table('pg_indexes')
-            ->where('schemaname', 'public')
-            ->where('tablename', $table)
-            ->where('indexname', $index)
-            ->exists();
+        try {
+            foreach (Schema::getIndexes($table) as $currentIndex) {
+                if (($currentIndex['name'] ?? null) === $index) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            //
+        }
+
+        return match (DB::getDriverName()) {
+            'pgsql' => DB::table('pg_indexes')
+                ->where('schemaname', 'public')
+                ->where('tablename', $table)
+                ->where('indexname', $index)
+                ->exists(),
+            'mysql', 'mariadb' => DB::table('information_schema.statistics')
+                ->where('table_schema', DB::getDatabaseName())
+                ->where('table_name', $table)
+                ->where('index_name', $index)
+                ->exists(),
+            'sqlite' => collect(DB::select("PRAGMA index_list('".str_replace("'", "''", $table)."')"))
+                ->contains(fn ($currentIndex): bool => ($currentIndex->name ?? null) === $index),
+            default => false,
+        };
     }
 };

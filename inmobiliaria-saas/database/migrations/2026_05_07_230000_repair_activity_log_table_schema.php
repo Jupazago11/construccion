@@ -116,17 +116,47 @@ return new class extends Migration
 
     private function constraintExists(string $table, string $constraint): bool
     {
-        return DB::table('information_schema.table_constraints')
-            ->where('table_name', $table)
-            ->where('constraint_name', $constraint)
-            ->exists();
+        return match (DB::getDriverName()) {
+            'pgsql' => DB::table('information_schema.table_constraints')
+                ->where('table_schema', 'public')
+                ->where('table_name', $table)
+                ->where('constraint_name', $constraint)
+                ->exists(),
+            'mysql', 'mariadb' => DB::table('information_schema.table_constraints')
+                ->where('table_schema', DB::getDatabaseName())
+                ->where('table_name', $table)
+                ->where('constraint_name', $constraint)
+                ->exists(),
+            'sqlite' => true,
+            default => false,
+        };
     }
 
     private function indexExists(string $index): bool
     {
-        return DB::table('pg_indexes')
-            ->where('schemaname', 'public')
-            ->where('indexname', $index)
-            ->exists();
+        try {
+            foreach (Schema::getIndexes('activity_log') as $currentIndex) {
+                if (($currentIndex['name'] ?? null) === $index) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            //
+        }
+
+        return match (DB::getDriverName()) {
+            'pgsql' => DB::table('pg_indexes')
+                ->where('schemaname', 'public')
+                ->where('indexname', $index)
+                ->exists(),
+            'mysql', 'mariadb' => DB::table('information_schema.statistics')
+                ->where('table_schema', DB::getDatabaseName())
+                ->where('table_name', 'activity_log')
+                ->where('index_name', $index)
+                ->exists(),
+            'sqlite' => collect(DB::select("PRAGMA index_list('activity_log')"))
+                ->contains(fn ($currentIndex): bool => ($currentIndex->name ?? null) === $index),
+            default => false,
+        };
     }
 };
