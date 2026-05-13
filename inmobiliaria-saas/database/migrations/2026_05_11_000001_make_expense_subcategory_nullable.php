@@ -9,6 +9,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('expenses', function (Blueprint $table) {
+                $table->foreignId('subcategory_id')->nullable()->change();
+            });
+
+            return;
+        }
+
         Schema::table('expenses', function (Blueprint $table) {
             $table->dropForeign(['auxiliary_id', 'subcategory_id']);
             $table->dropForeign(['subcategory_id', 'category_id']);
@@ -31,6 +39,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('expenses', function (Blueprint $table) {
+                $table->foreignId('subcategory_id')->nullable(false)->change();
+            });
+
+            return;
+        }
+
         Schema::table('expenses', function (Blueprint $table) {
             $table->dropForeign(['auxiliary_id', 'subcategory_id']);
             $table->dropForeign(['subcategory_id', 'category_id']);

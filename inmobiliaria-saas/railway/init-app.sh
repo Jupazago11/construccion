@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 set -e
 
+if [ -z "${DATABASE_URL:-}" ] && [ -z "${DB_URL:-}" ]; then
+    echo "Railway init error: configure DATABASE_URL or DB_URL with the Postgres service URL before deploying."
+    echo "Example: DATABASE_URL=\${{Postgres.DATABASE_URL}} and DB_CONNECTION=pgsql"
+    exit 1
+fi
+
+export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
+
 echo "Railway init: clearing cached Laravel files"
 php artisan config:clear
 php artisan route:clear
