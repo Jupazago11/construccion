@@ -18,6 +18,9 @@ php artisan view:clear
 echo "Railway init: running database migrations"
 php artisan migrate --force
 
+echo "Railway init: seeding production baseline"
+php artisan db:seed --force
+
 echo "Railway init: caching views"
 php artisan view:cache
 

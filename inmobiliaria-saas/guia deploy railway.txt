@@ -60,6 +60,15 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://tu-dominio.up.railway.app
 APP_KEY=base64:...
+APP_LOCALE=es
+APP_FALLBACK_LOCALE=es
+
+SUPERADMIN_USERNAME=superadmin
+SUPERADMIN_NAME="Super Admin"
+SUPERADMIN_EMAIL=admin@example.com
+SUPERADMIN_PASSWORD=clave-segura
+# Opcional, solo si se quiere resetear la clave en cada deploy:
+# SUPERADMIN_RESET_PASSWORD=true
 
 DB_CONNECTION=pgsql
 DATABASE_URL=${{Postgres.DATABASE_URL}}
@@ -82,6 +91,18 @@ desde la app usando ${{Postgres.DATABASE_URL}}.
 Si el servicio de base de datos no se llama Postgres, usar el nombre real.
 Railway suele autocompletar cuando escribes ${{.
 
+Tambien recordar:
+
+- APP_KEY debe estar en el servicio de la app.
+- APP_KEY no debe cambiarse despues de produccion salvo que se acepte invalidar
+  cookies, sesiones y datos cifrados.
+- APP_URL debe ser el dominio real publicado por Railway, no localhost.
+- Si la app se ve sin estilos, revisar el codigo fuente: los assets de Vite
+  deben salir con https://. Si salen con http://, falta APP_URL correcto o
+  confiar en los proxy headers de Railway.
+- No subir el archivo .env al repositorio. Las variables productivas van en
+  Railway.
+
 
 3. APP_KEY en Laravel
 ---------------------
@@ -98,6 +119,14 @@ o con Sail:
 Copiar el resultado en Railway:
 
 APP_KEY=base64:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+Error tipico si falta:
+
+The /login healthcheck endpoint returned HTTP 500 because Laravel cannot handle
+encryption, sessions, or CSRF tokens without APP_KEY.
+
+Solucion:
+Agregar APP_KEY en el servicio de la app y hacer redeploy.
 
 
 4. PostgreSQL: error comun con SQLite
@@ -217,6 +246,9 @@ php artisan view:clear
 echo "Railway init: running database migrations"
 php artisan migrate --force
 
+echo "Railway init: seeding production baseline"
+php artisan db:seed --force
+
 echo "Railway init: caching views"
 php artisan view:cache
 
@@ -266,7 +298,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" bcmath exif gd mbstring pcntl pdo_pgsql pgsql zip \
-    && a2enmod rewrite headers \
+    && a2dismod -f mpm_event mpm_worker mpm_prefork \
+    && rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
+    && a2enmod mpm_prefork rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -328,6 +362,9 @@ set -e
 
 : "${PORT:=80}"
 
+rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf
+a2enmod mpm_prefork >/dev/null
+
 sed -i "s/Listen 80/Listen ${PORT}/" /etc/apache2/ports.conf
 envsubst '${PORT}' < /etc/apache2/sites-available/000-default.conf > /tmp/000-default.conf
 cat /tmp/000-default.conf > /etc/apache2/sites-available/000-default.conf
@@ -337,6 +374,11 @@ chown -R www-data:www-data storage bootstrap/cache
 chmod -R ug+rwX storage bootstrap/cache
 
 exec apache2-foreground
+
+Nota sobre Apache MPM:
+Si aparece "More than one MPM loaded", Apache esta cargando mas de un modulo MPM
+al mismo tiempo. La limpieza de mpm_*.load y mpm_*.conf evita ese choque y deja
+solo mpm_prefork habilitado.
 
 
 11. .dockerignore recomendado
@@ -570,6 +612,105 @@ Copiar en Railway.
 
 
 Error:
+No existe usuario inicial para entrar al sistema.
+
+Causa:
+Se corrieron migraciones, pero no se ejecuto el seeder de produccion o faltan
+variables SUPERADMIN_*.
+
+Solucion:
+Dejar DatabaseSeeder solo con seeders base, por ejemplo:
+
+RoleAndPermissionSeeder::class
+SuperAdminSeeder::class
+
+En Railway, despues de migrate --force ejecutar:
+
+php artisan db:seed --force
+
+Variables recomendadas:
+
+SUPERADMIN_USERNAME=superadmin
+SUPERADMIN_NAME="Super Admin"
+SUPERADMIN_EMAIL=admin@example.com
+SUPERADMIN_PASSWORD=clave-segura
+
+Los seeders demo pueden quedarse en el repositorio, pero no deben estar llamados
+desde DatabaseSeeder en produccion.
+
+
+Error:
+Healthcheck /login devuelve HTTP 500, pero Apache ya arranco.
+
+Causa:
+Laravel esta fallando en runtime. Las causas mas comunes son APP_KEY faltante,
+APP_URL incorrecto, variables de base de datos incompletas, storage/cache sin
+permisos, o config cache vieja.
+
+Solucion:
+Revisar deploy logs y runtime logs. Confirmar:
+
+APP_KEY=base64:...
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://dominio-real
+DB_CONNECTION=pgsql
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+LOG_CHANNEL=stderr
+
+Luego redeploy.
+
+
+Error:
+La pagina carga sin estilos, el logo se ve gigante o los inputs se ven como HTML
+basico.
+
+Causa:
+El CSS/JS de Vite no esta cargando. En Railway suele ocurrir cuando Laravel no
+confia en los headers del proxy y genera assets con http:// mientras el navegador
+esta en https://. El navegador bloquea esos assets por contenido mixto.
+
+Solucion:
+Confirmar en el servicio app:
+
+APP_URL=https://dominio-real.up.railway.app
+
+Y en bootstrap/app.php confiar en los proxies de Railway:
+
+$middleware->trustProxies(at: '*');
+
+Despues hacer redeploy. Al ver el codigo fuente, los enlaces a /build/assets
+deben iniciar con https://.
+
+
+Error:
+AH00534: apache2: Configuration error: More than one MPM loaded.
+
+Causa:
+La imagen Apache tiene mas de un modulo MPM habilitado, por ejemplo mpm_event y
+mpm_prefork al mismo tiempo.
+
+Solucion:
+En Dockerfile y en el script de arranque limpiar los MPM y activar solo
+mpm_prefork:
+
+rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf
+a2enmod mpm_prefork
+
+
+Error:
+AH00558: apache2: Could not reliably determine the server's fully qualified
+domain name.
+
+Causa:
+Apache no tiene ServerName global.
+
+Solucion:
+Normalmente es solo una advertencia y no rompe el deploy. Si se quiere limpiar,
+agregar ServerName localhost a la configuracion global de Apache.
+
+
+Error:
 Unable to write file at location... Bucket empty
 
 Causa:
@@ -600,15 +741,19 @@ configurar public/custom domain si se desea publico.
 [ ] APP_ENV=production.
 [ ] APP_DEBUG=false.
 [ ] APP_URL apunta al dominio de Railway.
+[ ] APP_LOCALE y APP_FALLBACK_LOCALE estan definidos si la app usa espanol.
+[ ] SUPERADMIN_USERNAME, SUPERADMIN_EMAIL y SUPERADMIN_PASSWORD estan definidos.
 [ ] DB_CONNECTION=pgsql.
 [ ] DATABASE_URL apunta al servicio Postgres.
 [ ] DB_URL tambien apunta al servicio Postgres, si Laravel lo usa.
+[ ] Las variables de DB estan en el servicio de la app, no solo en Postgres.
 [ ] LOG_CHANNEL=stderr.
 [ ] npm run build funciona localmente.
 [ ] composer install --no-dev funciona en entorno similar.
 [ ] php artisan migrate --force funciona contra Postgres.
 [ ] R2/S3 variables configuradas si hay uploads.
 [ ] Healthcheck usa una ruta publica.
+[ ] Apache no carga mas de un MPM si se usa php:apache.
 [ ] No se sube .env al repo.
 
 
@@ -631,6 +776,10 @@ Probar build Docker:
 
 docker build --progress=plain -t app-railway-test .
 
+Verificar MPM de Apache dentro de la imagen:
+
+docker run --rm --entrypoint sh app-railway-test -lc "ls -1 /etc/apache2/mods-enabled/mpm_* && apache2ctl -M | grep mpm"
+
 Ver extensiones PHP:
 
 php -m
@@ -649,4 +798,3 @@ Pegar esta guia y decir:
 composer.json/package.json, confirma la version de PHP requerida, configura
 Postgres con DATABASE_URL, y deja railway.json/Dockerfile/scripts listos. Luego
 haz una lista de variables de entorno necesarias y errores esperados."
-

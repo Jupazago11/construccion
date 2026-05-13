@@ -25,6 +25,13 @@ APP_LOCALE=es
 APP_FALLBACK_LOCALE=es
 APP_FAKER_LOCALE=es_ES
 
+SUPERADMIN_USERNAME=superadmin
+SUPERADMIN_NAME="Super Admin"
+SUPERADMIN_EMAIL=admin@example.com
+SUPERADMIN_PASSWORD=change-this-password
+# Optional, only when you intentionally want deploys to reset the password:
+# SUPERADMIN_RESET_PASSWORD=true
+
 DB_CONNECTION=pgsql
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 DB_URL=${{Postgres.DATABASE_URL}}
@@ -49,6 +56,23 @@ R2_USE_PATH_STYLE_ENDPOINT=true
 ```
 
 Use the same variables for optional worker or cron services.
+
+If the login page looks unstyled, inspect the page source. CSS and JS URLs must
+start with `https://`. If they start with `http://`, confirm `APP_URL` uses the
+Railway HTTPS domain and that Laravel trusts Railway proxy headers.
+
+## Production seed
+
+`railway/init-app.sh` runs:
+
+```sh
+php artisan migrate --force
+php artisan db:seed --force
+```
+
+`DatabaseSeeder` is intentionally minimal for production. It only creates or
+updates roles/permissions and the SuperAdmin user. Demo seeders remain in the
+repository, but they are not called by the default seeder.
 
 ## Optional services
 
