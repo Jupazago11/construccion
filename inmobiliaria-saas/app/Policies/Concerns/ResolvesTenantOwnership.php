@@ -14,8 +14,15 @@ use App\Models\Company;
 use App\Models\CompanyModule;
 use App\Models\Expense;
 use App\Models\ExpenseAttachment;
+use App\Models\Invoice;
+use App\Models\InvoiceAttachment;
 use App\Models\Project;
+use App\Models\Product;
+use App\Models\ProductGroup;
+use App\Models\ProductSubgroup;
 use App\Models\Provider;
+use App\Models\ProviderType;
+use App\Models\Purchase;
 use App\Models\Subcategory;
 use App\Models\User;
 
@@ -47,11 +54,18 @@ trait ResolvesTenantOwnership
             $record instanceof CompanyModule => $record->company_id,
             $record instanceof Project => $record->company_id,
             $record instanceof Provider => $record->company_id,
+            $record instanceof ProviderType => $record->company_id,
+            $record instanceof ProductGroup => $record->company_id,
+            $record instanceof ProductSubgroup => $record->company_id,
+            $record instanceof Product => $record->company_id,
             $record instanceof Asset => $record->company_id,
             $record instanceof AssetMedia => $record->loadMissing('asset')->asset?->company_id,
             $record instanceof AssetType => $record->company_id,
             $record instanceof AssetNoveltyType => $record->company_id,
             $record instanceof Expense => $record->company_id,
+            $record instanceof Invoice => $record->company_id,
+            $record instanceof InvoiceAttachment => $record->loadMissing('invoice')->invoice?->company_id,
+            $record instanceof Purchase => $record->company_id,
             $record instanceof User => $record->company_id,
             $record instanceof AssetNovelty => $record->loadMissing('asset')->asset?->company_id,
             $record instanceof Category => $record->loadMissing('project')->project?->company_id,

@@ -7,6 +7,7 @@ use App\Http\Requests\ProviderStoreRequest;
 use App\Http\Requests\ProviderUpdateRequest;
 use App\Models\Company;
 use App\Models\Provider;
+use App\Models\ProviderType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,7 @@ class ProviderController extends Controller
             : $authUser->company_id;
 
         $providers = Provider::query()
-            ->with('company')
+            ->with(['company', 'type'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($search !== '', function ($query) use ($search) {
@@ -36,7 +37,8 @@ class ProviderController extends Controller
                         ->orWhere('location', 'like', "%{$search}%")
                         ->orWhere('document_number', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhereHas('type', fn ($typeQuery) => $typeQuery->where('name', 'like', "%{$search}%"));
                 });
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))
@@ -67,6 +69,7 @@ class ProviderController extends Controller
             return view('providers._modal_form', [
                 'provider' => new Provider(),
                 'companies' => $this->companiesForForm($authUser),
+                'providerTypes' => $this->providerTypesForForm($authUser),
                 'action' => route('providers.store'),
                 'method' => 'POST',
             ])->render();
@@ -86,15 +89,16 @@ class ProviderController extends Controller
 
         $provider = Provider::query()->create([
             'company_id' => $authUser->isSuperAdmin() ? $data['company_id'] : $authUser->company_id,
+            'provider_type_id' => $data['provider_type_id'] ?? null,
             'name' => $data['name'],
             'location' => $data['location'] ?? null,
             'document_number' => $data['document_number'] ?? null,
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'] ?? null,
-            'status' => $data['status'],
+            'status' => EntityStatus::Active->value,
         ]);
 
-        $provider->load('company');
+        $provider->load(['company', 'type']);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -119,6 +123,7 @@ class ProviderController extends Controller
             return view('providers._modal_form', [
                 'provider' => $provider,
                 'companies' => $this->companiesForForm($authUser),
+                'providerTypes' => $this->providerTypesForForm($authUser, $provider),
                 'action' => route('providers.update', $provider),
                 'method' => 'PATCH',
             ])->render();
@@ -138,6 +143,7 @@ class ProviderController extends Controller
 
         $provider->update([
             'company_id' => $authUser->isSuperAdmin() ? ($data['company_id'] ?? $provider->company_id) : $provider->company_id,
+            'provider_type_id' => $data['provider_type_id'] ?? null,
             'name' => $data['name'],
             'location' => $data['location'] ?? null,
             'document_number' => $data['document_number'] ?? null,
@@ -146,7 +152,7 @@ class ProviderController extends Controller
             'status' => $provider->status,
         ]);
 
-        $provider->load('company');
+        $provider->load(['company', 'type']);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -173,7 +179,7 @@ class ProviderController extends Controller
             'status' => $data['status'],
         ]);
 
-        $provider->load('company');
+        $provider->load(['company', 'type']);
 
         return response()->json([
             'id' => $provider->id,
@@ -186,8 +192,9 @@ class ProviderController extends Controller
     {
         $this->authorize('delete', $provider);
 
-        if ($provider->expenses()->where('status', '!=', EntityStatus::Deleted->value)->exists()) {
-            $message = 'El proveedor no puede archivarse porque tiene gastos registrados.';
+        if ($provider->expenses()->where('status', '!=', EntityStatus::Deleted->value)->exists()
+            || $provider->purchases()->where('status', '!=', EntityStatus::Deleted->value)->exists()) {
+            $message = 'El proveedor no puede archivarse porque tiene gastos o compras registrados.';
 
             if ($request->expectsJson()) {
                 return response()->json(['message' => $message], 422);
@@ -223,6 +230,25 @@ class ProviderController extends Controller
 
         return Company::query()
             ->whereKey($authUser->company_id)
+            ->get();
+    }
+
+    protected function providerTypesForForm($authUser, ?Provider $provider = null)
+    {
+        return ProviderType::query()
+            ->with('company')
+            ->withCount([
+                'providers as active_providers_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->where(function ($query) use ($provider) {
+                $query->where('status', EntityStatus::Active->value);
+
+                if ($provider?->provider_type_id) {
+                    $query->orWhereKey($provider->provider_type_id);
+                }
+            })
+            ->orderBy('name')
             ->get();
     }
 }

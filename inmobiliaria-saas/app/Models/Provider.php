@@ -15,6 +15,7 @@ class Provider extends Model
 
     protected $fillable = [
         'company_id',
+        'provider_type_id',
         'name',
         'location',
         'document_number',
@@ -28,8 +29,18 @@ class Provider extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function type(): BelongsTo
+    {
+        return $this->belongsTo(ProviderType::class, 'provider_type_id');
+    }
+
     public function expenses(): HasMany
     {
         return $this->hasMany(Expense::class);
+    }
+
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(Purchase::class);
     }
 }

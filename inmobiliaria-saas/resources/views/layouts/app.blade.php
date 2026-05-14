@@ -12,11 +12,12 @@
 @endphp
 
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="es-CO" translate="no" class="notranslate">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="google" content="notranslate">
         <meta name="current-route" content="{{ request()->route()?->getName() }}">
         <meta name="current-path" content="{{ request()->path() }}">
 
@@ -34,7 +35,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body
-        @class(['font-sans antialiased app-shell', 'tenant-branded' => $tenantColor])
+        @class(['font-sans antialiased app-shell notranslate', 'tenant-branded' => $tenantColor])
         @style([$tenantColor ? '--app-accent: '.$tenantColor : null])
         data-current-route="{{ request()->route()?->getName() }}"
         data-current-path="{{ request()->path() }}"

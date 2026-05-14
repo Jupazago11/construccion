@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Auxiliary;
-use App\Models\Category;
+use App\Models\Product;
 use App\Models\Project;
 use App\Models\Provider;
-use App\Models\Subcategory;
+use App\Models\Invoice;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,37 +31,9 @@ class ExpenseUpdateRequest extends FormRequest
                 }),
             ],
             'expense_date' => ['required', 'date'],
-            'payment_method' => ['nullable', Rule::in(['cash', 'bank_transfer', 'credit_card', 'debit_card', 'other'])],
             'description' => ['nullable', 'string'],
-            'category_id' => [
-                'required',
-                'integer',
-                Rule::exists(Category::class, 'id')->where(
-                    fn ($query) => $query
-                        ->where('project_id', $this->input('project_id'))
-                        ->where('status', 'active')
-                ),
-            ],
-            'subcategory_id' => [
-                'nullable',
-                'integer',
-                Rule::exists(Subcategory::class, 'id')->where(
-                    fn ($query) => $query
-                        ->where('category_id', $this->input('category_id'))
-                        ->where('status', 'active')
-                ),
-            ],
-            'auxiliary_id' => [
-                'nullable',
-                'integer',
-                Rule::exists(Auxiliary::class, 'id')->where(
-                    fn ($query) => $query
-                        ->where('subcategory_id', $this->input('subcategory_id'))
-                        ->where('status', 'active')
-                ),
-            ],
             'provider_id' => [
-                'nullable',
+                'required',
                 'integer',
                 Rule::exists(Provider::class, 'id')->where(function ($query) {
                     $query
@@ -70,7 +41,26 @@ class ExpenseUpdateRequest extends FormRequest
                         ->where('status', 'active');
                 }),
             ],
+            'invoice_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(Invoice::class, 'id')
+                    ->where('project_id', $this->input('project_id'))
+                    ->where('provider_id', $this->input('provider_id'))
+                    ->where('type', 'expense')
+                    ->where('status', 'open'),
+            ],
+            'product_id' => [
+                'required',
+                'integer',
+                Rule::exists(Product::class, 'id')->where(function ($query) {
+                    $query
+                        ->where('company_id', $this->resolvedCompanyId())
+                        ->where('status', 'active');
+                }),
+            ],
             'subtotal_amount' => ['required', 'numeric', 'min:0'],
+            'quantity' => ['nullable', 'string', 'max:255'],
         ];
     }
 

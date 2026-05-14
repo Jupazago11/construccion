@@ -35,7 +35,7 @@
                         x-transition:leave="transition ease-in duration-[613ms]"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 -translate-y-2"
-                        class="grid gap-4 md:grid md:grid-cols-[1fr_220px_220px_180px_180px_auto]"
+                        class="grid gap-4 md:grid md:grid-cols-[1fr_180px_220px_180px_180px_180px_auto]"
                         x-cloak
                     >
                         <div>
@@ -66,6 +66,15 @@
                         </div>
 
                         <div>
+                            <x-input-label for="transaction_view" :value="'Vista'" />
+                            <select id="transaction_view" name="transaction_view" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                <option value="" @selected($filters['transaction_view'] === '')>Todo</option>
+                                <option value="individual" @selected($filters['transaction_view'] === 'individual')>Gastos Individuales</option>
+                                <option value="invoice" @selected($filters['transaction_view'] === 'invoice')>Facturas</option>
+                            </select>
+                        </div>
+
+                        <div>
                             <x-input-label for="date_from" :value="'Desde'" />
                             <x-text-input id="date_from" name="date_from" type="date" class="mt-1 block w-full" :value="$filters['date_from']" />
                         </div>
@@ -84,12 +93,13 @@
 
             <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-stone-200 text-sm">
+                    <table class="min-w-full divide-y divide-stone-200 whitespace-nowrap text-sm">
                         <thead class="bg-stone-50 text-left text-stone-500">
                             <tr>
                                 <th class="w-32 whitespace-nowrap px-6 py-4 font-medium">Fecha</th>
                                 <th class="px-6 py-4 font-medium">Proyecto</th>
-                                <th class="w-72 px-6 py-4 font-medium">Categoría</th>
+                                <th class="w-80 px-6 py-4 font-medium">Producto</th>
+                                <th class="px-6 py-4 font-medium">Factura</th>
                                 <th class="px-6 py-4 font-medium">Proveedor</th>
                                 <th class="px-6 py-4 font-medium">Total</th>
                                 <th class="px-6 py-4 font-medium">Estado</th>
@@ -97,15 +107,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-stone-100" x-ref="tbody">
-                            @forelse ($expenses as $expense)
-                                @include('expenses._row', ['expense' => $expense])
-                            @empty
-                                <tr data-empty-state>
-                                    <td colspan="7" class="px-6 py-10 text-center text-stone-500">
-                                        No se encontraron gastos con los filtros actuales.
-                                    </td>
-                                </tr>
-                            @endforelse
+                            @include('expenses._table_body', ['expenses' => $expenses])
                         </tbody>
                     </table>
                 </div>

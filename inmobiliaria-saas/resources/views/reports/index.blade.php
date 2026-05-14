@@ -5,7 +5,15 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <form method="GET" id="reports-filter-form" class="grid gap-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm md:grid-cols-[220px_220px_180px_180px_auto]">
+            <form method="GET" id="reports-filter-form" class="grid gap-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm md:grid-cols-[180px_220px_220px_180px_180px_auto]">
+                <div>
+                    <x-input-label for="report_type" :value="'Indicadores'" />
+                    <select id="report_type" name="report_type" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                        <option value="expense" @selected($filters['report_type'] === 'expense')>Gastos</option>
+                        <option value="purchase" @selected($filters['report_type'] === 'purchase')>Compras</option>
+                    </select>
+                </div>
+
                 @if (auth()->user()->isSuperAdmin())
                     <div>
                         <x-input-label for="company_id" :value="'Empresa'" />
@@ -45,20 +53,20 @@
 
             @if ($selectedProject)
             <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Gasto total</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">{{ $movementSingular }} total</p>
                 <p class="mt-3 text-3xl font-semibold tracking-tight text-stone-900">$ {{ number_format((float) $summary['total_amount'], 0, ',', '.') }}</p>
-                <p class="mt-2 text-sm text-stone-500">Suma de gastos de {{ $selectedProject->name }}</p>
+                <p class="mt-2 text-sm text-stone-500">Suma de {{ strtolower($movementLabel) }} de {{ $selectedProject->name }}</p>
             </div>
 
             <div class="grid gap-6 xl:grid-cols-3">
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Total por categoría</h2>
+                    <h2 class="text-lg font-semibold text-stone-900">Total por grupo</h2>
                     <div class="mt-4 overflow-x-auto">
                         <table class="min-w-full divide-y divide-stone-200 text-sm">
                             <thead class="bg-stone-50 text-left text-stone-500">
                                 <tr>
-                                    <th class="px-4 py-3 font-medium">Categoría</th>
-                                    <th class="px-4 py-3 font-medium">Gastos</th>
+                                    <th class="px-4 py-3 font-medium">Grupo</th>
+                                    <th class="px-4 py-3 font-medium">{{ $movementLabel }}</th>
                                     <th class="px-4 py-3 font-medium">Total</th>
                                 </tr>
                             </thead>
@@ -78,13 +86,13 @@
                 </div>
 
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Total por subcategoría</h2>
+                    <h2 class="text-lg font-semibold text-stone-900">Total por subgrupo</h2>
                     <div class="mt-4 overflow-x-auto">
                         <table class="min-w-full divide-y divide-stone-200 text-sm">
                             <thead class="bg-stone-50 text-left text-stone-500">
                                 <tr>
-                                    <th class="px-4 py-3 font-medium">Subcategoría</th>
-                                    <th class="px-4 py-3 font-medium">Gastos</th>
+                                    <th class="px-4 py-3 font-medium">Subgrupo</th>
+                                    <th class="px-4 py-3 font-medium">{{ $movementLabel }}</th>
                                     <th class="px-4 py-3 font-medium">Total</th>
                                 </tr>
                             </thead>
@@ -104,13 +112,13 @@
                 </div>
 
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Total por auxiliar</h2>
+                    <h2 class="text-lg font-semibold text-stone-900">Total por producto</h2>
                     <div class="mt-4 overflow-x-auto">
                         <table class="min-w-full divide-y divide-stone-200 text-sm">
                             <thead class="bg-stone-50 text-left text-stone-500">
                                 <tr>
-                                    <th class="px-4 py-3 font-medium">Auxiliar</th>
-                                    <th class="px-4 py-3 font-medium">Gastos</th>
+                                    <th class="px-4 py-3 font-medium">Producto</th>
+                                    <th class="px-4 py-3 font-medium">{{ $movementLabel }}</th>
                                     <th class="px-4 py-3 font-medium">Total</th>
                                 </tr>
                             </thead>
@@ -132,14 +140,14 @@
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Gastos por fecha</h2>
+                    <h2 class="text-lg font-semibold text-stone-900">{{ $movementLabel }} por fecha</h2>
                     <div class="mt-4 h-80">
                         <canvas id="expenses-by-date-chart"></canvas>
                     </div>
                 </div>
 
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold text-stone-900">Participación por categoría</h2>
+                    <h2 class="text-lg font-semibold text-stone-900">Participación por grupo</h2>
                     <div class="mt-4 h-80">
                         <canvas id="expenses-by-category-chart"></canvas>
                     </div>
@@ -162,6 +170,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const filterForm = document.getElementById('reports-filter-form');
+            const reportTypeSelect = document.getElementById('report_type');
             const projectSelect = document.getElementById('project_id');
             const dateFromInput = document.getElementById('date_from');
             const dateToInput = document.getElementById('date_to');
@@ -175,8 +184,8 @@
 
                 const range = projectRanges[projectId];
 
-                if (range.oldest_expense_date) {
-                    dateFromInput.value = range.oldest_expense_date;
+                if (range.oldest_movement_date) {
+                    dateFromInput.value = range.oldest_movement_date;
                 }
 
                 dateToInput.value = range.today;
@@ -190,11 +199,20 @@
                 }
             });
 
+            reportTypeSelect?.addEventListener('change', () => {
+                if (applyProjectDateRange(projectSelect?.value) && filterForm) {
+                    filterForm.submit();
+                    return;
+                }
+
+                filterForm?.submit();
+            });
+
             if (!hasSelectedProject || typeof Chart === 'undefined') {
                 return;
             }
 
-            const dateLabels = @json($seriesByDate->pluck('expense_date')->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('Y-m-d'))->values());
+            const dateLabels = @json($seriesByDate->pluck('movement_date')->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('Y-m-d'))->values());
             const dateValues = @json($seriesByDate->pluck('total_amount')->map(fn ($value) => (float) $value)->values());
 
             const categoryLabels = @json($totalsByCategory->take(8)->pluck('name')->values());
@@ -207,7 +225,7 @@
                 data: {
                     labels: dateLabels,
                     datasets: [{
-                        label: 'Gastos por fecha',
+                        label: @js($movementLabel.' por fecha'),
                         data: dateValues,
                         borderColor: '#0284c7',
                         pointBackgroundColor: palette,
@@ -242,7 +260,7 @@
                 categoryChartDetail.innerHTML = `
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Categoría</div>
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Grupo</div>
                             <div class="mt-1 font-semibold text-stone-900">${categoryLabels[index]}</div>
                         </div>
                         <span class="inline-flex h-3.5 w-3.5 rounded-full" style="background:${palette[index % palette.length]}"></span>

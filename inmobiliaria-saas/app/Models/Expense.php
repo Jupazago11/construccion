@@ -20,12 +20,15 @@ class Expense extends Model
         'subcategory_id',
         'auxiliary_id',
         'provider_id',
+        'invoice_id',
+        'product_id',
         'created_by',
         'expense_number',
         'expense_date',
         'payment_method',
         'description',
         'subtotal_amount',
+        'quantity',
         'tax_amount',
         'discount_amount',
         'total_amount',
@@ -71,6 +74,16 @@ class Expense extends Model
     public function provider(): BelongsTo
     {
         return $this->belongsTo(Provider::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function creator(): BelongsTo

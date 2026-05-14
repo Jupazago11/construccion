@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\EntityStatus;
 use App\Models\Company;
 use App\Models\Provider;
+use App\Models\ProviderType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,6 +41,13 @@ class ProviderUpdateRequest extends FormRequest
                     ->ignore($provider?->id),
             ],
             'location' => ['nullable', 'string', 'max:255'],
+            'provider_type_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(ProviderType::class, 'id')->where(fn ($query) => $query
+                    ->where('company_id', $companyId)
+                    ->where('status', EntityStatus::Active->value)),
+            ],
             'document_number' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],

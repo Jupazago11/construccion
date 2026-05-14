@@ -6,6 +6,7 @@ use App\Enums\EntityStatus;
 use App\Models\Company;
 use App\Models\Expense;
 use App\Models\Project;
+use App\Models\Purchase;
 use Illuminate\Support\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Response;
@@ -23,6 +24,12 @@ class ReportController extends Controller
         $companyId = $user->isSuperAdmin()
             ? $request->integer('company_id') ?: null
             : $user->company_id;
+        $reportType = $request->string('report_type')->toString() === 'purchase' ? 'purchase' : 'expense';
+        $modelClass = $reportType === 'purchase' ? Purchase::class : Expense::class;
+        $table = $reportType === 'purchase' ? 'purchases' : 'expenses';
+        $dateColumn = $reportType === 'purchase' ? 'purchase_date' : 'expense_date';
+        $movementLabel = $reportType === 'purchase' ? 'Compras' : 'Gastos';
+        $movementSingular = $reportType === 'purchase' ? 'compra' : 'gasto';
         $projects = Project::query()
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $user->isSuperAdmin(), fn ($query) => $query->where('company_id', $user->company_id))
@@ -30,8 +37,8 @@ class ReportController extends Controller
             ->orderBy('name')
             ->get();
 
-        $projectRanges = Expense::query()
-            ->selectRaw('project_id, MIN(expense_date) as oldest_expense_date')
+        $projectRanges = $modelClass::query()
+            ->selectRaw("project_id, MIN({$dateColumn}) as oldest_movement_date")
             ->where('status', EntityStatus::Active->value)
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $user->isSuperAdmin(), fn ($query) => $query->where('company_id', $user->company_id))
@@ -46,8 +53,8 @@ class ReportController extends Controller
         $projectId = $selectedProject?->id;
 
         $selectedProjectRange = $projectId ? $projectRanges->get($projectId) : null;
-        $oldestExpenseDate = $selectedProjectRange?->oldest_expense_date
-            ? Carbon::parse($selectedProjectRange->oldest_expense_date)->format('Y-m-d')
+        $oldestMovementDate = $selectedProjectRange?->oldest_movement_date
+            ? Carbon::parse($selectedProjectRange->oldest_movement_date)->format('Y-m-d')
             : '';
         $today = today()->format('Y-m-d');
 
@@ -55,86 +62,93 @@ class ReportController extends Controller
         $dateTo = $request->string('date_to')->toString();
 
         if ($projectId) {
-            $dateFrom = $oldestExpenseDate !== '' ? $oldestExpenseDate : $dateFrom;
+            $dateFrom = $oldestMovementDate !== '' ? $oldestMovementDate : $dateFrom;
             $dateTo = $today;
         }
 
-        $baseQuery = Expense::query()
-            ->where('expenses.status', EntityStatus::Active->value)
-            ->when($companyId, fn ($query) => $query->where('expenses.company_id', $companyId))
+        $baseQuery = $modelClass::query()
+            ->where("{$table}.status", EntityStatus::Active->value)
+            ->when($companyId, fn ($query) => $query->where("{$table}.company_id", $companyId))
             ->when(
                 $projectId,
-                fn ($query) => $query->where('expenses.project_id', $projectId),
+                fn ($query) => $query->where("{$table}.project_id", $projectId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             )
-            ->when($dateFrom !== '', fn ($query) => $query->whereDate('expenses.expense_date', '>=', $dateFrom))
-            ->when($dateTo !== '', fn ($query) => $query->whereDate('expenses.expense_date', '<=', $dateTo));
+            ->when($dateFrom !== '', fn ($query) => $query->whereDate("{$table}.{$dateColumn}", '>=', $dateFrom))
+            ->when($dateTo !== '', fn ($query) => $query->whereDate("{$table}.{$dateColumn}", '<=', $dateTo));
 
         $detailQuery = clone $baseQuery;
 
         $summary = [
-            'total_amount' => (clone $baseQuery)->sum('expenses.total_amount'),
+            'total_amount' => (clone $baseQuery)->sum("{$table}.total_amount"),
             'expenses_count' => (clone $baseQuery)->count(),
-            'projects_count' => (clone $baseQuery)->distinct('expenses.project_id')->count('expenses.project_id'),
-            'average_ticket' => (clone $baseQuery)->avg('expenses.total_amount') ?: 0,
+            'projects_count' => (clone $baseQuery)->distinct("{$table}.project_id")->count("{$table}.project_id"),
+            'average_ticket' => (clone $baseQuery)->avg("{$table}.total_amount") ?: 0,
         ];
 
-        $totalsByCategory = (clone $detailQuery)
-            ->join('categories', 'categories.id', '=', 'expenses.category_id')
-            ->selectRaw('categories.id, categories.name, SUM(expenses.total_amount) as total_amount, COUNT(expenses.id) as expenses_count')
-            ->groupBy('categories.id', 'categories.name')
+        $totalsByGroup = (clone $detailQuery)
+            ->join('products', 'products.id', '=', "{$table}.product_id")
+            ->join('product_groups', 'product_groups.id', '=', 'products.product_group_id')
+            ->selectRaw("product_groups.id, product_groups.name, SUM({$table}.total_amount) as total_amount, COUNT({$table}.id) as expenses_count")
+            ->groupBy('product_groups.id', 'product_groups.name')
             ->orderByDesc('total_amount')
             ->get();
 
-        $totalsBySubcategory = (clone $detailQuery)
-            ->join('subcategories', 'subcategories.id', '=', 'expenses.subcategory_id')
-            ->selectRaw('subcategories.id, subcategories.name, SUM(expenses.total_amount) as total_amount, COUNT(expenses.id) as expenses_count')
-            ->groupBy('subcategories.id', 'subcategories.name')
+        $totalsBySubgroup = (clone $detailQuery)
+            ->join('products', 'products.id', '=', "{$table}.product_id")
+            ->join('product_subgroups', 'product_subgroups.id', '=', 'products.product_subgroup_id')
+            ->selectRaw("product_subgroups.id, product_subgroups.name, SUM({$table}.total_amount) as total_amount, COUNT({$table}.id) as expenses_count")
+            ->groupBy('product_subgroups.id', 'product_subgroups.name')
             ->orderByDesc('total_amount')
             ->get();
 
-        $totalsByAuxiliary = (clone $detailQuery)
-            ->leftJoin('auxiliaries', 'auxiliaries.id', '=', 'expenses.auxiliary_id')
-            ->selectRaw("COALESCE(auxiliaries.id, 0) as auxiliary_group_id, COALESCE(auxiliaries.name, 'Sin auxiliar') as name, SUM(expenses.total_amount) as total_amount, COUNT(expenses.id) as expenses_count")
-            ->groupBy(DB::raw("COALESCE(auxiliaries.id, 0), COALESCE(auxiliaries.name, 'Sin auxiliar')"))
+        $totalsByProduct = (clone $detailQuery)
+            ->join('products', 'products.id', '=', "{$table}.product_id")
+            ->selectRaw("products.id, products.name, SUM({$table}.total_amount) as total_amount, COUNT({$table}.id) as expenses_count")
+            ->groupBy('products.id', 'products.name')
             ->orderByDesc('total_amount')
             ->get();
 
         $seriesByDate = (clone $detailQuery)
-            ->selectRaw('expenses.expense_date, SUM(expenses.total_amount) as total_amount')
-            ->groupBy('expenses.expense_date')
-            ->orderBy('expenses.expense_date')
+            ->selectRaw("{$table}.{$dateColumn} as movement_date, SUM({$table}.total_amount) as total_amount")
+            ->groupBy("{$table}.{$dateColumn}")
+            ->orderBy("{$table}.{$dateColumn}")
             ->get();
 
         $history = (clone $detailQuery)
-            ->with(['project', 'category', 'subcategory', 'auxiliary', 'provider'])
-            ->latest('expenses.expense_date')
-            ->latest('expenses.id')
+            ->with(['project', 'product.group', 'product.subgroup', 'provider'])
+            ->latest("{$table}.{$dateColumn}")
+            ->latest("{$table}.id")
             ->paginate(10)
             ->withQueryString();
 
         if ($request->ajax() && $request->boolean('history_only')) {
             return response()->view('reports._history', [
                 'history' => $history,
+                'reportType' => $reportType,
             ]);
         }
 
         return view('reports.index', [
             'summary' => $summary,
-            'totalsByCategory' => $totalsByCategory,
-            'totalsBySubcategory' => $totalsBySubcategory,
-            'totalsByAuxiliary' => $totalsByAuxiliary,
+            'totalsByCategory' => $totalsByGroup,
+            'totalsBySubcategory' => $totalsBySubgroup,
+            'totalsByAuxiliary' => $totalsByProduct,
             'seriesByDate' => $seriesByDate,
             'history' => $history,
             'selectedProject' => $selectedProject,
+            'reportType' => $reportType,
+            'movementLabel' => $movementLabel,
+            'movementSingular' => $movementSingular,
+            'dateColumn' => $dateColumn,
             'companies' => $user->isSuperAdmin()
                 ? Company::query()->where('status', '!=', EntityStatus::Deleted->value)->orderBy('name')->get()
                 : collect(),
             'projects' => $projects,
             'projectRanges' => $projects->mapWithKeys(fn ($project) => [
                 $project->id => [
-                    'oldest_expense_date' => $projectRanges->get($project->id)?->oldest_expense_date
-                        ? Carbon::parse($projectRanges->get($project->id)->oldest_expense_date)->format('Y-m-d')
+                    'oldest_movement_date' => $projectRanges->get($project->id)?->oldest_movement_date
+                        ? Carbon::parse($projectRanges->get($project->id)->oldest_movement_date)->format('Y-m-d')
                         : '',
                     'today' => $today,
                 ],
@@ -144,6 +158,7 @@ class ReportController extends Controller
                 'project_id' => $projectId,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'report_type' => $reportType,
             ],
         ]);
     }

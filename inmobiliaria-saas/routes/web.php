@@ -10,10 +10,14 @@ use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseAttachmentController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ProductCatalogController;
 use App\Http\Controllers\ProjectCategoryController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProviderController;
+use App\Http\Controllers\ProviderTypeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +47,26 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::patch('providers/{provider}/status', [ProviderController::class, 'updateStatus'])->name('providers.status');
     Route::resource('providers', ProviderController::class)->except('show');
 
+    Route::get('provider-types', [ProviderTypeController::class, 'index'])->name('provider-types.index');
+    Route::post('provider-types', [ProviderTypeController::class, 'store'])->name('provider-types.store');
+    Route::patch('provider-types/{providerType}', [ProviderTypeController::class, 'update'])->name('provider-types.update');
+    Route::patch('provider-types/{providerType}/status', [ProviderTypeController::class, 'updateStatus'])->name('provider-types.status');
+    Route::delete('provider-types/{providerType}', [ProviderTypeController::class, 'destroy'])->name('provider-types.destroy');
+
+    Route::get('maestras/productos', [ProductCatalogController::class, 'index'])->name('product-catalog.index');
+    Route::post('maestras/productos/grupos', [ProductCatalogController::class, 'storeGroup'])->name('product-catalog.groups.store');
+    Route::patch('maestras/productos/grupos/{productGroup}', [ProductCatalogController::class, 'updateGroup'])->name('product-catalog.groups.update');
+    Route::patch('maestras/productos/grupos/{productGroup}/status', [ProductCatalogController::class, 'statusGroup'])->name('product-catalog.groups.status');
+    Route::delete('maestras/productos/grupos/{productGroup}', [ProductCatalogController::class, 'destroyGroup'])->name('product-catalog.groups.destroy');
+    Route::post('maestras/productos/subgrupos', [ProductCatalogController::class, 'storeSubgroup'])->name('product-catalog.subgroups.store');
+    Route::patch('maestras/productos/subgrupos/{productSubgroup}', [ProductCatalogController::class, 'updateSubgroup'])->name('product-catalog.subgroups.update');
+    Route::patch('maestras/productos/subgrupos/{productSubgroup}/status', [ProductCatalogController::class, 'statusSubgroup'])->name('product-catalog.subgroups.status');
+    Route::delete('maestras/productos/subgrupos/{productSubgroup}', [ProductCatalogController::class, 'destroySubgroup'])->name('product-catalog.subgroups.destroy');
+    Route::post('maestras/productos/productos', [ProductCatalogController::class, 'storeProduct'])->name('product-catalog.products.store');
+    Route::patch('maestras/productos/productos/{product}', [ProductCatalogController::class, 'updateProduct'])->name('product-catalog.products.update');
+    Route::patch('maestras/productos/productos/{product}/status', [ProductCatalogController::class, 'statusProduct'])->name('product-catalog.products.status');
+    Route::delete('maestras/productos/productos/{product}', [ProductCatalogController::class, 'destroyProduct'])->name('product-catalog.products.destroy');
+
     Route::resource('assets', AssetController::class)->except('show');
     Route::get('asset-types', [AssetTypeController::class, 'index'])->name('asset-types.index');
     Route::post('asset-types', [AssetTypeController::class, 'store'])->name('asset-types.store');
@@ -68,6 +92,16 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     Route::patch('expenses/{expense}/status', [ExpenseController::class, 'updateStatus'])->name('expenses.status');
     Route::resource('expenses', ExpenseController::class)->except('show');
+    Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
+    Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::patch('invoices/{invoice}/status', [InvoiceController::class, 'updateStatus'])->name('invoices.status');
+    Route::post('invoices/{invoice}/attachments', [InvoiceController::class, 'storeAttachment'])->name('invoices.attachments.store');
+    Route::get('invoices/{invoice}/attachments/{attachment}/preview', [InvoiceController::class, 'previewAttachment'])->name('invoices.attachments.preview');
+    Route::delete('invoices/{invoice}/attachments/{attachment}', [InvoiceController::class, 'destroyAttachment'])->name('invoices.attachments.destroy');
+    Route::delete('invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
+
+    Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->name('purchases.status');
+    Route::resource('purchases', PurchaseController::class)->except('show');
 
     Route::prefix('expenses/{expense}')->name('expenses.')->group(function () {
         Route::get('attachments', [ExpenseAttachmentController::class, 'index'])->name('attachments.index');

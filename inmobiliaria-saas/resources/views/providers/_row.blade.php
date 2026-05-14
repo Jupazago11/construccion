@@ -2,16 +2,18 @@
     <td class="w-36 whitespace-nowrap px-6 py-4">
         <div class="font-semibold text-stone-900">{{ $provider->created_at?->format('Y-m-d') ?: 'Sin fecha' }}</div>
     </td>
-    <td class="px-6 py-4">
-        <div class="font-semibold text-stone-900">{{ $provider->name }}</div>
-        <div class="text-stone-500">{{ $provider->document_number ?: 'Sin documento' }}</div>
+    <td class="px-6 py-4 text-stone-700">
+        <span class="font-semibold text-stone-900">{{ $provider->name }}</span>
+        <span class="mx-2 text-stone-300">·</span>
+        <span>{{ $provider->type?->name ?: 'Sin tipo' }}</span>
+        <span class="mx-2 text-stone-300">·</span>
+        <span class="text-stone-500">{{ $provider->document_number ?: 'Sin documento' }}</span>
     </td>
     <td class="px-6 py-4 text-stone-600">
         {{ $provider->location ?: 'Sin ubicación' }}
     </td>
     <td class="px-6 py-4 text-stone-600">
-        <div>{{ $provider->email ?: 'Sin correo' }}</div>
-        <div>{{ $provider->phone ?: 'Sin teléfono' }}</div>
+        {{ $provider->phone ?: 'Sin teléfono' }}
     </td>
     <td class="px-6 py-4">
         <button

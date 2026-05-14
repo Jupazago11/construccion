@@ -38,14 +38,11 @@
                 Gastos
             </a>
             <a
-                href="{{ route('projects.categories.index', $project) }}"
-                class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
-                title="Estructura financiera"
+                href="{{ route('purchases.index', ['project_id' => $project->id]) }}"
+                class="rounded-2xl border border-sky-200 px-3 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-50"
+                title="Ver compras"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M3 5a2 2 0 012-2h3.586A2 2 0 0110 3.586L11.414 5H15a2 2 0 012 2v1H3V5z" />
-                    <path d="M3 10h14v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5z" />
-                </svg>
+                Compras
             </a>
             <button
                 type="button"

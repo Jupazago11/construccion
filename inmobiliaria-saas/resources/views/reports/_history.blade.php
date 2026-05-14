@@ -10,21 +10,21 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-stone-100">
-            @forelse ($history as $expense)
+            @forelse ($history as $movement)
                 <tr>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $expense->expense_date?->format('Y-m-d') }}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $expense->project?->name }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ ($reportType ?? 'expense') === 'purchase' ? $movement->purchase_date?->format('Y-m-d') : $movement->expense_date?->format('Y-m-d') }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->project?->name }}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-600">
-                        <div>{{ $expense->category?->name ?: 'Sin categoría' }}</div>
-                        @if ($expense->subcategory)
-                            <div class="text-xs text-stone-500">{{ $expense->subcategory->name }}</div>
+                        <div>{{ $movement->product?->name ?: 'Sin producto' }}</div>
+                        @if ($movement->product?->group)
+                            <div class="text-xs text-stone-500">{{ $movement->product->group->name }}</div>
                         @endif
-                        @if ($expense->auxiliary)
-                            <div class="text-xs text-stone-500">{{ $expense->auxiliary->name }}</div>
+                        @if ($movement->product?->subgroup)
+                            <div class="text-xs text-stone-500">{{ $movement->product->subgroup->name }}</div>
                         @endif
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $expense->provider?->name ?: 'Sin proveedor' }}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-900">$ {{ number_format((float) $expense->total_amount, 0, ',', '.') }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->provider?->name ?: 'Sin proveedor' }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-900">$ {{ number_format((float) $movement->total_amount, 0, ',', '.') }}</td>
                 </tr>
             @empty
                 <tr><td colspan="5" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>

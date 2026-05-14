@@ -5,14 +5,19 @@
     <td class="px-6 py-4 text-stone-600">
         {{ $expense->project?->name ?: 'Sin proyecto' }}
     </td>
-    <td class="w-72 px-6 py-4 text-stone-600">
-        <div class="font-medium text-stone-700">{{ $expense->category?->name ?: 'Sin categoría' }}</div>
-        @if ($expense->subcategory)
-            <div><span class="font-semibold text-stone-700">Sub:</span> {{ $expense->subcategory->name }}</div>
+    <td class="w-80 px-6 py-4 text-stone-600">
+        <div class="font-medium text-stone-700">{{ $expense->product?->name ?: 'Sin producto' }}</div>
+        @if ($expense->product?->group || $expense->product?->subgroup)
+            <div class="text-xs text-stone-500">
+                {{ $expense->product?->group?->name ?: 'Sin grupo' }} · {{ $expense->product?->subgroup?->name ?: 'Sin subgrupo' }}
+            </div>
         @endif
-        @if ($expense->auxiliary)
-            <div><span class="font-semibold text-stone-700">Aux:</span> {{ $expense->auxiliary->name }}</div>
+        @if ($expense->quantity)
+            <div class="text-xs text-stone-500">Cantidad: {{ $expense->quantity }}</div>
         @endif
+    </td>
+    <td class="px-6 py-4 text-stone-600">
+        {{ $expense->invoice?->invoice_number ?: 'Sin factura' }}
     </td>
     <td class="px-6 py-4 text-stone-600">
         {{ $expense->provider?->name ?: 'Sin proveedor' }}

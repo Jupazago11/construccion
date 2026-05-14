@@ -7,6 +7,8 @@ use App\Http\Requests\ExpenseStoreRequest;
 use App\Http\Requests\ExpenseUpdateRequest;
 use App\Models\Project;
 use App\Models\Expense;
+use App\Models\Invoice;
+use App\Models\Product;
 use App\Models\Provider;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -28,18 +30,36 @@ class ExpenseController extends Controller
             : $authUser->company_id;
         $dateFrom = $request->string('date_from')->toString();
         $dateTo = $request->string('date_to')->toString();
+        $transactionView = in_array($request->string('transaction_view')->toString(), ['individual', 'invoice'], true)
+            ? $request->string('transaction_view')->toString()
+            : '';
 
         $expenses = Expense::query()
-            ->with(['company', 'project', 'category', 'subcategory', 'auxiliary', 'provider'])
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
+            ->when($transactionView === 'individual', function ($query) {
+                $query->where(function ($nested) {
+                    $nested
+                        ->whereNull('invoice_id')
+                        ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', EntityStatus::Deleted->value));
+                });
+            })
+            ->when($transactionView === 'invoice', function ($query) {
+                $query
+                    ->whereNotNull('invoice_id')
+                    ->whereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', '!=', EntityStatus::Deleted->value));
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($nested) use ($search) {
                     $nested
                         ->where('expense_number', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('quantity', 'like', "%{$search}%")
                         ->orWhereHas('provider', fn ($providerQuery) => $providerQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('invoice_number', 'like', "%{$search}%"))
+                        ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('project', fn ($projectQuery) => $projectQuery->where('name', 'like', "%{$search}%"));
                 });
             })
@@ -62,6 +82,7 @@ class ExpenseController extends Controller
                 'project_id' => $projectId,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'transaction_view' => $transactionView,
             ],
         ]);
     }
@@ -78,7 +99,6 @@ class ExpenseController extends Controller
                     'project_id' => $selectedProjectId,
                     'expense_date' => now()->toDateString(),
                     'status' => 'active',
-                    'payment_method' => 'cash',
                 ]),
                 'payload' => $this->formPayload($request->user(), null, $selectedProjectId),
                 'action' => route('expenses.store'),
@@ -99,33 +119,38 @@ class ExpenseController extends Controller
         $project = Project::query()->with('company')->findOrFail($data['project_id']);
 
         $this->guardProjectStateForMutations($project);
-        $this->guardExpenseHierarchy($data, $project);
+        $this->guardTransactionCatalog($data, $project);
 
         $expense = Expense::query()->create([
             'company_id' => $project->company_id,
             'project_id' => $project->id,
-            'category_id' => $data['category_id'],
-            'subcategory_id' => $data['subcategory_id'] ?? null,
-            'auxiliary_id' => $data['auxiliary_id'] ?? null,
-            'provider_id' => $data['provider_id'] ?? null,
+            'category_id' => null,
+            'subcategory_id' => null,
+            'auxiliary_id' => null,
+            'provider_id' => $data['provider_id'],
+            'invoice_id' => $data['invoice_id'] ?? null,
+            'product_id' => $data['product_id'],
             'created_by' => $request->user()->id,
             'expense_number' => $data['expense_number'] ?? null,
             'expense_date' => $data['expense_date'],
-            'payment_method' => $data['payment_method'] ?? null,
+            'payment_method' => null,
             'description' => $data['description'] ?? null,
             'subtotal_amount' => $data['subtotal_amount'],
+            'quantity' => $data['quantity'] ?? null,
             'tax_amount' => 0,
             'discount_amount' => 0,
             'total_amount' => $this->calculateTotal((float) $data['subtotal_amount'], 0, 0),
             'status' => EntityStatus::Active->value,
         ]);
 
-        $expense->load(['company', 'project', 'category', 'subcategory', 'auxiliary', 'provider']);
+        $this->refreshInvoiceTotal($expense->invoice_id);
+        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
 
         if ($request->expectsJson()) {
             return response()->json([
                 'id' => $expense->id,
                 'row_html' => view('expenses._row', compact('expense'))->render(),
+                'table_html' => $this->tableHtml($request),
                 'message' => 'Gasto creado correctamente.',
             ]);
         }
@@ -161,31 +186,39 @@ class ExpenseController extends Controller
         $project = Project::query()->with('company')->findOrFail($data['project_id']);
 
         $this->guardProjectStateForMutations($project, $expense);
-        $this->guardExpenseHierarchy($data, $project);
+        $this->guardTransactionCatalog($data, $project);
+        $previousInvoiceId = $expense->invoice_id;
 
         $expense->update([
             'company_id' => $project->company_id,
             'project_id' => $project->id,
-            'category_id' => $data['category_id'],
-            'subcategory_id' => $data['subcategory_id'] ?? null,
-            'auxiliary_id' => $data['auxiliary_id'] ?? null,
-            'provider_id' => $data['provider_id'] ?? null,
+            'category_id' => null,
+            'subcategory_id' => null,
+            'auxiliary_id' => null,
+            'provider_id' => $data['provider_id'],
+            'invoice_id' => $data['invoice_id'] ?? null,
+            'product_id' => $data['product_id'],
             'expense_number' => $data['expense_number'] ?? null,
             'expense_date' => $data['expense_date'],
-            'payment_method' => $data['payment_method'] ?? null,
+            'payment_method' => null,
             'description' => $data['description'] ?? null,
             'subtotal_amount' => $data['subtotal_amount'],
+            'quantity' => $data['quantity'] ?? null,
             'tax_amount' => 0,
             'discount_amount' => 0,
             'total_amount' => $this->calculateTotal((float) $data['subtotal_amount'], 0, 0),
         ]);
 
-        $expense->load(['company', 'project', 'category', 'subcategory', 'auxiliary', 'provider']);
+        $this->refreshInvoiceTotal($previousInvoiceId);
+        $this->refreshInvoiceTotal($expense->invoice_id);
+        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
 
         if ($request->expectsJson()) {
             return response()->json([
                 'id' => $expense->id,
                 'row_html' => view('expenses._row', compact('expense'))->render(),
+                'table_html' => $this->tableHtml($request),
+                'invoice_detail_html' => $this->invoiceDetailHtml($request->integer('invoice_detail_id') ?: null),
                 'message' => 'Gasto actualizado correctamente.',
             ]);
         }
@@ -207,11 +240,14 @@ class ExpenseController extends Controller
             'status' => $data['status'],
         ]);
 
-        $expense->load(['company', 'project', 'category', 'subcategory', 'auxiliary', 'provider']);
+        $this->refreshInvoiceTotal($expense->invoice_id);
+        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
 
         return response()->json([
             'id' => $expense->id,
             'row_html' => view('expenses._row', compact('expense'))->render(),
+            'table_html' => $this->tableHtml($request),
+            'invoice_detail_html' => $this->invoiceDetailHtml($request->integer('invoice_detail_id') ?: null),
             'message' => 'Estado del gasto actualizado correctamente.',
         ]);
     }
@@ -233,10 +269,13 @@ class ExpenseController extends Controller
         $expense->update([
             'status' => EntityStatus::Deleted->value,
         ]);
+        $this->refreshInvoiceTotal($expense->invoice_id);
 
         if ($request->expectsJson()) {
             return response()->json([
                 'id' => $expense->id,
+                'table_html' => $this->tableHtml($request),
+                'invoice_detail_html' => $this->invoiceDetailHtml($request->integer('invoice_detail_id') ?: null),
                 'message' => 'Gasto archivado correctamente.',
             ]);
         }
@@ -256,25 +295,7 @@ class ExpenseController extends Controller
             $projectsCollection = $projectsCollection->where('id', $preferredProjectId)->values();
         }
 
-        $projectsCollection->load([
-            'company',
-            'categories' => fn ($categoryQuery) => $categoryQuery
-                ->where('status', EntityStatus::Active->value)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->with([
-                    'subcategories' => fn ($subcategoryQuery) => $subcategoryQuery
-                        ->where('status', EntityStatus::Active->value)
-                        ->orderBy('sort_order')
-                        ->orderBy('name')
-                        ->with([
-                            'auxiliaries' => fn ($auxiliaryQuery) => $auxiliaryQuery
-                                ->where('status', EntityStatus::Active->value)
-                                ->orderBy('sort_order')
-                                ->orderBy('name'),
-                        ]),
-                ]),
-        ]);
+        $projectsCollection->load('company');
 
         $projects = $projectsCollection->map(fn ($project) => [
             'id' => $project->id,
@@ -284,59 +305,43 @@ class ExpenseController extends Controller
             'status' => $project->status,
         ])->values()->all();
 
-        $categories = [];
-        $subcategories = [];
-        $auxiliaries = [];
-
-        foreach ($projectsCollection as $project) {
-            foreach ($project->categories as $category) {
-                $categories[] = [
-                    'id' => $category->id,
-                    'project_id' => $project->id,
-                    'name' => $category->name,
-                ];
-
-                foreach ($category->subcategories as $subcategory) {
-                    $subcategories[] = [
-                        'id' => $subcategory->id,
-                        'project_id' => $project->id,
-                        'category_id' => $category->id,
-                        'name' => $subcategory->name,
-                    ];
-
-                    foreach ($subcategory->auxiliaries as $auxiliary) {
-                        $auxiliaries[] = [
-                            'id' => $auxiliary->id,
-                            'project_id' => $project->id,
-                            'category_id' => $category->id,
-                            'subcategory_id' => $subcategory->id,
-                            'name' => $auxiliary->name,
-                        ];
-                    }
-                }
-            }
-        }
-
         $providers = $this->availableProviders($authUser)->map(fn ($provider) => [
             'id' => $provider->id,
             'name' => $provider->name,
             'company_id' => $provider->company_id,
         ])->values()->all();
 
+        $products = $this->availableProducts($authUser)->map(fn ($product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'company_id' => $product->company_id,
+            'subgroup_name' => $product->subgroup?->name,
+        ])->values()->all();
+
         return [
             'projects' => $projects,
-            'categories' => $categories,
-            'subcategories' => $subcategories,
-            'auxiliaries' => $auxiliaries,
             'providers' => $providers,
-            'paymentMethods' => [
-                'cash' => 'Efectivo',
-                'bank_transfer' => 'Transferencia bancaria',
-                'credit_card' => 'Tarjeta de crédito',
-                'debit_card' => 'Tarjeta débito',
-                'other' => 'Otro',
-            ],
+            'products' => $products,
+            'invoices' => $this->availableInvoices($authUser, 'expense')->map(fn ($invoice) => InvoiceController::serializeInvoice($invoice))->values()->all(),
+            'invoiceStoreUrl' => route('invoices.store', [], false),
+            'transactionType' => 'expense',
         ];
+    }
+
+    protected function tableHtml(Request $request): string
+    {
+        $authUser = $request->user();
+        $companyId = $authUser->isSuperAdmin() ? null : $authUser->company_id;
+
+        $expenses = Expense::query()
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
+            ->latest('expense_date')
+            ->latest('id')
+            ->paginate(10);
+
+        return view('expenses._table_body', compact('expenses'))->render();
     }
 
     protected function availableProjects($authUser, ?int $companyId = null)
@@ -381,6 +386,27 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    protected function availableProducts($authUser)
+    {
+        return Product::query()
+            ->with(['group', 'subgroup'])
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->where('status', EntityStatus::Active->value)
+            ->orderBy('name')
+            ->get();
+    }
+
+    protected function availableInvoices($authUser, string $type)
+    {
+        return Invoice::query()
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->where('type', $type)
+            ->where('status', 'open')
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->get();
+    }
+
     protected function guardProjectStateForMutations(Project $project, ?Expense $expense = null): void
     {
         if (in_array($project->status, ['planning', 'active'], true)) {
@@ -398,64 +424,87 @@ class ExpenseController extends Controller
         ]);
     }
 
-    protected function guardExpenseHierarchy(array $data, Project $project): void
+    protected function guardTransactionCatalog(array $data, Project $project): void
     {
-        $category = $project->categories()
-            ->whereKey($data['category_id'])
+        if (! $project->company->providers()
+            ->whereKey($data['provider_id'])
             ->where('status', EntityStatus::Active->value)
-            ->first();
-
-        if (! $category) {
-            throw ValidationException::withMessages([
-                'category_id' => 'La categoría seleccionada no está activa o no pertenece al proyecto.',
-            ]);
-        }
-
-        if (empty($data['subcategory_id'])) {
-            if (! empty($data['auxiliary_id'])) {
-                throw ValidationException::withMessages([
-                    'auxiliary_id' => 'Selecciona una subcategoría antes de elegir un auxiliar.',
-                ]);
-            }
-
-            if (! empty($data['provider_id']) && ! $project->company->providers()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
-                throw ValidationException::withMessages([
-                    'provider_id' => 'El proveedor seleccionado no está activo o no pertenece a la empresa del proyecto.',
-                ]);
-            }
-
-            return;
-        }
-
-        $subcategory = $category->subcategories()
-            ->whereKey($data['subcategory_id'])
-            ->where('status', EntityStatus::Active->value)
-            ->first();
-
-        if (! $subcategory) {
-            throw ValidationException::withMessages([
-                'subcategory_id' => 'La subcategoría seleccionada no está activa o no pertenece a la categoría indicada.',
-            ]);
-        }
-
-        if (! empty($data['auxiliary_id'])) {
-            $auxiliary = $subcategory->auxiliaries()
-                ->whereKey($data['auxiliary_id'])
-                ->where('status', EntityStatus::Active->value)
-                ->first();
-
-            if (! $auxiliary) {
-                throw ValidationException::withMessages([
-                    'auxiliary_id' => 'El auxiliar seleccionado no está activo o no pertenece a la subcategoría indicada.',
-                ]);
-            }
-        }
-
-        if (! empty($data['provider_id']) && ! $project->company->providers()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
+            ->exists()) {
             throw ValidationException::withMessages([
                 'provider_id' => 'El proveedor seleccionado no está activo o no pertenece a la empresa del proyecto.',
             ]);
         }
+
+        if (! Product::query()
+            ->whereKey($data['product_id'])
+            ->where('company_id', $project->company_id)
+            ->where('status', EntityStatus::Active->value)
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'product_id' => 'El producto seleccionado no está activo o no pertenece a la empresa del proyecto.',
+            ]);
+        }
+
+        if (! empty($data['invoice_id']) && ! Invoice::query()
+            ->whereKey($data['invoice_id'])
+            ->where('company_id', $project->company_id)
+            ->where('project_id', $project->id)
+            ->where('provider_id', $data['provider_id'])
+            ->where('type', 'expense')
+            ->where('status', 'open')
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'invoice_id' => 'La factura seleccionada no está abierta o no corresponde al proyecto y proveedor.',
+            ]);
+        }
+    }
+
+    protected function refreshInvoiceTotal(?int $invoiceId): void
+    {
+        if (! $invoiceId) {
+            return;
+        }
+
+        Invoice::query()
+            ->whereKey($invoiceId)
+            ->update([
+                'total_amount' => Expense::query()
+                    ->where('invoice_id', $invoiceId)
+                    ->where('status', EntityStatus::Active->value)
+                    ->sum('total_amount'),
+            ]);
+    }
+
+    protected function invoiceDetailHtml(?int $invoiceId): ?string
+    {
+        if (! $invoiceId) {
+            return null;
+        }
+
+        $invoice = Invoice::query()
+            ->with([
+                'project',
+                'provider',
+                'attachments' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value)->latest(),
+            ])
+            ->find($invoiceId);
+
+        if (! $invoice) {
+            return null;
+        }
+
+        $items = $invoice->expenses()
+            ->with(['product.subgroup'])
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->latest('expense_date')
+            ->latest('id')
+            ->get();
+
+        return view('invoices._detail_modal', [
+            'invoice' => $invoice,
+            'items' => $items,
+            'typeLabel' => 'gastos',
+        ])->render();
     }
 
     protected function calculateTotal(float $subtotal, float $tax, float $discount): float

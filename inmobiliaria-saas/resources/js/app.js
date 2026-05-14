@@ -12,6 +12,10 @@ Alpine.data('crudTable', (config = {}) => ({
     modalHtml: '',
     modalUrl: '',
     nestedModalOpen: false,
+    nestedModalTitle: '',
+    nestedModalHtml: '',
+    nestedModalUrl: '',
+    nestedLoading: false,
     loading: false,
     saving: false,
     error: null,
@@ -73,6 +77,8 @@ Alpine.data('crudTable', (config = {}) => ({
                 if (this.$refs.modalContent) {
                     Alpine.initTree(this.$refs.modalContent);
                     window.initializeExpenseForms?.(this.$refs.modalContent);
+                    window.initializeTransactionForms?.(this.$refs.modalContent);
+                    window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                     window.initializeAssetForms?.(this.$refs.modalContent);
                 }
             });
@@ -85,13 +91,73 @@ Alpine.data('crudTable', (config = {}) => ({
         }
     },
 
+    async openNestedModal(url, title, context = {}) {
+        if (this.nestedLoading) {
+            return;
+        }
+
+        this.nestedModalOpen = true;
+        this.nestedModalTitle = title;
+        this.nestedModalUrl = url;
+        this.nestedLoading = true;
+        this.error = null;
+
+        try {
+            const response = await window.axios.get(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html, application/xhtml+xml',
+                },
+            });
+
+            this.nestedModalHtml = response.data;
+            this.$nextTick(() => {
+                if (! this.$refs.nestedModalContent) {
+                    return;
+                }
+
+                Alpine.initTree(this.$refs.nestedModalContent);
+                window.initializeExpenseForms?.(this.$refs.nestedModalContent);
+                window.initializeTransactionForms?.(this.$refs.nestedModalContent);
+
+                const form = this.$refs.nestedModalContent.querySelector('form[data-ajax-form]');
+                if (form && context.invoiceId) {
+                    const detailInput = document.createElement('input');
+                    detailInput.type = 'hidden';
+                    detailInput.name = 'invoice_detail_id';
+                    detailInput.value = context.invoiceId;
+                    form.append(detailInput);
+
+                    const invoiceField = form.querySelector('[data-transaction-invoice]');
+                    if (invoiceField && ! invoiceField.value) {
+                        invoiceField.value = context.invoiceId;
+                    }
+                }
+            });
+        } catch (error) {
+            this.error = this.resolveErrorMessage(error, 'No fue posible cargar el formulario.');
+            this.closeNestedModal();
+            this.showToast(this.error, 'error');
+        } finally {
+            this.nestedLoading = false;
+        }
+    },
+
     closeModal() {
         this.modalOpen = false;
         this.modalTitle = '';
         this.modalHtml = '';
         this.modalUrl = '';
-        this.nestedModalOpen = false;
+        this.closeNestedModal();
         this.error = null;
+    },
+
+    closeNestedModal() {
+        this.nestedModalOpen = false;
+        this.nestedModalTitle = '';
+        this.nestedModalHtml = '';
+        this.nestedModalUrl = '';
+        this.nestedLoading = false;
     },
 
     async refreshOpenModalPreservingForm(values = null, revealWhenDone = false) {
@@ -124,6 +190,8 @@ Alpine.data('crudTable', (config = {}) => ({
 
                 Alpine.initTree(this.$refs.modalContent);
                 window.initializeExpenseForms?.(this.$refs.modalContent);
+                window.initializeTransactionForms?.(this.$refs.modalContent);
+                window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                 window.initializeAssetForms?.(this.$refs.modalContent);
 
                 window.requestAnimationFrame(() => {
@@ -236,7 +304,11 @@ Alpine.data('crudTable', (config = {}) => ({
 
             this.applyRowChange(response.data);
             form.reset();
-            this.closeModal();
+            if (form.closest('[data-nested-modal-content]')) {
+                this.closeNestedModal();
+            } else {
+                this.closeModal();
+            }
             this.showToast(response.data.message ?? 'Operación realizada correctamente.');
         } catch (error) {
             if (error.response?.status === 422 && error.response.data?.errors) {
@@ -267,22 +339,55 @@ Alpine.data('crudTable', (config = {}) => ({
         const action = button.dataset.action;
 
         if (action === 'create' || action === 'edit') {
+            const invoiceDetailRoot = button.closest('[data-invoice-detail-root]');
+            if (action === 'edit' && invoiceDetailRoot) {
+                await this.openNestedModal(button.dataset.url, button.dataset.title, {
+                    invoiceId: invoiceDetailRoot.dataset.invoiceId,
+                });
+                return;
+            }
+
             await this.openModal(button.dataset.url, button.dataset.title);
             return;
         }
 
         if (action === 'close-modal') {
+            if (button.closest('[data-nested-modal-content]')) {
+                this.closeNestedModal();
+                return;
+            }
+
             this.closeModal();
             return;
         }
 
         if (action === 'delete') {
-            await this.deleteRecord(button.dataset.url, button.dataset.confirmMessage);
+            await this.deleteRecord(button.dataset.url, button.dataset.confirmMessage, button);
+            return;
+        }
+
+        if (action === 'invoice-attachment-delete') {
+            await this.deleteInvoiceAttachment(button.dataset.url);
+            return;
+        }
+
+        if (action === 'invoice-delete') {
+            await this.deleteInvoice(button.dataset.url);
             return;
         }
 
         if (action === 'status') {
             await this.changeStatus(button);
+            return;
+        }
+
+        if (action === 'invoice-detail') {
+            await this.openModal(button.dataset.url, button.dataset.title || 'Detalle de factura');
+            return;
+        }
+
+        if (action === 'invoice-status') {
+            await this.changeInvoiceStatus(button);
             return;
         }
 
@@ -434,8 +539,10 @@ Alpine.data('crudTable', (config = {}) => ({
         }
 
         try {
+            const invoiceDetailRoot = button.closest('[data-invoice-detail-root]');
             const response = await window.axios.patch(button.dataset.url, {
                 status: nextStatus,
+                invoice_detail_id: invoiceDetailRoot?.dataset.invoiceId || undefined,
             }, {
                 headers: {
                     'Accept': 'application/json',
@@ -455,13 +562,17 @@ Alpine.data('crudTable', (config = {}) => ({
         }
     },
 
-    async deleteRecord(url, confirmMessage) {
+    async deleteRecord(url, confirmMessage, button = null) {
         if (! window.confirm(confirmMessage || '¿Deseas eliminar este registro?')) {
             return;
         }
 
         try {
+            const invoiceDetailRoot = button?.closest?.('[data-invoice-detail-root]');
             const response = await window.axios.delete(url, {
+                data: {
+                    invoice_detail_id: invoiceDetailRoot?.dataset.invoiceId || undefined,
+                },
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
@@ -475,13 +586,89 @@ Alpine.data('crudTable', (config = {}) => ({
 
             this.applyRowChange(response.data);
 
-            if (! response.data.row_html) {
+            if (! response.data.row_html && ! response.data.table_html) {
                 this.removeRow(response.data.id);
             }
 
             this.showToast(response.data.message ?? 'Registro eliminado correctamente.');
         } catch (error) {
             this.showToast(this.resolveErrorMessage(error, 'No fue posible eliminar el registro.'), 'error');
+        }
+    },
+
+    async changeInvoiceStatus(button) {
+        const currentStatus = button.dataset.currentStatus ?? 'open';
+        const nextStatus = currentStatus === 'open' ? 'closed' : 'open';
+        const confirmMessage = nextStatus === 'closed'
+            ? '¿Deseas cerrar esta factura?'
+            : '¿Deseas abrir esta factura?';
+
+        if (! window.confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await window.axios.patch(button.dataset.url, {
+                status: nextStatus,
+            }, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            button.dataset.currentStatus = nextStatus;
+            const badge = button.querySelector('span');
+            if (badge) {
+                badge.textContent = nextStatus === 'closed' ? 'Cerrada' : 'Abierta';
+                badge.className = badge.className
+                    .replace(/bg-\S+|text-\S+|ring-\S+/g, '')
+                    + (nextStatus === 'closed'
+                        ? ' bg-teal-100 text-teal-700 ring-teal-600/20'
+                        : ' bg-sky-100 text-sky-700 ring-sky-600/20');
+            }
+
+            this.showToast(response.data.message ?? 'Estado de factura actualizado correctamente.');
+        } catch (error) {
+            this.showToast(this.resolveErrorMessage(error, 'No fue posible cambiar el estado de la factura.'), 'error');
+        }
+    },
+
+    async deleteInvoiceAttachment(url) {
+        if (! window.confirm('¿Deseas archivar este archivo?')) {
+            return;
+        }
+
+        try {
+            const response = await window.axios.delete(url, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            this.applyRowChange(response.data);
+            this.showToast(response.data.message ?? 'Archivo archivado correctamente.');
+        } catch (error) {
+            this.showToast(this.resolveErrorMessage(error, 'No fue posible archivar el archivo.'), 'error');
+        }
+    },
+
+    async deleteInvoice(url) {
+        if (! window.confirm('¿Deseas archivar esta factura? Los gastos o compras asociados quedarán como movimientos independientes.')) {
+            return;
+        }
+
+        try {
+            const response = await window.axios.delete(url, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (response.data.close_modal) {
+                this.closeModal();
+            }
+
+            this.applyRowChange(response.data);
+            this.showToast(response.data.message ?? 'Factura archivada correctamente.');
+        } catch (error) {
+            this.showToast(this.resolveErrorMessage(error, 'No fue posible archivar la factura.'), 'error');
         }
     },
 
@@ -495,12 +682,62 @@ Alpine.data('crudTable', (config = {}) => ({
             Alpine.initTree(this.$refs.attachments);
         }
 
+        if (payload.attachments_html && this.$refs.modalContent) {
+            const attachmentsRoot = this.$refs.modalContent.querySelector('[data-invoice-attachments-root]');
+            if (attachmentsRoot) {
+                attachmentsRoot.innerHTML = payload.attachments_html;
+                Alpine.initTree(attachmentsRoot);
+            }
+        }
+
+        if (payload.invoice_detail_html && this.$refs.modalContent) {
+            const invoiceDetailRoot = this.$refs.modalContent.querySelector('[data-invoice-detail-root]');
+            if (invoiceDetailRoot) {
+                const itemsScroll = invoiceDetailRoot.querySelector('[data-invoice-items-scroll]');
+                const itemsXScroll = invoiceDetailRoot.querySelector('[data-invoice-items-x-scroll]');
+                const attachmentsScroll = invoiceDetailRoot.querySelector('[data-invoice-attachments-scroll]');
+                const preservedScroll = {
+                    itemsTop: itemsScroll?.scrollTop ?? 0,
+                    itemsLeft: itemsXScroll?.scrollLeft ?? 0,
+                    attachmentsTop: attachmentsScroll?.scrollTop ?? 0,
+                };
+
+                invoiceDetailRoot.outerHTML = payload.invoice_detail_html;
+                this.$nextTick(() => {
+                    if (this.$refs.modalContent) {
+                        Alpine.initTree(this.$refs.modalContent);
+                        window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
+                        window.requestAnimationFrame(() => {
+                            const nextRoot = this.$refs.modalContent.querySelector('[data-invoice-detail-root]');
+                            const nextItemsScroll = nextRoot?.querySelector('[data-invoice-items-scroll]');
+                            const nextItemsXScroll = nextRoot?.querySelector('[data-invoice-items-x-scroll]');
+                            const nextAttachmentsScroll = nextRoot?.querySelector('[data-invoice-attachments-scroll]');
+
+                            if (nextItemsScroll) {
+                                nextItemsScroll.scrollTop = Math.min(preservedScroll.itemsTop, nextItemsScroll.scrollHeight);
+                            }
+
+                            if (nextItemsXScroll) {
+                                nextItemsXScroll.scrollLeft = preservedScroll.itemsLeft;
+                            }
+
+                            if (nextAttachmentsScroll) {
+                                nextAttachmentsScroll.scrollTop = Math.min(preservedScroll.attachmentsTop, nextAttachmentsScroll.scrollHeight);
+                            }
+                        });
+                    }
+                });
+            }
+        }
+
         if (payload.modal_html) {
             this.modalHtml = payload.modal_html;
             this.$nextTick(() => {
                 if (this.$refs.modalContent) {
                     Alpine.initTree(this.$refs.modalContent);
                     window.initializeExpenseForms?.(this.$refs.modalContent);
+                    window.initializeTransactionForms?.(this.$refs.modalContent);
+                    window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                     window.initializeAssetForms?.(this.$refs.modalContent);
                 }
             });
@@ -541,6 +778,16 @@ Alpine.data('crudTable', (config = {}) => ({
         }
 
         if (! payload.row_html || ! payload.id) {
+            if (payload.table_html && this.$refs.tbody) {
+                this.$refs.tbody.innerHTML = payload.table_html;
+                Alpine.initTree(this.$refs.tbody);
+            }
+            return;
+        }
+
+        if (payload.table_html && this.$refs.tbody) {
+            this.$refs.tbody.innerHTML = payload.table_html;
+            Alpine.initTree(this.$refs.tbody);
             return;
         }
 
@@ -651,6 +898,373 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 }));
 
+Alpine.data('productCatalog', (config = {}) => ({
+    modalOpen: false,
+    tab: 'group',
+    editingId: null,
+    saving: false,
+    error: '',
+    errors: {},
+    toastVisible: false,
+    toastMessage: '',
+    toastType: 'success',
+    toastTimer: null,
+    groups: config.groups ?? [],
+    subgroups: config.subgroups ?? [],
+    groupSearch: '',
+    subgroupSearch: '',
+    groupMenuOpen: false,
+    subgroupMenuOpen: false,
+    form: {
+        company_id: config.companyId ? String(config.companyId) : '',
+        product_group_id: '',
+        product_subgroup_id: '',
+        name: '',
+    },
+
+    init() {
+        window.addEventListener('crud-toast', (event) => {
+            this.showToast(event.detail?.message, event.detail?.type ?? 'success');
+        });
+    },
+
+    showToast(message, type = 'success') {
+        if (! message) {
+            return;
+        }
+
+        window.clearTimeout(this.toastTimer);
+        this.toastMessage = message;
+        this.toastType = type;
+        this.toastVisible = true;
+        this.toastTimer = window.setTimeout(() => this.hideToast(), 3500);
+    },
+
+    hideToast() {
+        this.toastVisible = false;
+    },
+
+    get filteredGroups() {
+        const companyId = this.form.company_id ? String(this.form.company_id) : '';
+
+        return this.groups.filter((group) => ! companyId || String(group.company_id) === companyId);
+    },
+
+    get visibleGroups() {
+        const term = this.groupSearch.trim().toLocaleLowerCase();
+
+        return this.filteredGroups.filter((group) => ! term || group.name.toLocaleLowerCase().includes(term));
+    },
+
+    get filteredSubgroups() {
+        const companyId = this.form.company_id ? String(this.form.company_id) : '';
+        const groupId = this.form.product_group_id ? String(this.form.product_group_id) : '';
+
+        return this.subgroups.filter((subgroup) => (
+            (! companyId || String(subgroup.company_id) === companyId)
+            && (! groupId || String(subgroup.product_group_id) === groupId)
+        ));
+    },
+
+    get visibleSubgroups() {
+        const term = this.subgroupSearch.trim().toLocaleLowerCase();
+
+        return this.filteredSubgroups.filter((subgroup) => ! term || subgroup.name.toLocaleLowerCase().includes(term));
+    },
+
+    setTab(tab) {
+        this.tab = tab;
+        this.editingId = null;
+        this.clearMessages();
+        this.form.product_group_id = '';
+        this.form.product_subgroup_id = '';
+        this.form.name = '';
+        this.groupSearch = '';
+        this.subgroupSearch = '';
+        this.groupMenuOpen = false;
+        this.subgroupMenuOpen = false;
+    },
+
+    openModal(tab = 'group') {
+        this.modalOpen = true;
+        this.tab = tab;
+        this.editingId = null;
+        this.clearMessages();
+        this.form = {
+            company_id: config.companyId ? String(config.companyId) : '',
+            product_group_id: '',
+            product_subgroup_id: '',
+            name: '',
+        };
+        this.groupSearch = '';
+        this.subgroupSearch = '';
+        this.groupMenuOpen = false;
+        this.subgroupMenuOpen = false;
+    },
+
+    closeModal() {
+        this.modalOpen = false;
+        this.editingId = null;
+        this.clearMessages();
+    },
+
+    editRecord(type, record) {
+        this.modalOpen = true;
+        this.tab = type;
+        this.editingId = record.id;
+        this.clearMessages();
+        this.form = {
+            company_id: record.company_id ? String(record.company_id) : '',
+            product_group_id: record.product_group_id ? String(record.product_group_id) : '',
+            product_subgroup_id: record.product_subgroup_id ? String(record.product_subgroup_id) : '',
+            name: record.name ?? '',
+        };
+        this.groupSearch = this.labelForGroup(this.form.product_group_id);
+        this.subgroupSearch = this.labelForSubgroup(this.form.product_subgroup_id);
+    },
+
+    clearMessages() {
+        this.error = '';
+        this.errors = {};
+    },
+
+    friendlyError(message) {
+        const translations = {
+            'The company id field is required.': 'Selecciona una empresa.',
+            'The product group id field is required.': 'Selecciona un grupo.',
+            'The product subgroup id field is required.': 'Selecciona un subgrupo.',
+            'The name field is required.': 'Escribe un nombre.',
+            'The name has already been taken.': 'Ese nombre ya existe.',
+            'The selected company id is invalid.': 'La empresa seleccionada no es válida.',
+            'The selected product group id is invalid.': 'El grupo seleccionado no es válido.',
+            'The selected product subgroup id is invalid.': 'El subgrupo seleccionado no es válido.',
+        };
+
+        return translations[message] ?? message ?? 'Revisa la información enviada.';
+    },
+
+    showErrorToast(message) {
+        window.dispatchEvent(new CustomEvent('crud-toast', {
+            detail: { message: this.friendlyError(message), type: 'error' },
+        }));
+    },
+
+    labelForGroup(id) {
+        return this.groups.find((group) => String(group.id) === String(id))?.name ?? '';
+    },
+
+    labelForSubgroup(id) {
+        return this.subgroups.find((subgroup) => String(subgroup.id) === String(id))?.name ?? '';
+    },
+
+    syncGroupFromSearch() {
+        const typed = this.groupSearch.trim().toLocaleLowerCase();
+        const match = this.filteredGroups.find((group) => group.name.toLocaleLowerCase() === typed);
+        const nextGroupId = match ? String(match.id) : '';
+
+        if (this.form.product_group_id !== nextGroupId) {
+            this.form.product_subgroup_id = '';
+            this.subgroupSearch = '';
+        }
+
+        this.form.product_group_id = nextGroupId;
+    },
+
+    normalizeGroupSearch() {
+        this.groupSearch = this.labelForGroup(this.form.product_group_id);
+        window.setTimeout(() => {
+            this.groupMenuOpen = false;
+        }, 100);
+    },
+
+    openGroupMenu() {
+        this.groupMenuOpen = true;
+        this.subgroupMenuOpen = false;
+    },
+
+    selectGroup(group) {
+        const nextGroupId = String(group.id);
+
+        if (this.form.product_group_id !== nextGroupId) {
+            this.form.product_subgroup_id = '';
+            this.subgroupSearch = '';
+        }
+
+        this.form.product_group_id = nextGroupId;
+        this.groupSearch = group.name;
+        this.groupMenuOpen = false;
+    },
+
+    syncSubgroupFromSearch() {
+        const typed = this.subgroupSearch.trim().toLocaleLowerCase();
+        const match = this.filteredSubgroups.find((subgroup) => subgroup.name.toLocaleLowerCase() === typed);
+        this.form.product_subgroup_id = match ? String(match.id) : '';
+    },
+
+    normalizeSubgroupSearch() {
+        this.subgroupSearch = this.labelForSubgroup(this.form.product_subgroup_id);
+        window.setTimeout(() => {
+            this.subgroupMenuOpen = false;
+        }, 100);
+    },
+
+    openSubgroupMenu() {
+        this.subgroupMenuOpen = true;
+        this.groupMenuOpen = false;
+    },
+
+    selectSubgroup(subgroup) {
+        this.form.product_subgroup_id = String(subgroup.id);
+        this.subgroupSearch = subgroup.name;
+        this.subgroupMenuOpen = false;
+    },
+
+    urlFor(action, type, id = null) {
+        const key = `${type}${action}`;
+        const url = config.urls?.[key] ?? '';
+
+        return id ? url.replace('__ID__', encodeURIComponent(id)) : url;
+    },
+
+    payload() {
+        const data = new FormData();
+
+        if (this.form.company_id) {
+            data.append('company_id', this.form.company_id);
+        }
+
+        if (this.tab === 'subgroup' || this.tab === 'product') {
+            data.append('product_group_id', this.form.product_group_id);
+        }
+
+        if (this.tab === 'product') {
+            data.append('product_subgroup_id', this.form.product_subgroup_id);
+        }
+
+        data.append('name', this.form.name);
+
+        return data;
+    },
+
+    applyResponse(data) {
+        if (data.tables?.groups && this.$refs.groupsTable) {
+            this.$refs.groupsTable.innerHTML = data.tables.groups;
+        }
+
+        if (data.tables?.subgroups && this.$refs.subgroupsTable) {
+            this.$refs.subgroupsTable.innerHTML = data.tables.subgroups;
+        }
+
+        if (data.tables?.products && this.$refs.productsTable) {
+            this.$refs.productsTable.innerHTML = data.tables.products;
+        }
+
+        this.groups = data.options?.groups ?? this.groups;
+        this.subgroups = data.options?.subgroups ?? this.subgroups;
+
+        window.dispatchEvent(new CustomEvent('crud-toast', {
+            detail: { message: data.message ?? 'Operación realizada correctamente.' },
+        }));
+    },
+
+    async saveRecord() {
+        if (this.saving) {
+            return;
+        }
+
+        this.saving = true;
+        this.clearMessages();
+
+        try {
+            const action = this.editingId ? 'Update' : 'Store';
+            const url = this.urlFor(action, this.tab, this.editingId);
+            const formData = this.payload();
+
+            if (this.editingId) {
+                formData.append('_method', 'PATCH');
+            }
+
+            const response = await window.axios.post(url, formData, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            this.applyResponse(response.data);
+            if (this.editingId) {
+                this.closeModal();
+                return;
+            }
+
+            const previousCompanyId = this.form.company_id;
+            const previousGroupId = this.tab === 'product' ? this.form.product_group_id : '';
+
+            if (this.tab === 'group') {
+                this.form.product_group_id = '';
+                this.form.product_subgroup_id = '';
+                this.form.name = '';
+                this.groupSearch = '';
+                this.subgroupSearch = '';
+            } else if (this.tab === 'subgroup') {
+                this.form.product_subgroup_id = '';
+                this.form.name = '';
+                this.subgroupSearch = '';
+            } else {
+                this.form.name = '';
+            }
+
+            this.form.company_id = previousCompanyId;
+
+            if (this.tab === 'product') {
+                this.form.product_group_id = previousGroupId;
+            }
+        } catch (error) {
+            if (error.response?.status === 422 && error.response.data?.errors) {
+                const firstMessage = Object.values(error.response.data.errors).flat()[0];
+                this.showErrorToast(firstMessage);
+            } else {
+                this.showErrorToast(error.response?.data?.message || error.message || 'No fue posible guardar el registro.');
+            }
+        } finally {
+            this.saving = false;
+        }
+    },
+
+    async toggleStatus(type, id, status) {
+        try {
+            const formData = new FormData();
+            formData.append('_method', 'PATCH');
+            formData.append('status', status);
+
+            const response = await window.axios.post(this.urlFor('Status', type, id), formData, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            this.applyResponse(response.data);
+        } catch (error) {
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: error.response?.data?.message || 'No fue posible cambiar el estado.', type: 'error' },
+            }));
+        }
+    },
+
+    async archiveRecord(type, id) {
+        if (! window.confirm('¿Deseas archivar este registro?')) {
+            return;
+        }
+
+        try {
+            const response = await window.axios.delete(this.urlFor('Destroy', type, id), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            this.applyResponse(response.data);
+        } catch (error) {
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: error.response?.data?.message || 'No fue posible archivar el registro.', type: 'error' },
+            }));
+        }
+    },
+}));
+
 Alpine.data('reportsPage', () => ({
     historyLoading: false,
 
@@ -720,6 +1334,7 @@ Alpine.data('assetTypeManager', (config = {}) => ({
     previousTypeId: String(config.selectedTypeId ?? ''),
     companyId: String(config.initialCompanyId ?? ''),
     entityName: config.entityName ?? 'activo',
+    allowEmptySelection: config.allowEmptySelection === true,
     storeUrl: config.storeUrl,
     indexUrl: config.indexUrl,
     managerOpen: false,
@@ -990,7 +1605,9 @@ Alpine.data('assetTypeManager', (config = {}) => ({
 
     normalizeTypeSelection() {
         if (! this.selectedType || this.selectedType.status !== 'active') {
-            this.selectedTypeId = this.activeTypes.length > 0 ? String(this.activeTypes[0].id) : '';
+            this.selectedTypeId = this.allowEmptySelection
+                ? ''
+                : (this.activeTypes.length > 0 ? String(this.activeTypes[0].id) : '');
         }
 
         this.previousTypeId = this.selectedTypeId;
@@ -1134,6 +1751,554 @@ window.initializeAssetForms = (root = document) => {
             moneyInputs.forEach((input) => {
                 input.value = normalizeIntegerAmount(input.value);
             });
+        });
+    });
+};
+
+window.initializeTransactionForms = (root = document) => {
+    root.querySelectorAll('form[data-transaction-form]').forEach((form) => {
+        if (form.dataset.transactionInitialized === 'true') {
+            return;
+        }
+
+        form.dataset.transactionInitialized = 'true';
+
+        const payloadNode = form.querySelector('[data-expense-payload]');
+        const selectedNode = form.querySelector('[data-expense-selected]');
+
+        if (! payloadNode || ! selectedNode) {
+            return;
+        }
+
+        const payload = JSON.parse(payloadNode.textContent || '{}');
+        const selected = JSON.parse(selectedNode.textContent || '{}');
+        const projects = (payload.projects ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        const providers = (payload.providers ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        const products = (payload.products ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        let invoices = (payload.invoices ?? []).map((item) => ({
+            ...item,
+            id: String(item.id),
+            company_id: String(item.company_id),
+            project_id: String(item.project_id),
+            provider_id: String(item.provider_id),
+        }));
+
+        const projectField = form.querySelector('[data-expense-project]');
+        const providerField = form.querySelector('[data-transaction-provider]');
+        const providerSearch = form.querySelector('[data-transaction-provider-search]');
+        const providerMenu = form.querySelector('[data-transaction-provider-menu]');
+        const invoiceField = form.querySelector('[data-transaction-invoice]');
+        const invoiceSearch = form.querySelector('[data-transaction-invoice-search]');
+        const invoiceMenu = form.querySelector('[data-transaction-invoice-menu]');
+        const invoiceCreateButton = form.querySelector('[data-transaction-create-invoice]');
+        const invoiceCreatePanel = form.querySelector('[data-transaction-invoice-create]');
+        const invoiceCancelButton = form.querySelector('[data-invoice-cancel]');
+        const invoiceSaveButton = form.querySelector('[data-invoice-save]');
+        const invoiceNumberField = form.querySelector('[data-invoice-number]');
+        const invoiceDateField = form.querySelector('[data-invoice-date]');
+        const invoiceDescriptionField = form.querySelector('[data-invoice-description]');
+        const productField = form.querySelector('[data-transaction-product]');
+        const productSearch = form.querySelector('[data-transaction-product-search]');
+        const productMenu = form.querySelector('[data-transaction-product-menu]');
+        const subtotalField = form.querySelector('#subtotal_amount');
+
+        const state = {
+            projectId: selected.project_id ? String(selected.project_id) : '',
+            providerId: selected.provider_id ? String(selected.provider_id) : '',
+            invoiceId: selected.invoice_id ? String(selected.invoice_id) : '',
+            productId: selected.product_id ? String(selected.product_id) : '',
+        };
+
+        const currentProject = () => projects.find((project) => project.id === state.projectId) ?? null;
+        const optionLabel = (item) => item.name;
+        const availableForProject = (items) => {
+            const project = currentProject();
+
+            return project ? items.filter((item) => item.company_id === project.company_id) : [];
+        };
+        const availableInvoices = () => invoices.filter((invoice) => (
+            invoice.project_id === state.projectId
+            && invoice.provider_id === state.providerId
+            && invoice.type === form.dataset.transactionType
+        ));
+        const friendlyInvoiceError = (message) => ({
+            'The type field is required.': 'No se pudo identificar el tipo de factura.',
+            'The selected type is invalid.': 'El tipo de factura no es válido.',
+            'The project id field is required.': 'Selecciona un proyecto.',
+            'The provider id field is required.': 'Selecciona un proveedor.',
+            'The selected project id is invalid.': 'El proyecto seleccionado no es válido.',
+            'The selected provider id is invalid.': 'El proveedor seleccionado no es válido.',
+            'The invoice date field must be a valid date.': 'La fecha de factura no es válida.',
+        }[message] ?? message ?? 'No fue posible crear la factura.');
+
+        const closeMenu = (menu) => menu?.classList.add('hidden');
+        const openMenu = (menu) => menu?.classList.remove('hidden');
+
+        const renderSimpleMenu = ({ menu, items, emptyText, onSelect }) => {
+            if (! menu) {
+                return;
+            }
+
+            menu.innerHTML = '';
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'px-4 py-3 text-sm text-stone-500';
+                empty.textContent = emptyText;
+                menu.appendChild(empty);
+                return;
+            }
+
+            items.forEach((item) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'block w-full rounded-xl px-4 py-3 text-left transition hover:bg-stone-100 focus:bg-stone-100 focus:outline-none';
+                const name = document.createElement('span');
+                name.className = 'block whitespace-nowrap text-sm font-medium text-stone-900';
+                name.textContent = item.name;
+                button.appendChild(name);
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    onSelect(item);
+                });
+                menu.appendChild(button);
+            });
+        };
+
+        const closeProductMenu = () => {
+            productMenu?.classList.add('hidden');
+        };
+
+        const openProductMenu = () => {
+            productMenu?.classList.remove('hidden');
+        };
+
+        const renderProductMenu = (items) => {
+            if (! productMenu) {
+                return;
+            }
+
+            productMenu.innerHTML = '';
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'px-4 py-3 text-sm text-stone-500';
+                empty.textContent = 'Sin productos disponibles';
+                productMenu.appendChild(empty);
+                return;
+            }
+
+            items.forEach((item) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'block w-full rounded-xl px-4 py-3 text-left transition hover:bg-stone-100 focus:bg-stone-100 focus:outline-none';
+                const name = document.createElement('span');
+                name.className = 'block whitespace-nowrap text-sm font-medium text-stone-900';
+                name.textContent = item.name;
+                button.appendChild(name);
+
+                if (item.subgroup_name) {
+                    const subgroup = document.createElement('span');
+                    subgroup.className = 'mt-0.5 block whitespace-nowrap text-xs text-stone-500';
+                    subgroup.textContent = item.subgroup_name;
+                    button.appendChild(subgroup);
+                }
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    state.productId = item.id;
+
+                    if (productField) {
+                        productField.value = item.id;
+                    }
+
+                    if (productSearch) {
+                        productSearch.value = item.name;
+                    }
+
+                    closeProductMenu();
+                });
+                productMenu.appendChild(button);
+            });
+        };
+
+        const invoiceLabel = (invoice) => invoice?.label ?? 'Factura sin número';
+
+        const syncSearch = (items, id, search, hidden) => {
+            const selectedItem = items.find((item) => item.id === id);
+
+            if (search) {
+                search.value = selectedItem ? optionLabel(selectedItem) : '';
+            }
+
+            if (hidden) {
+                hidden.value = selectedItem ? selectedItem.id : '';
+            }
+        };
+
+        const resolveTypedValue = (items, search, hidden, key) => {
+            const value = (search?.value ?? '').trim().toLocaleLowerCase();
+            const match = items.find((item) => optionLabel(item).toLocaleLowerCase() === value);
+            state[key] = match ? match.id : '';
+
+            if (hidden) {
+                hidden.value = state[key];
+            }
+        };
+
+        const syncLists = () => {
+            const availableProviders = availableForProject(providers);
+            const availableProducts = availableForProject(products);
+
+            if (! availableProviders.some((provider) => provider.id === state.providerId)) {
+                state.providerId = '';
+            }
+
+            if (! availableProducts.some((product) => product.id === state.productId)) {
+                state.productId = '';
+            }
+
+            if (! availableInvoices().some((invoice) => invoice.id === state.invoiceId)) {
+                state.invoiceId = '';
+            }
+
+            syncSearch(availableProviders, state.providerId, providerSearch, providerField);
+            syncSearch(availableInvoices().map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) })), state.invoiceId, invoiceSearch, invoiceField);
+            syncSearch(availableProducts, state.productId, productSearch, productField);
+            renderSimpleMenu({
+                menu: providerMenu,
+                items: availableProviders,
+                emptyText: 'Sin proveedores disponibles',
+                onSelect: (item) => {
+                    state.providerId = item.id;
+                    if (providerField) {
+                        providerField.value = item.id;
+                    }
+                    if (providerSearch) {
+                        providerSearch.value = item.name;
+                    }
+                    closeMenu(providerMenu);
+                },
+            });
+            renderProductMenu(availableProducts);
+        };
+
+        const renderInvoiceMenu = (items) => {
+            const normalized = items.map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) }));
+            renderSimpleMenu({
+                menu: invoiceMenu,
+                items: [
+                    { id: '', name: 'Sin factura' },
+                    ...normalized,
+                ],
+                emptyText: 'Sin facturas disponibles',
+                onSelect: (item) => {
+                    state.invoiceId = item.id;
+                    if (invoiceField) {
+                        invoiceField.value = item.id;
+                    }
+                    if (invoiceSearch) {
+                        invoiceSearch.value = item.name === 'Sin factura' ? '' : item.name;
+                    }
+                    closeMenu(invoiceMenu);
+                },
+            });
+        };
+
+        const closeInvoiceCreate = () => {
+            invoiceCreatePanel?.classList.add('hidden');
+        };
+
+        const openInvoiceCreate = () => {
+            if (! state.projectId || ! state.providerId) {
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: 'Selecciona primero un proyecto y un proveedor.', type: 'error' },
+                }));
+                return;
+            }
+
+            invoiceCreatePanel?.classList.remove('hidden');
+            invoiceNumberField?.focus();
+        };
+
+        const saveInvoice = async () => {
+            if (! form.dataset.invoiceStoreUrl || ! state.projectId || ! state.providerId || ! invoiceSaveButton) {
+                return;
+            }
+
+            const originalText = invoiceSaveButton.textContent;
+            invoiceSaveButton.disabled = true;
+            invoiceSaveButton.textContent = 'Creando...';
+
+            try {
+                const data = new FormData();
+                data.append('type', form.dataset.transactionType);
+                data.append('project_id', state.projectId);
+                data.append('provider_id', state.providerId);
+                data.append('invoice_number', invoiceNumberField?.value.trim() ?? '');
+                data.append('invoice_date', invoiceDateField?.value || new Date().toISOString().slice(0, 10));
+                data.append('description', invoiceDescriptionField?.value.trim() ?? '');
+
+                const response = await window.axios.post(form.dataset.invoiceStoreUrl, data, {
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+
+                const invoice = {
+                    ...response.data.invoice,
+                    id: String(response.data.invoice.id),
+                    company_id: String(response.data.invoice.company_id),
+                    project_id: String(response.data.invoice.project_id),
+                    provider_id: String(response.data.invoice.provider_id),
+                };
+
+                invoices = [invoice, ...invoices.filter((item) => item.id !== invoice.id)];
+                state.invoiceId = invoice.id;
+                if (invoiceField) {
+                    invoiceField.value = invoice.id;
+                }
+                if (invoiceSearch) {
+                    invoiceSearch.value = invoiceLabel(invoice);
+                }
+                if (invoiceNumberField) {
+                    invoiceNumberField.value = '';
+                }
+                if (invoiceDescriptionField) {
+                    invoiceDescriptionField.value = '';
+                }
+                closeInvoiceCreate();
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: response.data.message ?? 'Factura creada correctamente.' },
+                }));
+            } catch (error) {
+                const message = Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                    || error.response?.data?.message
+                    || 'No fue posible crear la factura.';
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: friendlyInvoiceError(message), type: 'error' },
+                }));
+            } finally {
+                invoiceSaveButton.disabled = false;
+                invoiceSaveButton.textContent = originalText;
+            }
+        };
+
+        const syncTotalPreview = (preserveCaret = false) => {
+            if (! subtotalField) {
+                return;
+            }
+
+            const rawValue = subtotalField.value;
+            const selectionStart = subtotalField.selectionStart ?? rawValue.length;
+            const digitsBeforeCaret = countAmountDigits(rawValue.slice(0, selectionStart));
+            const formattedValue = formatIntegerAmount(rawValue);
+
+            subtotalField.value = formattedValue;
+
+            if (preserveCaret) {
+                const nextCaret = caretPositionFromDigits(formattedValue, digitsBeforeCaret);
+                subtotalField.setSelectionRange(nextCaret, nextCaret);
+            }
+        };
+
+        if (! state.projectId && projects.length === 1) {
+            state.projectId = projects[0].id;
+        }
+
+        if (projectField) {
+            projectField.value = state.projectId;
+            projectField.addEventListener('change', (event) => {
+                state.projectId = String(event.target.value || '');
+                state.providerId = '';
+                state.invoiceId = '';
+                state.productId = '';
+                closeInvoiceCreate();
+                syncLists();
+            });
+        }
+
+        providerSearch?.addEventListener('focus', () => {
+            const availableProviders = availableForProject(providers);
+            const term = providerSearch.value.trim().toLocaleLowerCase();
+            renderSimpleMenu({
+                menu: providerMenu,
+                items: availableProviders.filter((item) => item.name.toLocaleLowerCase().includes(term)),
+                emptyText: 'Sin proveedores disponibles',
+                onSelect: (item) => {
+                    state.providerId = item.id;
+                    state.invoiceId = '';
+                    if (providerField) {
+                        providerField.value = item.id;
+                    }
+                    if (providerSearch) {
+                        providerSearch.value = item.name;
+                    }
+                    closeInvoiceCreate();
+                    closeMenu(providerMenu);
+                },
+            });
+            openMenu(providerMenu);
+        });
+        providerSearch?.addEventListener('input', () => {
+            const availableProviders = availableForProject(providers);
+            const term = providerSearch.value.trim().toLocaleLowerCase();
+            resolveTypedValue(availableProviders, providerSearch, providerField, 'providerId');
+            renderSimpleMenu({
+                menu: providerMenu,
+                items: availableProviders.filter((item) => item.name.toLocaleLowerCase().includes(term)),
+                emptyText: 'Sin proveedores disponibles',
+                onSelect: (item) => {
+                    state.providerId = item.id;
+                    state.invoiceId = '';
+                    if (providerField) {
+                        providerField.value = item.id;
+                    }
+                    if (providerSearch) {
+                        providerSearch.value = item.name;
+                    }
+                    closeInvoiceCreate();
+                    closeMenu(providerMenu);
+                },
+            });
+            openMenu(providerMenu);
+        });
+        providerSearch?.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                syncSearch(availableForProject(providers), state.providerId, providerSearch, providerField);
+                closeMenu(providerMenu);
+            }, 120);
+        });
+        invoiceSearch?.addEventListener('focus', () => {
+            const term = invoiceSearch.value.trim().toLocaleLowerCase();
+            renderInvoiceMenu(availableInvoices().filter((item) => invoiceLabel(item).toLocaleLowerCase().includes(term)));
+            openMenu(invoiceMenu);
+        });
+        invoiceSearch?.addEventListener('input', () => {
+            const term = invoiceSearch.value.trim().toLocaleLowerCase();
+            const normalized = availableInvoices().map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) }));
+            resolveTypedValue(normalized, invoiceSearch, invoiceField, 'invoiceId');
+            renderInvoiceMenu(availableInvoices().filter((item) => invoiceLabel(item).toLocaleLowerCase().includes(term)));
+            openMenu(invoiceMenu);
+        });
+        invoiceSearch?.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                syncSearch(availableInvoices().map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) })), state.invoiceId, invoiceSearch, invoiceField);
+                closeMenu(invoiceMenu);
+            }, 120);
+        });
+        invoiceCreateButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            openInvoiceCreate();
+        });
+        invoiceCancelButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeInvoiceCreate();
+        });
+        invoiceSaveButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            saveInvoice();
+        });
+        productSearch?.addEventListener('focus', () => {
+            const availableProducts = availableForProject(products);
+            const term = productSearch.value.trim().toLocaleLowerCase();
+            renderProductMenu(availableProducts.filter((item) => (
+                item.name.toLocaleLowerCase().includes(term)
+                || (item.subgroup_name ?? '').toLocaleLowerCase().includes(term)
+            )));
+            openProductMenu();
+        });
+        productSearch?.addEventListener('input', () => {
+            const availableProducts = availableForProject(products);
+            const term = productSearch.value.trim().toLocaleLowerCase();
+            const filteredProducts = availableProducts.filter((item) => (
+                item.name.toLocaleLowerCase().includes(term)
+                || (item.subgroup_name ?? '').toLocaleLowerCase().includes(term)
+            ));
+
+            resolveTypedValue(availableProducts, productSearch, productField, 'productId');
+            renderProductMenu(filteredProducts);
+            openProductMenu();
+        });
+        productSearch?.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                syncSearch(availableForProject(products), state.productId, productSearch, productField);
+                closeProductMenu();
+            }, 120);
+        });
+
+        if (subtotalField) {
+            subtotalField.addEventListener('input', () => syncTotalPreview(true));
+            subtotalField.addEventListener('blur', () => syncTotalPreview());
+            form.addEventListener('submit', () => {
+                subtotalField.value = normalizeIntegerAmount(subtotalField.value);
+            });
+        }
+
+        syncLists();
+        syncTotalPreview();
+    });
+};
+
+window.initializeInvoiceAttachmentForms = (root = document) => {
+    root.querySelectorAll('form[data-invoice-attachment-form]').forEach((form) => {
+        if (form.dataset.invoiceAttachmentInitialized === 'true') {
+            return;
+        }
+
+        form.dataset.invoiceAttachmentInitialized = 'true';
+
+        form.querySelector('[data-invoice-file-input]')?.addEventListener('change', () => {
+            if (form.querySelector('[data-invoice-file-input]')?.files?.length) {
+                form.requestSubmit();
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const button = form.querySelector('button[type="submit"]');
+            const uploadTrigger = form.querySelector('label[for]');
+            const originalText = button?.textContent;
+            const data = new FormData(form);
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Subiendo...';
+            }
+            uploadTrigger?.classList.add('pointer-events-none', 'opacity-60');
+
+            try {
+                const response = await window.axios.post(form.action, data, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+                const attachmentsRoot = form.closest('[data-invoice-detail-root]')?.querySelector('[data-invoice-attachments-root]')
+                    ?? document.querySelector('[data-invoice-attachments-root]');
+
+                if (attachmentsRoot && response.data.attachments_html) {
+                    attachmentsRoot.innerHTML = response.data.attachments_html;
+                    Alpine.initTree(attachmentsRoot);
+                }
+
+                form.reset();
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: response.data.message ?? 'Archivos cargados correctamente.' },
+                }));
+            } catch (error) {
+                const message = Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                    || error.response?.data?.message
+                    || 'No fue posible cargar los archivos.';
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message, type: 'error' },
+                }));
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+                uploadTrigger?.classList.remove('pointer-events-none', 'opacity-60');
+            }
         });
     });
 };

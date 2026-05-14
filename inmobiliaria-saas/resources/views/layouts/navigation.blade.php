@@ -5,7 +5,7 @@
         : 'block w-full touch-manipulation border-l-4 border-transparent py-2 pe-4 ps-3 text-left text-base font-medium text-stone-600 transition duration-150 ease-in-out active:bg-stone-50 active:text-stone-900 focus:bg-stone-50 focus:text-stone-800 focus:outline-none';
 @endphp
 
-<nav x-data="{ open: false }" class="sticky top-0 z-50 border-b border-stone-200 bg-white sm:bg-white/95 sm:backdrop-blur">
+<nav x-data="{ open: false, mastersOpen: {{ request()->routeIs('users.*', 'assets.*', 'providers.*', 'product-catalog.*') ? 'true' : 'false' }} }" class="sticky top-0 z-50 border-b border-stone-200 bg-white sm:bg-white/95 sm:backdrop-blur">
     <!-- Primary Navigation Menu -->
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 justify-between">
@@ -32,24 +32,38 @@
                             Proyectos
                         </x-nav-link>
                     @endcan
-                    @can('viewAny', App\Models\User::class)
-                        <x-nav-link :href="$navUrl('users.index')" :active="request()->routeIs('users.*')">
-                            Usuarios
-                        </x-nav-link>
-                    @endcan
-                    @can('viewAny', App\Models\Asset::class)
-                        <x-nav-link :href="$navUrl('assets.index')" :active="request()->routeIs('assets.*')">
-                            Activos
-                        </x-nav-link>
-                    @endcan
-                    @can('viewAny', App\Models\Provider::class)
-                        <x-nav-link :href="$navUrl('providers.index')" :active="request()->routeIs('providers.*')">
-                            Proveedores
-                        </x-nav-link>
-                    @endcan
+                    @if (Auth::user()->can('viewAny', App\Models\User::class) || Auth::user()->can('viewAny', App\Models\Asset::class) || Auth::user()->can('viewAny', App\Models\Provider::class) || Auth::user()->can('viewAny', App\Models\ProductGroup::class))
+                        <x-dropdown align="left" width="56">
+                            <x-slot name="trigger">
+                                <button class="inline-flex items-center gap-1 border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none {{ request()->routeIs('users.*', 'assets.*', 'providers.*', 'product-catalog.*') ? 'border-sky-500 text-stone-900' : 'border-transparent text-stone-500 hover:border-stone-300 hover:text-stone-700' }}">
+                                    Maestras
+                                    <svg class="h-4 w-4 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </x-slot>
+                            <x-slot name="content">
+                                @can('viewAny', App\Models\User::class)
+                                    <x-dropdown-link :href="$navUrl('users.index')">Usuarios</x-dropdown-link>
+                                @endcan
+                                @can('viewAny', App\Models\Asset::class)
+                                    <x-dropdown-link :href="$navUrl('assets.index')">Activos</x-dropdown-link>
+                                @endcan
+                                @can('viewAny', App\Models\Provider::class)
+                                    <x-dropdown-link :href="$navUrl('providers.index')">Proveedores</x-dropdown-link>
+                                @endcan
+                                @can('viewAny', App\Models\ProductGroup::class)
+                                    <x-dropdown-link :href="$navUrl('product-catalog.index')">Grupos, subgrupos y productos</x-dropdown-link>
+                                @endcan
+                            </x-slot>
+                        </x-dropdown>
+                    @endif
                     @can('viewAny', App\Models\Expense::class)
                         <x-nav-link :href="$navUrl('expenses.index')" :active="request()->routeIs('expenses.*')">
                             Gastos
+                        </x-nav-link>
+                    @endcan
+                    @can('viewAny', App\Models\Purchase::class)
+                        <x-nav-link :href="$navUrl('purchases.index')" :active="request()->routeIs('purchases.*')">
+                            Compras
                         </x-nav-link>
                     @endcan
                     @can('reports.view')
@@ -134,24 +148,57 @@
                         <button type="submit" class="{{ $mobileNavClass(request()->routeIs('projects.*')) }}">Proyectos</button>
                     </form>
                 @endcan
-                @can('viewAny', App\Models\User::class)
-                    <form method="GET" action="{{ $navUrl('users.index') }}">
-                        <button type="submit" class="{{ $mobileNavClass(request()->routeIs('users.*')) }}">Usuarios</button>
-                    </form>
-                @endcan
-                @can('viewAny', App\Models\Asset::class)
-                    <form method="GET" action="{{ $navUrl('assets.index') }}">
-                        <button type="submit" class="{{ $mobileNavClass(request()->routeIs('assets.*')) }}">Activos</button>
-                    </form>
-                @endcan
-                @can('viewAny', App\Models\Provider::class)
-                    <form method="GET" action="{{ $navUrl('providers.index') }}">
-                        <button type="submit" class="{{ $mobileNavClass(request()->routeIs('providers.*')) }}">Proveedores</button>
-                    </form>
-                @endcan
+                @if (Auth::user()->can('viewAny', App\Models\User::class) || Auth::user()->can('viewAny', App\Models\Asset::class) || Auth::user()->can('viewAny', App\Models\Provider::class) || Auth::user()->can('viewAny', App\Models\ProductGroup::class))
+                    <button
+                        type="button"
+                        class="flex w-full items-center justify-between border-l-4 py-2 pe-4 ps-3 text-left text-base font-medium transition duration-150 ease-in-out focus:outline-none {{ request()->routeIs('users.*', 'assets.*', 'providers.*', 'product-catalog.*') ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-transparent text-stone-600 active:bg-stone-50 active:text-stone-900 focus:bg-stone-50 focus:text-stone-800' }}"
+                        x-on:click="mastersOpen = ! mastersOpen"
+                    >
+                        <span>Maestras</span>
+                        <svg class="h-5 w-5 transition-transform" x-bind:class="mastersOpen ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div
+                        x-show="mastersOpen"
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 -translate-y-1"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 -translate-y-1"
+                        class="space-y-1 border-l border-stone-100 bg-stone-50/60 py-1"
+                    >
+                        @can('viewAny', App\Models\User::class)
+                            <form method="GET" action="{{ $navUrl('users.index') }}">
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('users.*')) }}">Usuarios</button>
+                            </form>
+                        @endcan
+                        @can('viewAny', App\Models\Asset::class)
+                            <form method="GET" action="{{ $navUrl('assets.index') }}">
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('assets.*')) }}">Activos</button>
+                            </form>
+                        @endcan
+                        @can('viewAny', App\Models\Provider::class)
+                            <form method="GET" action="{{ $navUrl('providers.index') }}">
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('providers.*')) }}">Proveedores</button>
+                            </form>
+                        @endcan
+                        @can('viewAny', App\Models\ProductGroup::class)
+                            <form method="GET" action="{{ $navUrl('product-catalog.index') }}">
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('product-catalog.*')) }}">Grupos, subgrupos y productos</button>
+                            </form>
+                        @endcan
+                    </div>
+                @endif
                 @can('viewAny', App\Models\Expense::class)
                     <form method="GET" action="{{ $navUrl('expenses.index') }}">
                         <button type="submit" class="{{ $mobileNavClass(request()->routeIs('expenses.*')) }}">Gastos</button>
+                    </form>
+                @endcan
+                @can('viewAny', App\Models\Purchase::class)
+                    <form method="GET" action="{{ $navUrl('purchases.index') }}">
+                        <button type="submit" class="{{ $mobileNavClass(request()->routeIs('purchases.*')) }}">Compras</button>
                     </form>
                 @endcan
                 @can('reports.view')
