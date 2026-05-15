@@ -40,18 +40,10 @@
                             name="asset_novelty_type_id"
                             autocomplete="off"
                             class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
-                            x-model="selectedTypeId"
-                            x-effect="$el.value = selectedTypeId"
+                            x-effect="syncTypeSelect($el)"
                             x-on:change="handleTypeChange($event)"
-                            x-bind:disabled="activeTypes.length === 0"
                             required
-                        >
-                            @forelse ($activeNoveltyTypes as $type)
-                                <option value="{{ $type['id'] }}">{{ $type['name'] }}</option>
-                            @empty
-                                <option value="">No hay tipos activos</option>
-                            @endforelse
-                        </select>
+                        ></select>
                         <button
                             type="button"
                             class="app-create-button-sm shrink-0"
@@ -178,24 +170,24 @@
                     <div class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
                         <div class="grid gap-3 md:grid-cols-[1fr_auto]">
                             <div>
-                                <x-input-label for="{{ $formUid }}-novelty-type-name" :value="'Tipo'" />
-                                <x-text-input
-                                    id="{{ $formUid }}-novelty-type-name"
-                                    name="asset_novelty_type_name_draft"
-                                    type="text"
-                                    class="mt-1 block w-full"
-                                    x-model="draft.name"
-                                    x-on:keydown.enter.prevent="saveType()"
-                                    autocomplete="off"
-                                    aria-label="Tipo de novedad"
-                                />
+                                <label class="block font-medium text-sm text-gray-700">Tipo
+                                    <x-text-input
+                                        name="asset_novelty_type_name_draft"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        x-model="draft.name"
+                                        x-on:keydown.enter.prevent="saveType()"
+                                        autocomplete="off"
+                                        aria-label="Tipo de novedad"
+                                    />
+                                </label>
                             </div>
 
                             <div>
-                                <x-input-label for="{{ $formUid }}-novelty-type-adds-value" :value="'Da valor'" />
+                                <x-input-label :value="'Da valor'" />
                                 <div class="mt-1">
                                     <label class="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
-                                        <input id="{{ $formUid }}-novelty-type-adds-value" type="checkbox" class="rounded border-stone-300 text-stone-900 shadow-sm focus:ring-stone-900" x-model="draft.adds_value" autocomplete="off">
+                                        <input type="checkbox" class="rounded border-stone-300 text-stone-900 shadow-sm focus:ring-stone-900" x-model="draft.adds_value" autocomplete="off">
                                         Da valor al activo
                                     </label>
                                 </div>
@@ -284,7 +276,7 @@
             <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
                 Cancelar
             </button>
-            <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
+            <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60">
                 {{ $novelty->exists ? 'Actualizar novedad' : 'Registrar novedad' }}
             </button>
         </div>

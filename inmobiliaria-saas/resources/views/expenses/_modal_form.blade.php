@@ -25,8 +25,8 @@
         @method($method)
     @endif
 
-    <script type="application/json" data-expense-payload>{!! json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
-    <script type="application/json" data-expense-selected>{!! json_encode($expenseFormSelected, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+    <script type="application/json" data-expense-payload>{!! json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
+    <script type="application/json" data-expense-selected>{!! json_encode($expenseFormSelected, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
 
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">
         <div class="grid gap-6 md:grid-cols-2">
@@ -142,7 +142,7 @@
             <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
                 Cancelar
             </button>
-            <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
+            <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60">
                 {{ $expense->exists ? 'Actualizar gasto' : 'Crear gasto' }}
             </button>
         </div>

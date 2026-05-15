@@ -14,6 +14,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ExpenseController extends Controller
@@ -236,11 +237,11 @@ class ExpenseController extends Controller
             'status' => ['required', 'in:active,inactive'],
         ]);
 
-        $expense->update([
-            'status' => $data['status'],
-        ]);
+        DB::transaction(function () use ($expense, $data) {
+            $expense->update(['status' => $data['status']]);
+            $this->refreshInvoiceTotal($expense->invoice_id);
+        });
 
-        $this->refreshInvoiceTotal($expense->invoice_id);
         $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
 
         return response()->json([

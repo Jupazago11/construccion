@@ -16,8 +16,8 @@
         @method($method)
     @endif
 
-    <script type="application/json" data-expense-payload>{!! json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
-    <script type="application/json" data-expense-selected>{!! json_encode($selected, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+    <script type="application/json" data-expense-payload>{!! json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
+    <script type="application/json" data-expense-selected>{!! json_encode($selected, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
 
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">
         <div class="grid gap-6 md:grid-cols-2">
@@ -115,7 +115,7 @@
     <div class="sticky bottom-0 z-10 mt-auto shrink-0 border-t border-stone-200 bg-white px-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-4 shadow-[0_-8px_18px_rgba(255,255,255,0.92)]">
         <div class="flex items-center justify-end gap-3">
             <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">Cancelar</button>
-            <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">{{ $purchase->exists ? 'Actualizar compra' : 'Crear compra' }}</button>
+            <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60">{{ $purchase->exists ? 'Actualizar compra' : 'Crear compra' }}</button>
         </div>
     </div>
 </form>

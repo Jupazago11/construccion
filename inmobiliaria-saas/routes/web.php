@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\Asset2Controller;
+use App\Http\Controllers\Asset2TypeController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\Provider2Controller;
+use App\Http\Controllers\Provider2TypeController;
 use App\Http\Controllers\AssetMediaController;
 use App\Http\Controllers\AssetNoveltyController;
 use App\Http\Controllers\AssetNoveltyTypeController;
@@ -44,6 +48,13 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::patch('projects/{project}/status', [ProjectController::class, 'updateStatus'])->name('projects.status');
     Route::resource('projects', ProjectController::class);
 
+    Route::patch('providers2/{provider2}/status', [Provider2Controller::class, 'updateStatus'])->name('providers2.status');
+    Route::resource('providers2', Provider2Controller::class)->except('show')->parameters(['providers2' => 'provider2']);
+    Route::get('provider2-types', [Provider2TypeController::class, 'index'])->name('provider2-types.index');
+    Route::post('provider2-types', [Provider2TypeController::class, 'store'])->name('provider2-types.store');
+    Route::patch('provider2-types/{provider2Type}', [Provider2TypeController::class, 'update'])->name('provider2-types.update');
+    Route::delete('provider2-types/{provider2Type}', [Provider2TypeController::class, 'destroy'])->name('provider2-types.destroy');
+
     Route::patch('providers/{provider}/status', [ProviderController::class, 'updateStatus'])->name('providers.status');
     Route::resource('providers', ProviderController::class)->except('show');
 
@@ -66,6 +77,12 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::patch('maestras/productos/productos/{product}', [ProductCatalogController::class, 'updateProduct'])->name('product-catalog.products.update');
     Route::patch('maestras/productos/productos/{product}/status', [ProductCatalogController::class, 'statusProduct'])->name('product-catalog.products.status');
     Route::delete('maestras/productos/productos/{product}', [ProductCatalogController::class, 'destroyProduct'])->name('product-catalog.products.destroy');
+
+    Route::resource('assets2', Asset2Controller::class)->except('show')->parameters(['assets2' => 'asset2']);
+    Route::get('asset2-types', [Asset2TypeController::class, 'index'])->name('asset2-types.index');
+    Route::post('asset2-types', [Asset2TypeController::class, 'store'])->name('asset2-types.store');
+    Route::patch('asset2-types/{asset2Type}', [Asset2TypeController::class, 'update'])->name('asset2-types.update');
+    Route::delete('asset2-types/{asset2Type}', [Asset2TypeController::class, 'destroy'])->name('asset2-types.destroy');
 
     Route::resource('assets', AssetController::class)->except('show');
     Route::get('asset-types', [AssetTypeController::class, 'index'])->name('asset-types.index');

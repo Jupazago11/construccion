@@ -1,6 +1,6 @@
 @php
-    $selectedAssetTypeId = old('asset_type_id', $asset->asset_type_id ?: ($assetTypes->firstWhere('status', 'active')['id'] ?? null));
-    $formUid = 'asset-' . ($asset->exists ? $asset->id : 'new') . '-' . substr(md5($action), 0, 8);
+    $selectedAsset2TypeId = old('asset2_type_id', $asset2->asset2_type_id ?: ($asset2Types->firstWhere('status', 'active')['id'] ?? null));
+    $formUid = 'asset2-' . ($asset2->exists ? $asset2->id : 'new') . '-' . substr(md5($action), 0, 8);
 @endphp
 
 <form
@@ -9,11 +9,11 @@
     data-ajax-form
     data-asset-form
     x-data="assetTypeManager({
-        types: @js($assetTypes),
-        selectedTypeId: @js($selectedAssetTypeId ? (string) $selectedAssetTypeId : ''),
-        storeUrl: @js(route('asset-types.store')),
-        indexUrl: @js(route('asset-types.index')),
-        initialCompanyId: @js((string) ($asset->company_id ?: request('company_id') ?: auth()->user()->company_id)),
+        types: @js($asset2Types),
+        selectedTypeId: @js($selectedAsset2TypeId ? (string) $selectedAsset2TypeId : ''),
+        storeUrl: @js(route('asset2-types.store')),
+        indexUrl: @js(route('asset2-types.index')),
+        initialCompanyId: @js((string) ($asset2->company_id ?: request('company_id') ?: auth()->user()->company_id)),
     })"
     x-init="init()"
     class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6"
@@ -37,7 +37,7 @@
                     >
                         <option value="">Selecciona una empresa</option>
                         @foreach ($companies as $company)
-                            <option value="{{ $company->id }}" @selected(($asset->company_id ?: request('company_id')) == $company->id)>{{ $company->name }}</option>
+                            <option value="{{ $company->id }}" @selected(($asset2->company_id ?: request('company_id')) == $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                     <p class="mt-2 hidden text-sm text-rose-600" data-error-for="company_id"></p>
@@ -46,16 +46,16 @@
 
             <div class="md:col-span-2">
                 <x-input-label for="{{ $formUid }}-name" :value="'Nombre del activo'" />
-                <x-text-input id="{{ $formUid }}-name" name="name" type="text" class="mt-1 block w-full" :value="$asset->name" autocomplete="off" required />
+                <x-text-input id="{{ $formUid }}-name" name="name" type="text" class="mt-1 block w-full" :value="$asset2->name" autocomplete="off" required />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="name"></p>
             </div>
 
             <div>
-                <x-input-label for="{{ $formUid }}-asset-type-id" :value="'Tipo'" />
+                <x-input-label for="{{ $formUid }}-asset2-type-id" :value="'Tipo'" />
                 <div class="mt-1 flex items-center gap-2">
                     <select
-                        id="{{ $formUid }}-asset-type-id"
-                        name="asset_type_id"
+                        id="{{ $formUid }}-asset2-type-id"
+                        name="asset2_type_id"
                         autocomplete="off"
                         class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
                         x-effect="syncTypeSelect($el)"
@@ -65,20 +65,20 @@
                     <button
                         type="button"
                         class="app-create-button-sm shrink-0"
-                        title="Administrar tipos de activo"
+                        title="Administrar tipos de activo 2"
                         x-on:click.stop.prevent="openManager()"
                     >
                         +
                     </button>
                 </div>
-                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_type_id"></p>
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset2_type_id"></p>
             </div>
 
             <div>
                 <x-input-label for="{{ $formUid }}-asset-condition" :value="'Estado del activo'" />
                 <select id="{{ $formUid }}-asset-condition" name="asset_condition" autocomplete="off" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
                     @foreach (['new' => 'Nuevo', 'used' => 'De segunda'] as $value => $label)
-                        <option value="{{ $value }}" @selected(($asset->asset_condition ?: 'new') === $value)>{{ $label }}</option>
+                        <option value="{{ $value }}" @selected(($asset2->asset_condition ?: 'new') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_condition"></p>
@@ -92,7 +92,7 @@
                     type="text"
                     inputmode="numeric"
                     class="mt-1 block w-full"
-                    :value="$asset->purchase_value !== null ? number_format((float) $asset->purchase_value, 0, ',', '.') : ''"
+                    :value="$asset2->purchase_value !== null ? number_format((float) $asset2->purchase_value, 0, ',', '.') : ''"
                     autocomplete="off"
                     data-currency-input
                 />
@@ -101,7 +101,7 @@
 
             <div>
                 <x-input-label for="{{ $formUid }}-purchase-date" :value="'Fecha de compra'" />
-                <x-text-input id="{{ $formUid }}-purchase-date" name="purchase_date" type="date" class="mt-1 block w-full" :value="optional($asset->purchase_date)->format('Y-m-d') ?: $asset->purchase_date" autocomplete="off" />
+                <x-text-input id="{{ $formUid }}-purchase-date" name="purchase_date" type="date" class="mt-1 block w-full" :value="optional($asset2->purchase_date)->format('Y-m-d') ?: $asset2->purchase_date" autocomplete="off" />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="purchase_date"></p>
             </div>
         </div>
@@ -114,7 +114,7 @@
         >
             <div class="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" x-on:click.stop>
                 <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
-                    <h3 class="text-base font-semibold text-stone-900">Tipos de activo</h3>
+                    <h3 class="text-base font-semibold text-stone-900">Tipos de activo 2</h3>
                     <button type="button" class="rounded-2xl border border-stone-200 px-3 py-2 text-sm text-stone-700 transition hover:bg-stone-50" x-on:click="closeManager()">
                         Cerrar
                     </button>
@@ -134,13 +134,13 @@
                             <div>
                                 <label class="block font-medium text-sm text-gray-700">Tipo
                                     <x-text-input
-                                        name="asset_type_name_draft"
+                                        name="asset2_type_name_draft"
                                         type="text"
                                         class="mt-1 block w-full"
                                         x-model="draft.name"
                                         x-on:keydown.enter.prevent="saveType()"
                                         autocomplete="off"
-                                        aria-label="Tipo de activo"
+                                        aria-label="Tipo de activo 2"
                                     />
                                 </label>
                             </div>
@@ -214,7 +214,7 @@
                 Cancelar
             </button>
             <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60">
-                {{ $asset->exists ? 'Actualizar activo' : 'Crear activo' }}
+                {{ $asset2->exists ? 'Actualizar activo 2' : 'Crear activo 2' }}
             </button>
         </div>
     </div>

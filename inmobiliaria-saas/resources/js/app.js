@@ -23,6 +23,7 @@ Alpine.data('crudTable', (config = {}) => ({
     toastMessage: '',
     toastType: 'success',
     toastTimer: null,
+    formDrafts: {},
     config,
 
     init() {
@@ -34,6 +35,16 @@ Alpine.data('crudTable', (config = {}) => ({
             this.showToast(event.detail?.message, event.detail?.type ?? 'success');
         });
 
+        window.addEventListener('crud-save-open-modal-draft', () => {
+            if (! this.modalOpen || ! this.modalUrl) {
+                return;
+            }
+
+            this.saveDraft(this.modalUrl, this.collectModalFormValues());
+        });
+
+        // atm:manager-closed: the assetTypeManager rebuilds selects in-place;
+        // no modal re-fetch needed here (it was causing the form to go blank).
     },
 
     shouldReloadAfterMutation() {
@@ -71,6 +82,14 @@ Alpine.data('crudTable', (config = {}) => ({
                     window.initializeTransactionForms?.(this.$refs.modalContent);
                     window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                     window.initializeAssetForms?.(this.$refs.modalContent);
+
+                    const draft = this.loadDraft(url);
+                    if (draft) {
+                        window.requestAnimationFrame(() => {
+                            this.restoreModalFormValues(draft);
+                            this.showToast('Borrador restaurado automáticamente.');
+                        });
+                    }
                 }
             });
         } catch (error) {
@@ -135,6 +154,9 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 
     closeModal() {
+        if (this.modalHtml) {
+            this.saveDraft(this.modalUrl, this.collectModalFormValues());
+        }
         this.modalOpen = false;
         this.modalTitle = '';
         this.modalHtml = '';
@@ -161,6 +183,8 @@ Alpine.data('crudTable', (config = {}) => ({
         }
 
         const preservedValues = values ?? this.collectModalFormValues();
+        const scrollContainer = this.$refs.modalContent?.querySelector('.overflow-y-auto');
+        const preservedScrollTop = scrollContainer?.scrollTop ?? 0;
 
         this.loading = true;
         this.error = null;
@@ -187,6 +211,13 @@ Alpine.data('crudTable', (config = {}) => ({
 
                 window.requestAnimationFrame(() => {
                     this.restoreModalFormValues(preservedValues);
+
+                    if (preservedScrollTop > 0) {
+                        const nextScrollContainer = this.$refs.modalContent?.querySelector('.overflow-y-auto');
+                        if (nextScrollContainer) {
+                            nextScrollContainer.scrollTop = preservedScrollTop;
+                        }
+                    }
                 });
             });
         } catch (error) {
@@ -220,6 +251,64 @@ Alpine.data('crudTable', (config = {}) => ({
                 checked: field.checked,
             }));
     },
+
+    draftKey(url) {
+        if (! url) return null;
+        return 'form-draft:' + url.split('?')[0];
+    },
+
+    saveDraft(url, values) {
+        const key = this.draftKey(url);
+
+        if (! key || ! Array.isArray(values)) {
+            return;
+        }
+
+        const ignoredFields = ['_token', '_method'];
+
+        const meaningful = values.filter((field) => {
+            return ! ignoredFields.includes(field.name)
+                && String(field.value ?? '').trim() !== '';
+        });
+
+        if (meaningful.length === 0) {
+            return;
+        }
+
+        const currentDraft = this.formDrafts[key] ?? [];
+
+        const currentMeaningful = currentDraft.filter((field) => {
+            return ! ignoredFields.includes(field.name)
+                && String(field.value ?? '').trim() !== '';
+        });
+
+        if (currentMeaningful.length > meaningful.length) {
+            return;
+        }
+
+        this.formDrafts[key] = values;
+    },
+
+    loadDraft(url) {
+        const key = this.draftKey(url);
+
+        if (! key) {
+            return null;
+        }
+
+        return this.formDrafts[key] ?? null;
+    },
+
+    clearDraft(url) {
+        const key = this.draftKey(url);
+
+        if (! key) {
+            return;
+        }
+
+        delete this.formDrafts[key];
+    },
+
 
     restoreModalFormValues(values) {
         const form = this.$refs.modalContent?.querySelector('form[data-ajax-form]');
@@ -300,11 +389,13 @@ Alpine.data('crudTable', (config = {}) => ({
             });
 
             if (this.shouldReloadAfterMutation()) {
+                this.clearDraft(this.modalUrl);
                 this.reloadCurrentPage();
                 return;
             }
 
             this.applyRowChange(response.data);
+            this.clearDraft(this.modalUrl);
             form.reset();
             if (form.closest('[data-nested-modal-content]')) {
                 this.closeNestedModal();
@@ -1338,7 +1429,10 @@ Alpine.data('projectStructureState', () => ({
     },
 }));
 
-Alpine.data('assetTypeManager', (config = {}) => ({
+Alpine.data('assetTypeManager', (config = {}) => {
+const selectEls = [];
+let _selectedTypeId = String(config.selectedTypeId ?? '');
+return {
     types: config.types ?? [],
     selectedTypeId: String(config.selectedTypeId ?? ''),
     previousTypeId: String(config.selectedTypeId ?? ''),
@@ -1364,6 +1458,40 @@ Alpine.data('assetTypeManager', (config = {}) => ({
         this.normalizeTypeSelection();
     },
 
+    // Called via x-effect on each select element — registers the element and
+    // builds initial options. Subsequent updates are driven imperatively from
+    // normalizeTypeSelection() since Alpine reactivity doesn't cross the
+    // Alpine.initTree / x-teleport boundary in this app's modal architecture.
+    syncTypeSelect(el) {
+        if (!selectEls.includes(el)) {
+            selectEls.push(el);
+        }
+        this._buildSelectOptions(el);
+    },
+
+    _buildSelectOptions(el) {
+        const activeTypes = this.activeTypes;
+        const selectedId = _selectedTypeId; // closure var — not tracked by x-effect
+
+        while (el.options.length > 0) {
+            el.remove(0);
+        }
+
+        el.add(new Option(
+            this.allowEmptySelection
+                ? 'Sin tipo'
+                : (activeTypes.length === 0 ? 'No hay tipos activos' : 'Selecciona un tipo'),
+            ''
+        ));
+
+        for (const type of activeTypes) {
+            el.add(new Option(type.name, String(type.id)));
+        }
+
+        el.value = selectedId;
+        el.disabled = !this.allowEmptySelection && activeTypes.length === 0;
+    },
+
     get activeTypes() {
         return this.types.filter((type) => type.status === 'active');
     },
@@ -1377,27 +1505,51 @@ Alpine.data('assetTypeManager', (config = {}) => ({
     },
 
     handleTypeChange(event) {
-        if (event.target.value === '__manage__') {
-            this.selectedTypeId = this.previousTypeId || '';
-            this.openManager();
-            return;
-        }
+    event.preventDefault();
+    event.stopPropagation();
 
-        this.previousTypeId = this.selectedTypeId;
-    },
+    const value = event.target.value;
+
+    if (value === '__manage__') {
+        event.target.value = this.selectedTypeId;
+        this.openManager();
+        return;
+    }
+
+    this.previousTypeId = this.selectedTypeId;
+    this.selectedTypeId = value;
+    _selectedTypeId = value;
+
+    selectEls.forEach((select) => {
+        if (select !== event.target) {
+            select.value = value;
+        }
+    });
+},
 
     openManager() {
+        window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
         this.managerOpen = true;
         this.managerError = '';
         this.resetDraft();
+
         this.$nextTick(() => {
             this.loadTypes(true);
         });
     },
 
     closeManager() {
+        window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
         this.managerOpen = false;
         this.resetDraft();
+
+        this.syncNativeTypeSelects?.();
+
+        selectEls.forEach((el) => this._buildSelectOptions(el));
+
+        window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
     },
 
     resetDraft() {
@@ -1428,6 +1580,7 @@ Alpine.data('assetTypeManager', (config = {}) => ({
         if (! this.companyId || ! this.indexUrl) {
             this.types = [];
             this.selectedTypeId = '';
+            _selectedTypeId = '';
             this.previousTypeId = '';
             return;
         }
@@ -1515,10 +1668,15 @@ Alpine.data('assetTypeManager', (config = {}) => ({
                 if (created?.status === 'active') {
                     this.selectedTypeId = String(created.id);
                     this.previousTypeId = this.selectedTypeId;
+                    _selectedTypeId = this.selectedTypeId;
+                    selectEls.forEach((el) => { el.value = _selectedTypeId; });
                 }
             }
 
             this.resetDraft();
+
+            window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
             window.dispatchEvent(new CustomEvent('crud-toast', {
                 detail: { message: response.data.message ?? 'Tipo actualizado correctamente.' },
             }));
@@ -1577,6 +1735,9 @@ Alpine.data('assetTypeManager', (config = {}) => ({
             }
 
             this.managerOpen = true;
+
+            window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
             window.dispatchEvent(new CustomEvent('crud-toast', {
                 detail: { message: response.data.message ?? 'Tipo actualizado correctamente.' },
             }));
@@ -1613,6 +1774,11 @@ Alpine.data('assetTypeManager', (config = {}) => ({
         }
 
         this.previousTypeId = this.selectedTypeId;
+        _selectedTypeId = this.selectedTypeId;
+
+        selectEls.forEach((select) => {
+            this._buildSelectOptions(select);
+        });
     },
 
     async deleteType(type) {
@@ -1643,6 +1809,9 @@ Alpine.data('assetTypeManager', (config = {}) => ({
 
             this.applyTypes(response.data.types ?? []);
             this.resetDraft();
+
+            window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
             window.dispatchEvent(new CustomEvent('crud-toast', {
                 detail: { message: response.data.message ?? 'Tipo eliminado correctamente.' },
             }));
@@ -1656,8 +1825,36 @@ Alpine.data('assetTypeManager', (config = {}) => ({
     applyTypes(types) {
         this.types = types;
         this.normalizeTypeSelection();
+        this.syncNativeTypeSelects();
     },
-}));
+    syncNativeTypeSelects() {
+        const selects = document.querySelectorAll('[data-provider2-type-select]');
+
+        selects.forEach((select) => {
+            const currentValue = select.value || this.selectedTypeId || '';
+
+            select.innerHTML = '';
+
+            select.add(new Option('Sin tipo', ''));
+
+            this.activeTypes.forEach((type) => {
+                select.add(new Option(type.name, String(type.id)));
+            });
+
+            if ([...select.options].some((option) => option.value === currentValue)) {
+                select.value = currentValue;
+                this.selectedTypeId = currentValue;
+                _selectedTypeId = currentValue;
+            } else {
+                select.value = '';
+                this.selectedTypeId = '';
+                _selectedTypeId = '';
+            }
+        });
+    },
+
+
+}; });
 
 const normalizeIntegerAmount = (value) => {
     const raw = String(value ?? '').trim();

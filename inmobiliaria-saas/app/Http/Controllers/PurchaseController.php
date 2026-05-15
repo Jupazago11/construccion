@@ -15,6 +15,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
@@ -209,8 +210,11 @@ class PurchaseController extends Controller
         $this->authorize('update', $purchase);
         $data = $request->validate(['status' => ['required', 'in:active,inactive']]);
 
-        $purchase->update(['status' => $data['status']]);
-        $this->refreshInvoiceTotal($purchase->invoice_id);
+        DB::transaction(function () use ($purchase, $data) {
+            $purchase->update(['status' => $data['status']]);
+            $this->refreshInvoiceTotal($purchase->invoice_id);
+        });
+
         $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
 
         return response()->json([

@@ -1,14 +1,6 @@
 @php
-    $formUid = 'provider-' . ($provider->exists ? $provider->id : 'new') . '-' . substr(md5($action), 0, 8);
-    $providerTypesPayload = $providerTypes->map(fn ($type) => [
-        'id' => $type->id,
-        'name' => $type->name,
-        'company_id' => $type->company_id,
-        'status' => $type->status,
-        'can_delete' => ((int) ($type->active_providers_count ?? 0)) === 0,
-        'update_url' => route('provider-types.update', $type),
-        'delete_url' => route('provider-types.destroy', $type),
-    ])->values();
+    $formUid = 'provider2-' . ($provider2->exists ? $provider2->id : 'new') . '-' . substr(md5($action), 0, 8);
+    $typesPayload = collect($provider2Types)->values();
 @endphp
 
 <form
@@ -16,11 +8,11 @@
     action="{{ $action }}"
     data-ajax-form
     x-data="assetTypeManager({
-        types: @js($providerTypesPayload),
-        selectedTypeId: @js($provider->provider_type_id ? (string) $provider->provider_type_id : ''),
-        storeUrl: @js(route('provider-types.store')),
-        indexUrl: @js(route('provider-types.index')),
-        initialCompanyId: @js((string) ($provider->company_id ?: request('company_id') ?: auth()->user()->company_id)),
+        types: @js($typesPayload),
+        selectedTypeId: @js($provider2->provider2_type_id ? (string) $provider2->provider2_type_id : ''),
+        storeUrl: @js(route('provider2-types.store')),
+        indexUrl: @js(route('provider2-types.index')),
+        initialCompanyId: @js((string) ($provider2->company_id ?: request('company_id') ?: auth()->user()->company_id)),
         entityName: 'proveedor',
         allowEmptySelection: true,
     })"
@@ -37,10 +29,15 @@
             @if (auth()->user()->isSuperAdmin())
                 <div class="md:col-span-2">
                     <x-input-label for="{{ $formUid }}-company-id" :value="'Empresa'" />
-                    <select id="{{ $formUid }}-company-id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" x-on:change="companyId = $event.target.value; selectedTypeId = ''; loadTypes()">
+                    <select
+                        id="{{ $formUid }}-company-id"
+                        name="company_id"
+                        class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
+                        x-on:change="companyId = $event.target.value; selectedTypeId = ''; loadTypes()"
+                    >
                         <option value="">Selecciona una empresa</option>
                         @foreach ($companies as $company)
-                            <option value="{{ $company->id }}" @selected(($provider->company_id ?: request('company_id')) == $company->id)>{{ $company->name }}</option>
+                            <option value="{{ $company->id }}" @selected(($provider2->company_id ?: request('company_id')) == $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                     <p class="mt-2 hidden text-sm text-rose-600" data-error-for="company_id"></p>
@@ -49,50 +46,62 @@
 
             <div class="md:col-span-2">
                 <x-input-label for="{{ $formUid }}-name" :value="'Nombre del proveedor'" />
-                <x-text-input id="{{ $formUid }}-name" name="name" type="text" class="mt-1 block w-full" :value="$provider->name" required />
+                <x-text-input id="{{ $formUid }}-name" name="name" type="text" class="mt-1 block w-full" :value="$provider2->name" autocomplete="off" required />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="name"></p>
             </div>
 
             <div class="md:col-span-2">
                 <x-input-label for="{{ $formUid }}-location" :value="'Ubicación'" />
-                <x-text-input id="{{ $formUid }}-location" name="location" type="text" class="mt-1 block w-full" :value="$provider->location" placeholder="Ej. Rionegro, Antioquia" />
+                <x-text-input id="{{ $formUid }}-location" name="location" type="text" class="mt-1 block w-full" :value="$provider2->location" placeholder="Ej. Rionegro, Antioquia" autocomplete="off" />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="location"></p>
             </div>
 
             <div class="md:col-span-2">
-                <x-input-label for="{{ $formUid }}-provider-type-id" :value="'Tipo de proveedor'" />
+                <x-input-label for="provider2_type_id" :value="'Tipo de proveedor'" />
+
                 <div class="mt-1 flex items-center gap-2">
                     <select
-                        id="{{ $formUid }}-provider-type-id"
-                        name="provider_type_id"
+                        id="provider2_type_id"
+                        name="provider2_type_id"
+                        data-provider2-type-select
                         class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
-                        x-effect="syncTypeSelect($el)"
-                        x-on:change="handleTypeChange($event)"
-                    ></select>
+                    >
+                        <option value="">Sin tipo</option>
+
+                        @foreach ($provider2Types as $type)
+                            <option
+                                value="{{ $type->id }}"
+                                @selected((string) old('provider2_type_id', $provider2->provider2_type_id) === (string) $type->id)
+                            >
+                                {{ $type->name }}
+                            </option>
+                        @endforeach
+                    </select>
+
                     <button
                         type="button"
                         class="app-create-button-sm shrink-0"
-                        title="Administrar tipos de proveedor"
+                        title="Administrar tipos de Proveedor"
                         x-on:click.stop.prevent="openManager()"
                     >
                         +
                     </button>
                 </div>
-                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="provider_type_id"></p>
+
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="provider2_type_id"></p>
             </div>
 
             <div>
                 <x-input-label for="{{ $formUid }}-document-number" :value="'Documento'" />
-                <x-text-input id="{{ $formUid }}-document-number" name="document_number" type="text" class="mt-1 block w-full" :value="$provider->document_number" />
+                <x-text-input id="{{ $formUid }}-document-number" name="document_number" type="text" class="mt-1 block w-full" :value="$provider2->document_number" autocomplete="off" />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="document_number"></p>
             </div>
 
             <div>
                 <x-input-label for="{{ $formUid }}-phone" :value="'Teléfono'" />
-                <x-text-input id="{{ $formUid }}-phone" name="phone" type="text" class="mt-1 block w-full" :value="$provider->phone" />
+                <x-text-input id="{{ $formUid }}-phone" name="phone" type="text" class="mt-1 block w-full" :value="$provider2->phone" autocomplete="off" />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="phone"></p>
             </div>
-
         </div>
 
         <template x-teleport="body">
@@ -103,7 +112,7 @@
             >
                 <div class="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" x-on:click.stop>
                     <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
-                        <h3 class="text-base font-semibold text-stone-900">Tipos de proveedor</h3>
+                        <h3 class="text-base font-semibold text-stone-900">Tipos de Proveedor</h3>
                         <button type="button" class="rounded-2xl border border-stone-200 px-3 py-2 text-sm text-stone-700 transition hover:bg-stone-50" x-on:click="closeManager()">
                             Cerrar
                         </button>
@@ -188,12 +197,12 @@
 
     <div class="sticky bottom-0 z-10 mt-auto shrink-0 border-t border-stone-200 bg-white px-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-4 shadow-[0_-8px_18px_rgba(255,255,255,0.92)]">
         <div class="flex items-center justify-end gap-3">
-        <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
-            Cancelar
-        </button>
-        <button type="submit" class="app-create-text-button disabled:cursor-wait disabled:opacity-60">
-            {{ $provider->exists ? 'Actualizar proveedor' : 'Crear proveedor' }}
-        </button>
+            <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
+                Cancelar
+            </button>
+            <button type="submit" class="app-create-text-button disabled:cursor-wait disabled:opacity-60">
+                {{ $provider2->exists ? 'Actualizar Proveedor' : 'Crear Proveedor' }}
+            </button>
         </div>
     </div>
 </form>
