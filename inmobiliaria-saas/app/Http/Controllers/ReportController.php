@@ -81,36 +81,36 @@ class ReportController extends Controller
 
         $summary = [
             'total_amount' => (clone $baseQuery)->sum("{$table}.total_amount"),
-            'expenses_count' => (clone $baseQuery)->count(),
+            'movements_count' => (clone $baseQuery)->count(),
             'projects_count' => (clone $baseQuery)->distinct("{$table}.project_id")->count("{$table}.project_id"),
             'average_ticket' => (clone $baseQuery)->avg("{$table}.total_amount") ?: 0,
         ];
 
         $totalsByGroup = (clone $detailQuery)
-            ->join('products', 'products.id', '=', "{$table}.product_id")
-            ->join('product_groups', 'product_groups.id', '=', 'products.product_group_id')
-            ->selectRaw("product_groups.id, product_groups.name, SUM({$table}.total_amount) as total_amount, COUNT({$table}.id) as expenses_count")
+            ->leftJoin('products', 'products.id', '=', "{$table}.product_id")
+            ->leftJoin('product_groups', 'product_groups.id', '=', 'products.product_group_id')
+            ->selectRaw("COALESCE(product_groups.id, 0) as group_id, COALESCE(product_groups.name, 'Sin grupo') as name, SUM({$table}.total_amount) as movement_total, COUNT({$table}.id) as movements_count")
             ->groupBy('product_groups.id', 'product_groups.name')
-            ->orderByDesc('total_amount')
+            ->orderByDesc('movement_total')
             ->get();
 
         $totalsBySubgroup = (clone $detailQuery)
-            ->join('products', 'products.id', '=', "{$table}.product_id")
-            ->join('product_subgroups', 'product_subgroups.id', '=', 'products.product_subgroup_id')
-            ->selectRaw("product_subgroups.id, product_subgroups.name, SUM({$table}.total_amount) as total_amount, COUNT({$table}.id) as expenses_count")
+            ->leftJoin('products', 'products.id', '=', "{$table}.product_id")
+            ->leftJoin('product_subgroups', 'product_subgroups.id', '=', 'products.product_subgroup_id')
+            ->selectRaw("COALESCE(product_subgroups.id, 0) as subgroup_id, COALESCE(product_subgroups.name, 'Sin subgrupo') as name, SUM({$table}.total_amount) as movement_total, COUNT({$table}.id) as movements_count")
             ->groupBy('product_subgroups.id', 'product_subgroups.name')
-            ->orderByDesc('total_amount')
+            ->orderByDesc('movement_total')
             ->get();
 
         $totalsByProduct = (clone $detailQuery)
-            ->join('products', 'products.id', '=', "{$table}.product_id")
-            ->selectRaw("products.id, products.name, SUM({$table}.total_amount) as total_amount, COUNT({$table}.id) as expenses_count")
+            ->leftJoin('products', 'products.id', '=', "{$table}.product_id")
+            ->selectRaw("COALESCE(products.id, 0) as product_id, COALESCE(products.name, 'Sin producto') as name, SUM({$table}.total_amount) as movement_total, COUNT({$table}.id) as movements_count")
             ->groupBy('products.id', 'products.name')
-            ->orderByDesc('total_amount')
+            ->orderByDesc('movement_total')
             ->get();
 
         $seriesByDate = (clone $detailQuery)
-            ->selectRaw("{$table}.{$dateColumn} as movement_date, SUM({$table}.total_amount) as total_amount")
+            ->selectRaw("{$table}.{$dateColumn} as movement_date, SUM({$table}.total_amount) as movement_total")
             ->groupBy("{$table}.{$dateColumn}")
             ->orderBy("{$table}.{$dateColumn}")
             ->get();

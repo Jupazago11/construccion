@@ -74,8 +74,8 @@
                                 @forelse ($totalsByCategory as $item)
                                     <tr>
                                         <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
-                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
+                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) ($item->movements_count ?? $item->expenses_count ?? 0)) }}</td>
+                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) ($item->movement_total ?? $item->total_amount ?? 0), 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
@@ -100,8 +100,8 @@
                                 @forelse ($totalsBySubcategory as $item)
                                     <tr>
                                         <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
-                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
+                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) ($item->movements_count ?? $item->expenses_count ?? 0)) }}</td>
+                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) ($item->movement_total ?? $item->total_amount ?? 0), 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
@@ -126,8 +126,8 @@
                                 @forelse ($totalsByAuxiliary as $item)
                                     <tr>
                                         <td class="px-4 py-3 text-stone-900">{{ $item->name }}</td>
-                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) $item->expenses_count) }}</td>
-                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
+                                        <td class="px-4 py-3 text-stone-600">{{ number_format((int) ($item->movements_count ?? $item->expenses_count ?? 0)) }}</td>
+                                        <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) ($item->movement_total ?? $item->total_amount ?? 0), 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="3" class="px-4 py-8 text-center text-stone-500">Sin datos.</td></tr>
@@ -213,10 +213,10 @@
             }
 
             const dateLabels = @json($seriesByDate->pluck('movement_date')->map(fn ($date) => \Illuminate\Support\Carbon::parse($date)->format('Y-m-d'))->values());
-            const dateValues = @json($seriesByDate->pluck('total_amount')->map(fn ($value) => (float) $value)->values());
+            const dateValues = @json($seriesByDate->pluck('movement_total')->map(fn ($value) => (float) $value)->values());
 
             const categoryLabels = @json($totalsByCategory->take(8)->pluck('name')->values());
-            const categoryValues = @json($totalsByCategory->take(8)->pluck('total_amount')->map(fn ($value) => (float) $value)->values());
+            const categoryValues = @json($totalsByCategory->take(8)->pluck('movement_total')->map(fn ($value) => (float) $value)->values());
             const palette = ['#0f766e', '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#65a30d', '#2563eb'];
             const currency = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
