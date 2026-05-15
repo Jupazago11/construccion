@@ -173,7 +173,7 @@
                     </div>
 
                     <div>
-                        <label for="catalog_name" class="block text-sm font-medium text-gray-700" x-text="tab === 'group' ? 'Nombre del grupo' : (tab === 'subgroup' ? 'Nombre del subgrupo' : 'Nombre del producto')"></label>
+                        <label for="catalog_name" class="block text-sm font-medium text-gray-700" x-text="tab === 'group' ? 'Nombre del grupo' : (tab === 'subgroup' ? 'Nombre del subgrupo' : 'Nombre del producto o actividad')"></label>
                         <x-text-input id="catalog_name" x-model="form.name" type="text" class="mt-1 block w-full" required />
                     </div>
                 </div>

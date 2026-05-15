@@ -24,7 +24,7 @@
             <div class="md:col-span-2">
                 <x-input-label for="project_id" :value="'Proyecto'" />
                 @if ($singleProject)
-                    <input type="hidden" name="project_id" value="{{ $singleProject['id'] }}">
+                    <input type="hidden" name="project_id" value="{{ $singleProject['id'] }}" data-expense-project>
                     <div class="mt-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">{{ $singleProject['name'] }}</div>
                 @else
                     <select id="project_id" name="project_id" data-expense-project class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">

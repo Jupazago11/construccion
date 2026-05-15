@@ -32,27 +32,38 @@ class AssetMediaController extends Controller
 
         $uploadedFiles = $request->file('files', []);
 
-        foreach ($uploadedFiles as $uploadedFile) {
-            $path = $uploadedFile->store(
-                $this->storageDirectory($asset),
-                'r2'
-            );
+        try {
+            foreach ($uploadedFiles as $uploadedFile) {
+                [$path, $disk] = $this->storeUploadedFile($uploadedFile, $asset);
 
-            abort_unless($path, 500, 'No fue posible cargar el archivo.');
+                abort_unless($path, 500, 'No fue posible cargar el archivo.');
 
-            $mimeType = $uploadedFile->getMimeType();
+                $mimeType = $uploadedFile->getMimeType();
 
-            AssetMedia::query()->create([
-                'asset_id' => $asset->id,
-                'uploaded_by' => $request->user()->id,
-                'disk' => 'r2',
-                'path' => $path,
-                'original_name' => $uploadedFile->getClientOriginalName(),
-                'mime_type' => $mimeType,
-                'media_type' => str_starts_with((string) $mimeType, 'video/') ? 'video' : 'image',
-                'size' => $uploadedFile->getSize(),
-                'status' => EntityStatus::Active->value,
-            ]);
+                AssetMedia::query()->create([
+                    'asset_id' => $asset->id,
+                    'uploaded_by' => $request->user()->id,
+                    'disk' => $disk,
+                    'path' => $path,
+                    'original_name' => $uploadedFile->getClientOriginalName(),
+                    'mime_type' => $mimeType,
+                    'media_type' => str_starts_with((string) $mimeType, 'video/') ? 'video' : 'image',
+                    'size' => $uploadedFile->getSize(),
+                    'status' => EntityStatus::Active->value,
+                ]);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'No fue posible cargar el archivo. Verifica la configuración de almacenamiento.',
+                ], 422);
+            }
+
+            return redirect()
+                ->route('assets.media.index', $asset)
+                ->with('status', 'No fue posible cargar el archivo. Verifica la configuración de almacenamiento.');
         }
 
         activity('assets')
@@ -165,6 +176,33 @@ class AssetMediaController extends Controller
             $asset->id,
             'media',
         ])->filter(fn ($segment) => $segment !== null && $segment !== '')->implode('/');
+    }
+
+    protected function storeUploadedFile($uploadedFile, Asset $asset): array
+    {
+        $directory = $this->storageDirectory($asset);
+        $disk = $this->preferredUploadDisk();
+
+        try {
+            return [$uploadedFile->store($directory, $disk), $disk];
+        } catch (\Throwable $exception) {
+            if ($disk !== 'r2') {
+                throw $exception;
+            }
+
+            report($exception);
+
+            return [$uploadedFile->store($directory, 'public'), 'public'];
+        }
+    }
+
+    protected function preferredUploadDisk(): string
+    {
+        $r2 = config('filesystems.disks.r2', []);
+
+        return filled($r2['bucket'] ?? null) && filled($r2['endpoint'] ?? null)
+            ? 'r2'
+            : 'public';
     }
 
     protected function readableStoragePath($disk, string $path): string

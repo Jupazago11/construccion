@@ -43,6 +43,7 @@ class ProviderTypeController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 ...$this->typesPayload($companyId),
+                'selected_type_id' => $providerType->id,
                 'message' => 'Tipo de proveedor creado correctamente.',
             ]);
         }

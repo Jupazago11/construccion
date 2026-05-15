@@ -27,7 +27,7 @@ class AssetTypeController extends Controller
         $companyId = $this->resolveCompanyId($request);
         $data = $request->validated();
 
-        AssetType::query()->create([
+        $assetType = AssetType::query()->create([
             'company_id' => $companyId,
             'name' => $data['name'],
             'status' => $data['status'],
@@ -35,6 +35,7 @@ class AssetTypeController extends Controller
 
         return response()->json([
             ...$this->typesPayload($companyId),
+            'selected_type_id' => $assetType->id,
             'message' => 'Tipo de activo creado correctamente.',
         ]);
     }

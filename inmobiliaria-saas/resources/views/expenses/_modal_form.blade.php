@@ -33,7 +33,7 @@
             <div class="md:col-span-2">
                 <x-input-label for="project_id" :value="'Proyecto'" />
                 @if ($singleProject)
-                    <input type="hidden" name="project_id" value="{{ $singleProject['id'] }}">
+                    <input type="hidden" name="project_id" value="{{ $singleProject['id'] }}" data-expense-project>
                     <div class="mt-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
                         {{ $singleProject['name'] }}
                     </div>

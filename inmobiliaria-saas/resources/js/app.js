@@ -34,15 +34,6 @@ Alpine.data('crudTable', (config = {}) => ({
             this.showToast(event.detail?.message, event.detail?.type ?? 'success');
         });
 
-        window.addEventListener('asset-type-manager-closed', (event) => {
-            this.refreshOpenModalPreservingForm(event.detail?.values ?? null, true);
-        });
-
-        window.addEventListener('asset-type-manager-opened', () => {
-            if (this.modalOpen) {
-                this.nestedModalOpen = true;
-            }
-        });
     },
 
     shouldReloadAfterMutation() {
@@ -276,6 +267,10 @@ Alpine.data('crudTable', (config = {}) => ({
             return;
         }
 
+        if (this.saving || form.dataset.ajaxSubmitting === 'true') {
+            return;
+        }
+
         const openStructureModal = form.querySelector('[data-expense-structure-modal]:not(.hidden)');
 
         if (openStructureModal && openStructureModal.contains(document.activeElement)) {
@@ -284,6 +279,13 @@ Alpine.data('crudTable', (config = {}) => ({
 
         this.clearFormErrors(form);
         this.saving = true;
+        form.dataset.ajaxSubmitting = 'true';
+        const submitter = event.submitter?.matches?.('[type="submit"]') ? event.submitter : form.querySelector('[type="submit"]');
+        const submitterText = submitter?.textContent;
+        if (submitter) {
+            submitter.disabled = true;
+            submitter.classList.add('pointer-events-none', 'opacity-60');
+        }
         this.error = null;
 
         try {
@@ -323,6 +325,14 @@ Alpine.data('crudTable', (config = {}) => ({
             }
         } finally {
             this.saving = false;
+            delete form.dataset.ajaxSubmitting;
+            if (submitter) {
+                submitter.disabled = false;
+                submitter.classList.remove('pointer-events-none', 'opacity-60');
+                if (submitterText !== undefined) {
+                    submitter.textContent = submitterText;
+                }
+            }
         }
     },
 
@@ -1380,30 +1390,14 @@ Alpine.data('assetTypeManager', (config = {}) => ({
         this.managerOpen = true;
         this.managerError = '';
         this.resetDraft();
-        window.dispatchEvent(new CustomEvent('asset-type-manager-opened'));
         this.$nextTick(() => {
             this.loadTypes(true);
         });
     },
 
     closeManager() {
-        const form = this.$root.closest('form[data-ajax-form]');
-        const values = form
-            ? Array.from(form.elements)
-                .filter((field) => field.name && field.type !== 'file')
-                .map((field) => ({
-                    name: field.name,
-                    type: field.type,
-                    value: field.value,
-                    checked: field.checked,
-                }))
-            : [];
-
         this.managerOpen = false;
         this.resetDraft();
-        window.dispatchEvent(new CustomEvent('asset-type-manager-closed', {
-            detail: { values },
-        }));
     },
 
     resetDraft() {
@@ -1471,6 +1465,10 @@ Alpine.data('assetTypeManager', (config = {}) => ({
     },
 
     async saveType() {
+        if (this.managerSaving) {
+            return;
+        }
+
         if (! this.draft.name.trim()) {
             this.managerError = 'Escribe el nombre del tipo.';
             return;
@@ -1506,10 +1504,14 @@ Alpine.data('assetTypeManager', (config = {}) => ({
                     },
                 });
 
+            const wasCreating = ! this.draft.id;
             this.applyTypes(response.data.types ?? []);
 
-            if (! this.draft.id) {
-                const created = this.types.find((type) => type.name.toLowerCase() === payload.name.toLowerCase());
+            if (wasCreating) {
+                const createdId = response.data.selected_type_id ? String(response.data.selected_type_id) : '';
+                const created = createdId
+                    ? this.types.find((type) => String(type.id) === createdId)
+                    : this.types.find((type) => type.name.toLowerCase() === payload.name.toLowerCase());
                 if (created?.status === 'active') {
                     this.selectedTypeId = String(created.id);
                     this.previousTypeId = this.selectedTypeId;
@@ -1534,7 +1536,7 @@ Alpine.data('assetTypeManager', (config = {}) => ({
         event?.preventDefault?.();
         event?.stopPropagation?.();
 
-        if (! type?.update_url) {
+        if (this.managerSaving || ! type?.update_url) {
             return;
         }
 
@@ -1614,6 +1616,10 @@ Alpine.data('assetTypeManager', (config = {}) => ({
     },
 
     async deleteType(type) {
+        if (this.managerSaving) {
+            return;
+        }
+
         if (! type.can_delete) {
             this.managerError = `No puedes eliminar un tipo que ya tiene ${this.entityName === 'novedad' ? 'novedades' : 'activos'} asociados.`;
             return;
@@ -1783,7 +1789,7 @@ window.initializeTransactionForms = (root = document) => {
             provider_id: String(item.provider_id),
         }));
 
-        const projectField = form.querySelector('[data-expense-project]');
+        const projectField = form.querySelector('[data-expense-project]') ?? form.querySelector('input[name="project_id"]');
         const providerField = form.querySelector('[data-transaction-provider]');
         const providerSearch = form.querySelector('[data-transaction-provider-search]');
         const providerMenu = form.querySelector('[data-transaction-provider-menu]');
@@ -1809,12 +1815,22 @@ window.initializeTransactionForms = (root = document) => {
             productId: selected.product_id ? String(selected.product_id) : '',
         };
 
+        if (! state.projectId && projectField?.value) {
+            state.projectId = String(projectField.value);
+        }
+
         const currentProject = () => projects.find((project) => project.id === state.projectId) ?? null;
         const optionLabel = (item) => item.name;
         const availableForProject = (items) => {
             const project = currentProject();
 
-            return project ? items.filter((item) => item.company_id === project.company_id) : [];
+            if (project) {
+                return items.filter((item) => item.company_id === project.company_id);
+            }
+
+            const availableCompanyIds = new Set(projects.map((item) => item.company_id));
+
+            return items.filter((item) => availableCompanyIds.has(item.company_id));
         };
         const availableInvoices = () => invoices.filter((invoice) => (
             invoice.project_id === state.projectId
@@ -3084,8 +3100,21 @@ document.addEventListener('submit', async (event) => {
         return;
     }
 
+    if (form.dataset.ajaxSubmitting === 'true') {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
+    form.dataset.ajaxSubmitting = 'true';
+    const submitter = event.submitter?.matches?.('[type="submit"]') ? event.submitter : form.querySelector('[type="submit"]');
+
+    if (submitter) {
+        submitter.disabled = true;
+        submitter.classList.add('pointer-events-none', 'opacity-60');
+    }
 
     try {
         const response = await window.axios.post(form.action, new FormData(form), {
@@ -3130,6 +3159,12 @@ document.addEventListener('submit', async (event) => {
             error.response?.data?.message || error.message || 'No fue posible guardar la información.',
             'error',
         );
+    } finally {
+        delete form.dataset.ajaxSubmitting;
+        if (submitter) {
+            submitter.disabled = false;
+            submitter.classList.remove('pointer-events-none', 'opacity-60');
+        }
     }
 });
 

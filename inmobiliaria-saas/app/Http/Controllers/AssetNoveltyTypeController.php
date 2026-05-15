@@ -27,7 +27,7 @@ class AssetNoveltyTypeController extends Controller
         $companyId = $this->resolveCompanyId($request);
         $data = $request->validated();
 
-        AssetNoveltyType::query()->create([
+        $assetNoveltyType = AssetNoveltyType::query()->create([
             'company_id' => $companyId,
             'name' => $data['name'],
             'adds_value' => $data['adds_value'],
@@ -36,6 +36,7 @@ class AssetNoveltyTypeController extends Controller
 
         return response()->json([
             ...$this->typesPayload($companyId),
+            'selected_type_id' => $assetNoveltyType->id,
             'message' => 'Tipo de novedad creado correctamente.',
         ]);
     }
