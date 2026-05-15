@@ -252,6 +252,9 @@ class Provider2Controller extends Controller
                     $query->orWhereKey($provider2->provider2_type_id);
                 }
             })
+            ->withCount([
+                'providers as active_providers_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
             ->orderBy('name')
             ->get();
     }

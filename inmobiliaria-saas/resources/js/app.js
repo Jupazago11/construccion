@@ -6,6 +6,14 @@ import Chart from 'chart.js/auto';
 window.Alpine = Alpine;
 window.Chart = Chart;
 
+window.addEventListener('error', (event) => {
+    console.error('Global JS error:', event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+});
+
 Alpine.data('crudTable', (config = {}) => ({
     modalOpen: false,
     modalTitle: '',
@@ -43,8 +51,15 @@ Alpine.data('crudTable', (config = {}) => ({
             this.saveDraft(this.modalUrl, this.collectModalFormValues());
         });
 
-        // atm:manager-closed: the assetTypeManager rebuilds selects in-place;
-        // no modal re-fetch needed here (it was causing the form to go blank).
+        window.addEventListener('crud-refresh-open-modal-from-draft', () => {
+            if (! this.modalOpen || ! this.modalUrl) {
+                return;
+            }
+
+            const draft = this.loadDraft(this.modalUrl) ?? this.collectModalFormValues();
+
+            this.refreshOpenModalPreservingForm(draft);
+        });
     },
 
     shouldReloadAfterMutation() {
@@ -1445,6 +1460,7 @@ return {
     managerSaving: false,
     managerLoading: false,
     managerError: '',
+    _formSnapshot: null,
     draft: {
         id: null,
         name: '',
@@ -1528,6 +1544,13 @@ return {
 },
 
     openManager() {
+        const form = this.$el.tagName === 'FORM' ? this.$el : this.$el.closest('form[data-ajax-form]');
+        if (form) {
+            this._formSnapshot = Array.from(form.elements)
+                .filter((el) => el.name && el.type !== 'file' && el.tagName !== 'SELECT')
+                .map((el) => ({ name: el.name, value: el.value, checked: el.checked, type: el.type }));
+        }
+
         window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
 
         this.managerOpen = true;
@@ -1545,9 +1568,25 @@ return {
         this.managerOpen = false;
         this.resetDraft();
 
-        this.syncNativeTypeSelects?.();
-
         selectEls.forEach((el) => this._buildSelectOptions(el));
+
+        if (this._formSnapshot) {
+            const form = this.$el.tagName === 'FORM' ? this.$el : this.$el.closest('form[data-ajax-form]');
+            if (form) {
+                this._formSnapshot.forEach((saved) => {
+                    Array.from(form.elements)
+                        .filter((el) => el.name === saved.name && el.tagName !== 'SELECT')
+                        .forEach((el) => {
+                            if (el.type === 'checkbox' || el.type === 'radio') {
+                                el.checked = saved.checked;
+                            } else {
+                                el.value = saved.value;
+                            }
+                        });
+                });
+            }
+            this._formSnapshot = null;
+        }
 
         window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
     },
@@ -1825,32 +1864,395 @@ return {
     applyTypes(types) {
         this.types = types;
         this.normalizeTypeSelection();
-        this.syncNativeTypeSelects();
     },
-    syncNativeTypeSelects() {
-        const selects = document.querySelectorAll('[data-provider2-type-select]');
 
-        selects.forEach((select) => {
-            const currentValue = select.value || this.selectedTypeId || '';
 
-            select.innerHTML = '';
+}; });
 
-            select.add(new Option('Sin tipo', ''));
+Alpine.data('provider2TypeManager', (config = {}) => {
+const selectEls = [];
+let _selectedTypeId = String(config.selectedTypeId ?? '');
+return {
+    types: config.types ?? [],
+    selectedTypeId: String(config.selectedTypeId ?? ''),
+    previousTypeId: String(config.selectedTypeId ?? ''),
+    companyId: String(config.initialCompanyId ?? ''),
+    entityName: config.entityName ?? 'proveedor',
+    allowEmptySelection: config.allowEmptySelection === true,
+    storeUrl: config.storeUrl,
+    indexUrl: config.indexUrl,
+    managerOpen: false,
+    managerSaving: false,
+    managerLoading: false,
+    managerError: '',
+    _formSnapshot: null,
+    draft: {
+        id: null,
+        name: '',
+        status: 'active',
+        update_url: '',
+        delete_url: '',
+    },
 
-            this.activeTypes.forEach((type) => {
-                select.add(new Option(type.name, String(type.id)));
-            });
+    init() {
+        this.normalizeTypeSelection();
+    },
 
-            if ([...select.options].some((option) => option.value === currentValue)) {
-                select.value = currentValue;
-                this.selectedTypeId = currentValue;
-                _selectedTypeId = currentValue;
-            } else {
-                select.value = '';
-                this.selectedTypeId = '';
-                _selectedTypeId = '';
+    // Called via x-effect on each select element — registers the element and
+    // builds initial options. Subsequent updates are driven imperatively from
+    // normalizeTypeSelection() since Alpine reactivity doesn't cross the
+    // Alpine.initTree / x-teleport boundary in this app's modal architecture.
+    syncTypeSelect(el) {
+        if (!selectEls.includes(el)) {
+            selectEls.push(el);
+        }
+        this._buildSelectOptions(el);
+    },
+
+    _buildSelectOptions(el) {
+        const activeTypes = this.activeTypes;
+        const selectedId = _selectedTypeId; // closure var — not tracked by x-effect
+
+        while (el.options.length > 0) {
+            el.remove(0);
+        }
+
+        el.add(new Option(
+            this.allowEmptySelection
+                ? 'Sin tipo'
+                : (activeTypes.length === 0 ? 'No hay tipos activos' : 'Selecciona un tipo'),
+            ''
+        ));
+
+        for (const type of activeTypes) {
+            el.add(new Option(type.name, String(type.id)));
+        }
+
+        el.value = selectedId;
+        el.disabled = !this.allowEmptySelection && activeTypes.length === 0;
+    },
+
+    get activeTypes() {
+        return this.types.filter((type) => type.status === 'active');
+    },
+
+    get selectedType() {
+        return this.types.find((type) => String(type.id) === String(this.selectedTypeId)) ?? null;
+    },
+
+    get selectedTypeAddsValue() {
+        return this.selectedType?.adds_value !== false;
+    },
+
+    handleTypeChange(event) {
+        const value = event.target.value;
+
+        this.previousTypeId = this.selectedTypeId;
+        this.selectedTypeId = value;
+        _selectedTypeId = value;
+
+        selectEls.forEach((select) => {
+            if (select !== event.target) {
+                select.value = value;
             }
         });
+    },
+
+    openManager() {
+        window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
+        this.managerOpen = true;
+        this.managerError = '';
+        this.resetDraft();
+
+        this.$nextTick(() => {
+            this.loadTypes(true);
+        });
+    },
+
+    closeManager() {
+        window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
+        this.managerOpen = false;
+        this.resetDraft();
+
+        selectEls.forEach((el) => this._buildSelectOptions(el));
+
+        this.$nextTick(() => {
+            window.dispatchEvent(new CustomEvent('crud-refresh-open-modal-from-draft'));
+        });
+    },
+
+    resetDraft() {
+        this.managerError = '';
+        this.draft = {
+            id: null,
+            name: '',
+            status: 'active',
+            update_url: '',
+            delete_url: '',
+        };
+    },
+
+    editType(type) {
+        this.managerError = '';
+        this.draft = {
+            id: type.id,
+            name: type.name,
+            adds_value: Boolean(type.adds_value),
+            status: type.status,
+            update_url: type.update_url,
+            delete_url: type.delete_url,
+        };
+    },
+
+    async loadTypes(showLoading = false) {
+        if (! this.companyId || ! this.indexUrl) {
+            this.types = [];
+            this.selectedTypeId = '';
+            _selectedTypeId = '';
+            this.previousTypeId = '';
+            return;
+        }
+
+        if (showLoading) {
+            this.managerLoading = true;
+        }
+
+        const startedAt = Date.now();
+        try {
+            const response = await window.axios.get(this.indexUrl, {
+                params: { company_id: this.companyId },
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            this.applyTypes(response.data.types ?? []);
+        } catch (error) {
+            this.managerError = error.response?.data?.message || error.message || 'No fue posible cargar los tipos.';
+        } finally {
+            if (! showLoading) {
+                this.managerLoading = false;
+                return;
+            }
+
+            const elapsed = Date.now() - startedAt;
+            const remaining = Math.max(0, 1000 - elapsed);
+
+            window.setTimeout(() => {
+                this.managerLoading = false;
+            }, remaining);
+        }
+    },
+
+    async saveType() {
+        if (this.managerSaving) {
+            return;
+        }
+
+        if (! this.draft.name.trim()) {
+            this.managerError = 'Escribe el nombre del tipo.';
+            return;
+        }
+
+        if (! this.companyId) {
+            this.managerError = 'Selecciona una empresa antes de crear tipos.';
+            return;
+        }
+
+        this.managerSaving = true;
+        this.managerError = '';
+
+        try {
+            const payload = {
+                company_id: this.companyId,
+                name: this.draft.name.trim(),
+                status: this.draft.status,
+            };
+
+            const response = this.draft.id
+                ? await window.axios.patch(this.draft.update_url, payload, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                : await window.axios.post(this.storeUrl, payload, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+            const wasCreating = ! this.draft.id;
+            this.applyTypes(response.data.types ?? []);
+
+            if (wasCreating) {
+                const createdId = response.data.selected_type_id ? String(response.data.selected_type_id) : '';
+                const created = createdId
+                    ? this.types.find((type) => String(type.id) === createdId)
+                    : this.types.find((type) => type.name.toLowerCase() === payload.name.toLowerCase());
+                if (created?.status === 'active') {
+                    this.selectedTypeId = String(created.id);
+                    this.previousTypeId = this.selectedTypeId;
+                    _selectedTypeId = this.selectedTypeId;
+                    selectEls.forEach((el) => { el.value = _selectedTypeId; });
+                }
+            }
+
+            this.resetDraft();
+
+            window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: response.data.message ?? 'Tipo actualizado correctamente.' },
+            }));
+        } catch (error) {
+            this.managerError = error.response?.data?.message
+                || Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                || error.message
+                || 'No fue posible guardar el tipo.';
+        } finally {
+            this.managerSaving = false;
+        }
+    },
+
+    async quickUpdateType(type, changes, event = null) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+
+        if (this.managerSaving || ! type?.update_url) {
+            return;
+        }
+
+        const previousType = { ...type };
+        const nextType = {
+            ...type,
+            ...(Object.prototype.hasOwnProperty.call(changes, 'adds_value')
+                ? { adds_value: Boolean(changes.adds_value) }
+                : {}),
+            ...(Object.prototype.hasOwnProperty.call(changes, 'status')
+                ? { status: changes.status }
+                : {}),
+        };
+
+        this.updateTypeInPlace(nextType);
+        this.managerOpen = true;
+        this.managerSaving = true;
+        this.managerError = '';
+
+        try {
+            const response = await window.axios.patch(nextType.update_url, {
+                company_id: this.companyId,
+                name: nextType.name,
+                status: nextType.status,
+            }, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const savedType = (response.data.types ?? [])
+                .find((currentType) => String(currentType.id) === String(nextType.id));
+
+            if (savedType) {
+                this.updateTypeInPlace(savedType);
+            }
+
+            this.managerOpen = true;
+
+            window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: response.data.message ?? 'Tipo actualizado correctamente.' },
+            }));
+        } catch (error) {
+            this.updateTypeInPlace(previousType);
+            this.managerOpen = true;
+            this.managerError = error.response?.data?.message
+                || Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                || error.message
+                || 'No fue posible actualizar el tipo.';
+        } finally {
+            this.managerSaving = false;
+        }
+    },
+
+    updateTypeInPlace(nextType) {
+        const index = this.types.findIndex((currentType) => String(currentType.id) === String(nextType.id));
+
+        if (index === -1) {
+            return;
+        }
+
+        this.types[index] = { ...this.types[index], ...nextType };
+        this.types = [...this.types];
+
+        this.normalizeTypeSelection();
+    },
+
+    normalizeTypeSelection() {
+        if (! this.selectedType || this.selectedType.status !== 'active') {
+            this.selectedTypeId = this.allowEmptySelection
+                ? ''
+                : (this.activeTypes.length > 0 ? String(this.activeTypes[0].id) : '');
+        }
+
+        this.previousTypeId = this.selectedTypeId;
+        _selectedTypeId = this.selectedTypeId;
+
+        selectEls.forEach((select) => {
+            this._buildSelectOptions(select);
+        });
+    },
+
+    async deleteType(type) {
+        if (this.managerSaving) {
+            return;
+        }
+
+        if (! type.can_delete) {
+            this.managerError = `No puedes eliminar un tipo que ya tiene proveedores asociados.`;
+            return;
+        }
+
+        if (! window.confirm(`¿Deseas eliminar este tipo de ${this.entityName}?`)) {
+            return;
+        }
+
+        this.managerSaving = true;
+        this.managerError = '';
+
+        try {
+            const response = await window.axios.delete(type.delete_url, {
+                params: { company_id: this.companyId },
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            this.applyTypes(response.data.types ?? []);
+            this.resetDraft();
+
+            window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: response.data.message ?? 'Tipo eliminado correctamente.' },
+            }));
+        } catch (error) {
+            this.managerError = error.response?.data?.message || error.message || 'No fue posible eliminar el tipo.';
+        } finally {
+            this.managerSaving = false;
+        }
+    },
+
+    applyTypes(types) {
+        this.types = types;
+        this.normalizeTypeSelection();
     },
 
 

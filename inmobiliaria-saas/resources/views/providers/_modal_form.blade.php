@@ -100,6 +100,7 @@
                 x-show="managerOpen"
                 x-cloak
                 class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+                x-on:click="closeManager()"
             >
                 <div class="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" x-on:click.stop>
                     <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">

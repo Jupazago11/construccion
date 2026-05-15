@@ -1,13 +1,21 @@
 @php
     $formUid = 'provider2-' . ($provider2->exists ? $provider2->id : 'new') . '-' . substr(md5($action), 0, 8);
-    $typesPayload = collect($provider2Types)->values();
+    $typesPayload = collect($provider2Types)->map(fn ($type) => [
+        'id' => $type->id,
+        'name' => $type->name,
+        'company_id' => $type->company_id,
+        'status' => $type->status,
+        'can_delete' => ((int) ($type->active_providers_count ?? 0)) === 0,
+        'update_url' => route('provider2-types.update', $type),
+        'delete_url' => route('provider2-types.destroy', $type),
+    ])->values();
 @endphp
 
 <form
     method="POST"
     action="{{ $action }}"
     data-ajax-form
-    x-data="assetTypeManager({
+    x-data="provider2TypeManager({
         types: @js($typesPayload),
         selectedTypeId: @js($provider2->provider2_type_id ? (string) $provider2->provider2_type_id : ''),
         storeUrl: @js(route('provider2-types.store')),
@@ -57,13 +65,12 @@
             </div>
 
             <div class="md:col-span-2">
-                <x-input-label for="provider2_type_id" :value="'Tipo de proveedor'" />
+                <x-input-label for="{{ $formUid }}-provider2-type-id" :value="'Tipo de proveedor'" />
 
                 <div class="mt-1 flex items-center gap-2">
                     <select
-                        id="provider2_type_id"
+                        id="{{ $formUid }}-provider2-type-id"
                         name="provider2_type_id"
-                        data-provider2-type-select
                         class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
                     >
                         <option value="">Sin tipo</option>
@@ -109,6 +116,7 @@
                 x-show="managerOpen"
                 x-cloak
                 class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+                x-on:click="closeManager()"
             >
                 <div class="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" x-on:click.stop>
                     <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">

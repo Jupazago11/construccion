@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /home/jupazago/Documentos/construccion/ 2>/dev/null || ls ~/Documentos/construccion/ 2>/dev/null || echo \"Path not found\")",
+      "Read(//c/Users/USUARIO/Documentos/**)",
+      "Bash(ls //wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/ | grep -v vendor | head -40)",
+      "Read(///wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/**)",
+      "Read(//usr/local/bin/**)",
+      "Read(///wsl.localhost/Ubuntu/usr/bin/**)",
+      "Bash(wsl -d Ubuntu -- bash -c \"docker ps 2>&1 | head -5\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail up -d 2>&1\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"rm -f /home/jupazago/Documentos/construccion/inmobiliaria-saas/public/hot && echo 'public/hot eliminado'\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run dev\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail artisan db:seed --class=RoleAndPermissionSeeder 2>&1\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail artisan migrate:status 2>&1 | grep -E 'Pending|No'\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail artisan migrate 2>&1\")",
+      "Bash(find //wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/resources/views -name \"*provider*\" -o -name \"*Provider*\" 2>/dev/null | grep -v vendor)",
+      "Read(///wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/resources/**)",
+      "Bash(ls //wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/resources/views/providers2/)",
+      "Read(///wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/resources/views/**)",
+      "Bash(grep -r \"assetTypeManager\" //wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/resources --include=\"*.js\" --include=\"*.blade.php\" -l)",
+      "Read(///wsl.localhost/Ubuntu/home/jupazago/Documentos/construccion/inmobiliaria-saas/**)",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run build 2>&1\")",
+      "Bash(./vendor/bin/sail npm *)",
+      "Bash(ls \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\jupazago\\\\\\\\Documentos\\\\\\\\construccion\\\\\\\\inmobiliaria-saas\" 2>&1 | head -5)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run build 2>&1 | tail -25\")"
+    ]
+  }
+}
