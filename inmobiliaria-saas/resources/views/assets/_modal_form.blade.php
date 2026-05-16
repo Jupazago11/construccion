@@ -74,15 +74,7 @@
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_type_id"></p>
             </div>
 
-            <div>
-                <x-input-label for="{{ $formUid }}-asset-condition" :value="'Estado del activo'" />
-                <select id="{{ $formUid }}-asset-condition" name="asset_condition" autocomplete="off" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                    @foreach (['new' => 'Nuevo', 'used' => 'De segunda'] as $value => $label)
-                        <option value="{{ $value }}" @selected(($asset->asset_condition ?: 'new') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_condition"></p>
-            </div>
+            <input type="hidden" name="asset_condition" value="{{ $asset->asset_condition ?: 'new' }}">
 
             <div>
                 <x-input-label for="{{ $formUid }}-purchase-value" :value="'Valor de compra'" />

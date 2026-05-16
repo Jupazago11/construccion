@@ -461,12 +461,11 @@ class ExpenseController extends Controller
             ->whereKey($data['invoice_id'])
             ->where('company_id', $project->company_id)
             ->where('project_id', $project->id)
-            ->where('provider_id', $data['provider_id'])
             ->where('type', 'expense')
             ->where('status', 'open')
             ->exists()) {
             throw ValidationException::withMessages([
-                'invoice_id' => 'La factura seleccionada no está abierta o no corresponde al proyecto y proveedor.',
+                'invoice_id' => 'La factura seleccionada no está abierta o no corresponde al proyecto.',
             ]);
         }
     }

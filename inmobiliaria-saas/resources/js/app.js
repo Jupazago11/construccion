@@ -2463,7 +2463,6 @@ window.initializeTransactionForms = (root = document) => {
         };
         const availableInvoices = () => invoices.filter((invoice) => (
             invoice.project_id === state.projectId
-            && invoice.provider_id === state.providerId
             && invoice.type === form.dataset.transactionType
         ));
 

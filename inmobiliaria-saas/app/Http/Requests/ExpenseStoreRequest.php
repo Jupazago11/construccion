@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Product;
 use App\Models\Project;
-use App\Models\Provider;
+use App\Models\Provider2;
 use App\Models\Invoice;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,7 +35,7 @@ class ExpenseStoreRequest extends FormRequest
             'provider_id' => [
                 'required',
                 'integer',
-                Rule::exists(Provider::class, 'id')->where(function ($query) {
+                Rule::exists(Provider2::class, 'id')->where(function ($query) {
                     $query
                         ->where('company_id', $this->resolvedCompanyId())
                         ->where('status', 'active');
@@ -46,7 +46,6 @@ class ExpenseStoreRequest extends FormRequest
                 'integer',
                 Rule::exists(Invoice::class, 'id')
                     ->where('project_id', $this->input('project_id'))
-                    ->where('provider_id', $this->input('provider_id'))
                     ->where('type', 'expense')
                     ->where('status', 'open'),
             ],
