@@ -17,6 +17,26 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class InvoiceController extends Controller
 {
+    public function create(Request $request)
+    {
+        $type = in_array($request->string('type')->toString(), ['expense', 'purchase'], true)
+            ? $request->string('type')->toString()
+            : 'expense';
+
+        $this->authorize('viewAny', $type === 'purchase' ? Purchase::class : Expense::class);
+
+        $authUser = $request->user();
+        $projects = $this->availableProjects($authUser);
+        $providers = $this->availableProviders($authUser);
+
+        return view('invoices._create_modal', [
+            'type' => $type,
+            'projects' => $projects,
+            'providers' => $providers,
+            'storeUrl' => route('invoices.store', [], false),
+        ])->render();
+    }
+
     public function store(InvoiceStoreRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -277,5 +297,23 @@ class InvoiceController extends Controller
             ->paginate(10);
 
         return view('expenses._table_body', compact('expenses'))->render();
+    }
+
+    protected function availableProjects($authUser)
+    {
+        return \App\Models\Project::query()
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->whereNotIn('status', ['cancelled', EntityStatus::Deleted->value])
+            ->orderBy('name')
+            ->get();
+    }
+
+    protected function availableProviders($authUser)
+    {
+        return \App\Models\Provider::query()
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get();
     }
 }

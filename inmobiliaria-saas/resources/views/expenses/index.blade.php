@@ -1,13 +1,15 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Gastos" description="">
-            @can('create', App\Models\Expense::class)
-                <button type="button" data-action="create" data-url="{{ route('expenses.create', array_filter(['project_id' => $filters['project_id']])) }}" data-title="Nuevo gasto" class="app-create-button" title="Nuevo gasto">
-                    +
-                </button>
-            @endcan
         </x-page-header>
     </x-slot>
+
+    @can('create', App\Models\Expense::class)
+        <button type="button" data-action="create" data-url="{{ route('invoices.create', ['type' => 'expense']) }}" data-title="Nueva factura" class="app-create-text-fab" title="Nueva factura">
+            + Factura
+        </button>
+        <button type="button" data-action="create" data-url="{{ route('expenses.create', array_filter(['project_id' => $filters['project_id']])) }}" data-title="Nuevo gasto" class="app-create-button" title="Nuevo gasto">+</button>
+    @endcan
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">

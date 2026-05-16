@@ -96,6 +96,7 @@ class PurchaseController extends Controller
             return view('purchases._modal_form', [
                 'purchase' => new Purchase([
                     'project_id' => $request->integer('project_id') ?: null,
+                    'invoice_id' => $request->integer('invoice_id') ?: null,
                     'purchase_date' => now()->toDateString(),
                     'status' => EntityStatus::Active->value,
                 ]),
@@ -117,6 +118,10 @@ class PurchaseController extends Controller
         $this->guardProjectStateForMutations($project);
         $this->guardTransactionCatalog($data, $project);
 
+        $unitPrice = (float) $data['unit_price'];
+        $quantity = isset($data['quantity']) && $data['quantity'] !== '' ? (float) $data['quantity'] : null;
+        $subtotal = round($unitPrice * ($quantity ?? 1), 2);
+
         $purchase = Purchase::query()->create([
             'company_id' => $project->company_id,
             'project_id' => $project->id,
@@ -126,11 +131,12 @@ class PurchaseController extends Controller
             'created_by' => $request->user()->id,
             'purchase_date' => $data['purchase_date'],
             'description' => $data['description'] ?? null,
-            'subtotal_amount' => $data['subtotal_amount'],
-            'quantity' => $data['quantity'] ?? null,
+            'unit_price' => $unitPrice,
+            'quantity' => $quantity,
+            'subtotal_amount' => $subtotal,
             'tax_amount' => 0,
             'discount_amount' => 0,
-            'total_amount' => round((float) $data['subtotal_amount'], 2),
+            'total_amount' => $subtotal,
             'status' => EntityStatus::Active->value,
         ]);
 
@@ -175,6 +181,10 @@ class PurchaseController extends Controller
         $this->guardTransactionCatalog($data, $project);
         $previousInvoiceId = $purchase->invoice_id;
 
+        $unitPrice = (float) $data['unit_price'];
+        $quantity = isset($data['quantity']) && $data['quantity'] !== '' ? (float) $data['quantity'] : null;
+        $subtotal = round($unitPrice * ($quantity ?? 1), 2);
+
         $purchase->update([
             'company_id' => $project->company_id,
             'project_id' => $project->id,
@@ -183,9 +193,10 @@ class PurchaseController extends Controller
             'product_id' => $data['product_id'],
             'purchase_date' => $data['purchase_date'],
             'description' => $data['description'] ?? null,
-            'subtotal_amount' => $data['subtotal_amount'],
-            'quantity' => $data['quantity'] ?? null,
-            'total_amount' => round((float) $data['subtotal_amount'], 2),
+            'unit_price' => $unitPrice,
+            'quantity' => $quantity,
+            'subtotal_amount' => $subtotal,
+            'total_amount' => $subtotal,
         ]);
 
         $this->refreshInvoiceTotal($previousInvoiceId);

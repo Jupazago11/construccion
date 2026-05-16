@@ -60,6 +60,18 @@ Alpine.data('crudTable', (config = {}) => ({
 
             this.refreshOpenModalPreservingForm(draft);
         });
+
+        window.addEventListener('open-ajax-modal', (event) => {
+            const { url, title } = event.detail ?? {};
+
+            if (url) {
+                this.openModal(url, title ?? '');
+            }
+        });
+
+        window.addEventListener('close-ajax-modal', () => {
+            this.closeModal();
+        });
     },
 
     shouldReloadAfterMutation() {
@@ -95,6 +107,8 @@ Alpine.data('crudTable', (config = {}) => ({
                     Alpine.initTree(this.$refs.modalContent);
                     window.initializeExpenseForms?.(this.$refs.modalContent);
                     window.initializeTransactionForms?.(this.$refs.modalContent);
+                    window.initializeStandaloneInvoiceForms?.(this.$refs.modalContent);
+                    window.initializeCompanyLogoForms?.(this.$refs.modalContent);
                     window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                     window.initializeAssetForms?.(this.$refs.modalContent);
 
@@ -221,6 +235,8 @@ Alpine.data('crudTable', (config = {}) => ({
                 Alpine.initTree(this.$refs.modalContent);
                 window.initializeExpenseForms?.(this.$refs.modalContent);
                 window.initializeTransactionForms?.(this.$refs.modalContent);
+                window.initializeStandaloneInvoiceForms?.(this.$refs.modalContent);
+                window.initializeCompanyLogoForms?.(this.$refs.modalContent);
                 window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                 window.initializeAssetForms?.(this.$refs.modalContent);
 
@@ -853,6 +869,8 @@ Alpine.data('crudTable', (config = {}) => ({
                     Alpine.initTree(this.$refs.modalContent);
                     window.initializeExpenseForms?.(this.$refs.modalContent);
                     window.initializeTransactionForms?.(this.$refs.modalContent);
+                    window.initializeStandaloneInvoiceForms?.(this.$refs.modalContent);
+                    window.initializeCompanyLogoForms?.(this.$refs.modalContent);
                     window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                     window.initializeAssetForms?.(this.$refs.modalContent);
                 }
@@ -1037,6 +1055,11 @@ Alpine.data('productCatalog', (config = {}) => ({
         product_subgroup_id: '',
         name: '',
     },
+    drafts: {
+        group: null,
+        subgroup: null,
+        product: null,
+    },
 
     init() {
         window.addEventListener('crud-toast', (event) => {
@@ -1087,18 +1110,60 @@ Alpine.data('productCatalog', (config = {}) => ({
 
         return this.filteredSubgroups.filter((subgroup) => ! term || subgroup.name.toLocaleLowerCase().includes(term));
     },
+    saveCurrentDraft() {
+        if (this.editingId) {
+            return;
+        }
+
+        this.drafts[this.tab] = {
+            form: { ...this.form },
+            groupSearch: this.groupSearch,
+            subgroupSearch: this.subgroupSearch,
+        };
+    },
+
+    restoreDraft(tab) {
+        if (this.editingId) {
+            return;
+        }
+
+        const draft = this.drafts[tab];
+
+        if (! draft) {
+            this.form = {
+                company_id: config.companyId ? String(config.companyId) : '',
+                product_group_id: '',
+                product_subgroup_id: '',
+                name: '',
+            };
+            this.groupSearch = '';
+            this.subgroupSearch = '';
+            return;
+        }
+
+        this.form = { ...draft.form };
+        this.groupSearch = draft.groupSearch ?? '';
+        this.subgroupSearch = draft.subgroupSearch ?? '';
+    },
+
+    clearDraft(tab) {
+        this.drafts[tab] = null;
+    },
 
     setTab(tab) {
+        if (this.tab === tab) {
+            return;
+        }
+
+        this.saveCurrentDraft();
+
         this.tab = tab;
         this.editingId = null;
         this.clearMessages();
-        this.form.product_group_id = '';
-        this.form.product_subgroup_id = '';
-        this.form.name = '';
-        this.groupSearch = '';
-        this.subgroupSearch = '';
         this.groupMenuOpen = false;
         this.subgroupMenuOpen = false;
+
+        this.restoreDraft(tab);
     },
 
     openModal(tab = 'group') {
@@ -1106,19 +1171,13 @@ Alpine.data('productCatalog', (config = {}) => ({
         this.tab = tab;
         this.editingId = null;
         this.clearMessages();
-        this.form = {
-            company_id: config.companyId ? String(config.companyId) : '',
-            product_group_id: '',
-            product_subgroup_id: '',
-            name: '',
-        };
-        this.groupSearch = '';
-        this.subgroupSearch = '';
         this.groupMenuOpen = false;
         this.subgroupMenuOpen = false;
+        this.restoreDraft(tab);
     },
 
     closeModal() {
+        this.saveCurrentDraft();
         this.modalOpen = false;
         this.editingId = null;
         this.clearMessages();
@@ -1305,6 +1364,7 @@ Alpine.data('productCatalog', (config = {}) => ({
             });
 
             this.applyResponse(response.data);
+            this.clearDraft(this.tab);
             if (this.editingId) {
                 this.closeModal();
                 return;
@@ -1544,13 +1604,6 @@ return {
 },
 
     openManager() {
-        const form = this.$el.tagName === 'FORM' ? this.$el : this.$el.closest('form[data-ajax-form]');
-        if (form) {
-            this._formSnapshot = Array.from(form.elements)
-                .filter((el) => el.name && el.type !== 'file' && el.tagName !== 'SELECT')
-                .map((el) => ({ name: el.name, value: el.value, checked: el.checked, type: el.type }));
-        }
-
         window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
 
         this.managerOpen = true;
@@ -1568,27 +1621,9 @@ return {
         this.managerOpen = false;
         this.resetDraft();
 
-        selectEls.forEach((el) => this._buildSelectOptions(el));
-
-        if (this._formSnapshot) {
-            const form = this.$el.tagName === 'FORM' ? this.$el : this.$el.closest('form[data-ajax-form]');
-            if (form) {
-                this._formSnapshot.forEach((saved) => {
-                    Array.from(form.elements)
-                        .filter((el) => el.name === saved.name && el.tagName !== 'SELECT')
-                        .forEach((el) => {
-                            if (el.type === 'checkbox' || el.type === 'radio') {
-                                el.checked = saved.checked;
-                            } else {
-                                el.value = saved.value;
-                            }
-                        });
-                });
-            }
-            this._formSnapshot = null;
-        }
-
-        window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));
+        this.$nextTick(() => {
+            window.dispatchEvent(new CustomEvent('crud-refresh-open-modal-from-draft'));
+        });
     },
 
     resetDraft() {
@@ -2395,17 +2430,12 @@ window.initializeTransactionForms = (root = document) => {
         const invoiceField = form.querySelector('[data-transaction-invoice]');
         const invoiceSearch = form.querySelector('[data-transaction-invoice-search]');
         const invoiceMenu = form.querySelector('[data-transaction-invoice-menu]');
-        const invoiceCreateButton = form.querySelector('[data-transaction-create-invoice]');
-        const invoiceCreatePanel = form.querySelector('[data-transaction-invoice-create]');
-        const invoiceCancelButton = form.querySelector('[data-invoice-cancel]');
-        const invoiceSaveButton = form.querySelector('[data-invoice-save]');
-        const invoiceNumberField = form.querySelector('[data-invoice-number]');
-        const invoiceDateField = form.querySelector('[data-invoice-date]');
-        const invoiceDescriptionField = form.querySelector('[data-invoice-description]');
         const productField = form.querySelector('[data-transaction-product]');
         const productSearch = form.querySelector('[data-transaction-product-search]');
         const productMenu = form.querySelector('[data-transaction-product-menu]');
-        const subtotalField = form.querySelector('#subtotal_amount');
+        const unitPriceField = form.querySelector('[data-transaction-unit-price]');
+        const quantityField = form.querySelector('[data-transaction-quantity]');
+        const totalPreviewEl = form.querySelector('[data-transaction-total-preview]');
 
         const state = {
             projectId: selected.project_id ? String(selected.project_id) : '',
@@ -2436,15 +2466,6 @@ window.initializeTransactionForms = (root = document) => {
             && invoice.provider_id === state.providerId
             && invoice.type === form.dataset.transactionType
         ));
-        const friendlyInvoiceError = (message) => ({
-            'The type field is required.': 'No se pudo identificar el tipo de factura.',
-            'The selected type is invalid.': 'El tipo de factura no es válido.',
-            'The project id field is required.': 'Selecciona un proyecto.',
-            'The provider id field is required.': 'Selecciona un proveedor.',
-            'The selected project id is invalid.': 'El proyecto seleccionado no es válido.',
-            'The selected provider id is invalid.': 'El proveedor seleccionado no es válido.',
-            'The invoice date field must be a valid date.': 'La fecha de factura no es válida.',
-        }[message] ?? message ?? 'No fue posible crear la factura.');
 
         const closeMenu = (menu) => menu?.classList.add('hidden');
         const openMenu = (menu) => menu?.classList.remove('hidden');
@@ -2619,98 +2640,44 @@ window.initializeTransactionForms = (root = document) => {
             });
         };
 
-        const closeInvoiceCreate = () => {
-            invoiceCreatePanel?.classList.add('hidden');
-        };
-
-        const openInvoiceCreate = () => {
-            if (! state.projectId || ! state.providerId) {
-                window.dispatchEvent(new CustomEvent('crud-toast', {
-                    detail: { message: 'Selecciona primero un proyecto y un proveedor.', type: 'error' },
-                }));
+        const syncUnitPrice = (preserveCaret = false) => {
+            if (! unitPriceField) {
                 return;
             }
 
-            invoiceCreatePanel?.classList.remove('hidden');
-            invoiceNumberField?.focus();
-        };
-
-        const saveInvoice = async () => {
-            if (! form.dataset.invoiceStoreUrl || ! state.projectId || ! state.providerId || ! invoiceSaveButton) {
-                return;
-            }
-
-            const originalText = invoiceSaveButton.textContent;
-            invoiceSaveButton.disabled = true;
-            invoiceSaveButton.textContent = 'Creando...';
-
-            try {
-                const data = new FormData();
-                data.append('type', form.dataset.transactionType);
-                data.append('project_id', state.projectId);
-                data.append('provider_id', state.providerId);
-                data.append('invoice_number', invoiceNumberField?.value.trim() ?? '');
-                data.append('invoice_date', invoiceDateField?.value || new Date().toISOString().slice(0, 10));
-                data.append('description', invoiceDescriptionField?.value.trim() ?? '');
-
-                const response = await window.axios.post(form.dataset.invoiceStoreUrl, data, {
-                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-
-                const invoice = {
-                    ...response.data.invoice,
-                    id: String(response.data.invoice.id),
-                    company_id: String(response.data.invoice.company_id),
-                    project_id: String(response.data.invoice.project_id),
-                    provider_id: String(response.data.invoice.provider_id),
-                };
-
-                invoices = [invoice, ...invoices.filter((item) => item.id !== invoice.id)];
-                state.invoiceId = invoice.id;
-                if (invoiceField) {
-                    invoiceField.value = invoice.id;
-                }
-                if (invoiceSearch) {
-                    invoiceSearch.value = invoiceLabel(invoice);
-                }
-                if (invoiceNumberField) {
-                    invoiceNumberField.value = '';
-                }
-                if (invoiceDescriptionField) {
-                    invoiceDescriptionField.value = '';
-                }
-                closeInvoiceCreate();
-                window.dispatchEvent(new CustomEvent('crud-toast', {
-                    detail: { message: response.data.message ?? 'Factura creada correctamente.' },
-                }));
-            } catch (error) {
-                const message = Object.values(error.response?.data?.errors ?? {}).flat()[0]
-                    || error.response?.data?.message
-                    || 'No fue posible crear la factura.';
-                window.dispatchEvent(new CustomEvent('crud-toast', {
-                    detail: { message: friendlyInvoiceError(message), type: 'error' },
-                }));
-            } finally {
-                invoiceSaveButton.disabled = false;
-                invoiceSaveButton.textContent = originalText;
-            }
-        };
-
-        const syncTotalPreview = (preserveCaret = false) => {
-            if (! subtotalField) {
-                return;
-            }
-
-            const rawValue = subtotalField.value;
-            const selectionStart = subtotalField.selectionStart ?? rawValue.length;
+            const rawValue = unitPriceField.value;
+            const selectionStart = unitPriceField.selectionStart ?? rawValue.length;
             const digitsBeforeCaret = countAmountDigits(rawValue.slice(0, selectionStart));
             const formattedValue = formatIntegerAmount(rawValue);
 
-            subtotalField.value = formattedValue;
+            unitPriceField.value = formattedValue;
 
             if (preserveCaret) {
                 const nextCaret = caretPositionFromDigits(formattedValue, digitsBeforeCaret);
-                subtotalField.setSelectionRange(nextCaret, nextCaret);
+                unitPriceField.setSelectionRange(nextCaret, nextCaret);
+            }
+        };
+
+        const updateTotalPreview = () => {
+            if (! totalPreviewEl) {
+                return;
+            }
+
+            const rawPrice = normalizeIntegerAmount(unitPriceField?.value ?? '');
+            const price = parseFloat(rawPrice) || 0;
+            const qty = parseFloat(quantityField?.value ?? '') || 0;
+
+            if (price > 0 && qty > 0 && qty !== 1) {
+                const total = Math.round(price * qty);
+                const formattedQty = Number.isInteger(qty)
+                    ? String(qty)
+                    : qty.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+                const formattedPrice = `$ ${formatIntegerAmount(String(Math.round(price)))}`;
+                const formattedTotal = `$ ${formatIntegerAmount(String(total))}`;
+                totalPreviewEl.innerHTML = `<span style="display:block;font-size:0.7rem;line-height:1rem;color:#a8a29e;margin-bottom:1px">${formattedQty} &times; ${formattedPrice}</span><span style="display:block;font-size:1.25rem;line-height:1.5rem;font-weight:700;color:#1c1917;letter-spacing:-0.01em">${formattedTotal}</span>`;
+                totalPreviewEl.classList.remove('hidden');
+            } else {
+                totalPreviewEl.classList.add('hidden');
             }
         };
 
@@ -2725,7 +2692,6 @@ window.initializeTransactionForms = (root = document) => {
                 state.providerId = '';
                 state.invoiceId = '';
                 state.productId = '';
-                closeInvoiceCreate();
                 syncLists();
             });
         }
@@ -2746,7 +2712,6 @@ window.initializeTransactionForms = (root = document) => {
                     if (providerSearch) {
                         providerSearch.value = item.name;
                     }
-                    closeInvoiceCreate();
                     closeMenu(providerMenu);
                 },
             });
@@ -2769,7 +2734,6 @@ window.initializeTransactionForms = (root = document) => {
                     if (providerSearch) {
                         providerSearch.value = item.name;
                     }
-                    closeInvoiceCreate();
                     closeMenu(providerMenu);
                 },
             });
@@ -2799,18 +2763,6 @@ window.initializeTransactionForms = (root = document) => {
                 closeMenu(invoiceMenu);
             }, 120);
         });
-        invoiceCreateButton?.addEventListener('click', (event) => {
-            event.preventDefault();
-            openInvoiceCreate();
-        });
-        invoiceCancelButton?.addEventListener('click', (event) => {
-            event.preventDefault();
-            closeInvoiceCreate();
-        });
-        invoiceSaveButton?.addEventListener('click', (event) => {
-            event.preventDefault();
-            saveInvoice();
-        });
         productSearch?.addEventListener('focus', () => {
             const availableProducts = availableForProject(products);
             const term = productSearch.value.trim().toLocaleLowerCase();
@@ -2839,16 +2791,240 @@ window.initializeTransactionForms = (root = document) => {
             }, 120);
         });
 
-        if (subtotalField) {
-            subtotalField.addEventListener('input', () => syncTotalPreview(true));
-            subtotalField.addEventListener('blur', () => syncTotalPreview());
-            form.addEventListener('submit', () => {
-                subtotalField.value = normalizeIntegerAmount(subtotalField.value);
-            });
+        if (unitPriceField) {
+            unitPriceField.addEventListener('input', () => syncUnitPrice(true));
+            unitPriceField.addEventListener('blur', () => syncUnitPrice());
+            unitPriceField.addEventListener('input', updateTotalPreview);
         }
 
+        if (quantityField) {
+            quantityField.addEventListener('input', updateTotalPreview);
+            quantityField.addEventListener('blur', updateTotalPreview);
+        }
+
+        form.addEventListener('submit', () => {
+            if (unitPriceField) {
+                unitPriceField.value = normalizeIntegerAmount(unitPriceField.value);
+            }
+        });
+
+        form.addEventListener('invoice-added', (event) => {
+            const invoice = event.detail ?? {};
+            if (! invoice.id) return;
+            const normalized = {
+                ...invoice,
+                id: String(invoice.id),
+                company_id: String(invoice.company_id ?? ''),
+                project_id: String(invoice.project_id ?? ''),
+                provider_id: String(invoice.provider_id ?? ''),
+            };
+            invoices = invoices.filter((inv) => inv.id !== normalized.id);
+            invoices.push(normalized);
+            state.invoiceId = normalized.id;
+            if (invoiceField) invoiceField.value = normalized.id;
+            if (invoiceSearch) invoiceSearch.value = invoiceLabel(normalized);
+            syncLists();
+        });
+
         syncLists();
-        syncTotalPreview();
+        syncUnitPrice();
+        updateTotalPreview();
+    });
+};
+
+window.initializeStandaloneInvoiceForms = (root = document) => {
+    root.querySelectorAll('form[data-standalone-invoice-form]').forEach((form) => {
+        if (form.dataset.standaloneInvoiceInitialized === 'true') return;
+        form.dataset.standaloneInvoiceInitialized = 'true';
+
+        const invoiceType = form.dataset.invoiceType ?? 'expense';
+        const storeUrl = form.dataset.invoiceStoreUrl ?? '';
+
+        const projectsNode = form.querySelector('[data-invoice-projects]');
+        const providersNode = form.querySelector('[data-invoice-providers]');
+        const allProjects = projectsNode ? JSON.parse(projectsNode.textContent || '[]').map((p) => ({ ...p, id: String(p.id), company_id: String(p.company_id) })) : [];
+        const allProviders = providersNode ? JSON.parse(providersNode.textContent || '[]').map((p) => ({ ...p, id: String(p.id), company_id: String(p.company_id) })) : [];
+
+        const projectField = form.querySelector('[data-invoice-project]');
+        const providerSearchEl = form.querySelector('[data-invoice-provider-search]');
+        const providerField = form.querySelector('[data-invoice-provider]');
+        const providerMenu = form.querySelector('[data-invoice-provider-menu]');
+        const numberField = form.querySelector('[data-invoice-number]');
+        const dateField = form.querySelector('[data-invoice-date]');
+        const descriptionField = form.querySelector('[data-invoice-description]');
+        const saveButton = form.querySelector('[data-invoice-save]');
+
+        const state = { projectId: '', providerId: '' };
+
+        const showError = (field, message) => {
+            const el = form.querySelector(`[data-invoice-error-for="${field}"]`);
+            if (el) { el.textContent = message; el.classList.remove('hidden'); }
+        };
+        const clearErrors = () => {
+            form.querySelectorAll('[data-invoice-error-for]').forEach((el) => { el.textContent = ''; el.classList.add('hidden'); });
+        };
+
+        const availableProviders = () => {
+            if (state.projectId) {
+                const project = allProjects.find((p) => p.id === state.projectId);
+                if (project) return allProviders.filter((p) => p.company_id === project.company_id);
+            }
+            const companyIds = new Set(allProjects.map((p) => p.company_id));
+            return allProviders.filter((p) => companyIds.has(p.company_id));
+        };
+
+        const renderProviderMenu = (items) => {
+            if (! providerMenu) return;
+            providerMenu.innerHTML = '';
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'px-4 py-3 text-sm text-stone-500';
+                empty.textContent = 'Sin proveedores disponibles';
+                providerMenu.appendChild(empty);
+                return;
+            }
+            items.forEach((item) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'block w-full rounded-xl px-4 py-3 text-left transition hover:bg-stone-100 focus:bg-stone-100 focus:outline-none';
+                const name = document.createElement('span');
+                name.className = 'block whitespace-nowrap text-sm font-medium text-stone-900';
+                name.textContent = item.name;
+                button.appendChild(name);
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    state.providerId = item.id;
+                    if (providerField) providerField.value = item.id;
+                    if (providerSearchEl) providerSearchEl.value = item.name;
+                    providerMenu.classList.add('hidden');
+                });
+                providerMenu.appendChild(button);
+            });
+        };
+
+        providerSearchEl?.addEventListener('focus', () => {
+            const term = (providerSearchEl.value ?? '').trim().toLocaleLowerCase();
+            renderProviderMenu(availableProviders().filter((p) => p.name.toLocaleLowerCase().includes(term)));
+            providerMenu?.classList.remove('hidden');
+        });
+        providerSearchEl?.addEventListener('input', () => {
+            const term = (providerSearchEl.value ?? '').trim().toLocaleLowerCase();
+            const match = availableProviders().find((p) => p.name.toLocaleLowerCase() === term);
+            state.providerId = match ? match.id : '';
+            if (providerField) providerField.value = state.providerId;
+            renderProviderMenu(availableProviders().filter((p) => p.name.toLocaleLowerCase().includes(term)));
+            providerMenu?.classList.remove('hidden');
+        });
+        providerSearchEl?.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                const match = availableProviders().find((p) => p.id === state.providerId);
+                if (providerSearchEl) providerSearchEl.value = match ? match.name : '';
+                if (providerField) providerField.value = state.providerId;
+                providerMenu?.classList.add('hidden');
+            }, 120);
+        });
+
+        projectField?.addEventListener('change', (event) => {
+            state.projectId = String(event.target.value || '');
+            state.providerId = '';
+            if (providerField) providerField.value = '';
+            if (providerSearchEl) providerSearchEl.value = '';
+        });
+
+        saveButton?.addEventListener('click', async () => {
+            clearErrors();
+            saveButton.disabled = true;
+
+            try {
+                const data = {
+                    type: invoiceType,
+                    project_id: projectField?.value || '',
+                    provider_id: providerField?.value || '',
+                    invoice_number: numberField?.value || '',
+                    invoice_date: dateField?.value || '',
+                    description: descriptionField?.value || '',
+                };
+
+                const response = await window.axios.post(storeUrl, data, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: response.data.message ?? 'Factura creada correctamente.' },
+                }));
+                window.dispatchEvent(new CustomEvent('close-ajax-modal'));
+            } catch (error) {
+                const errors = error.response?.data?.errors ?? {};
+                const fallback = error.response?.data?.message || 'No fue posible crear la factura.';
+                if (Object.keys(errors).length > 0) {
+                    Object.entries(errors).forEach(([field, messages]) => {
+                        showError(field, Array.isArray(messages) ? messages[0] : String(messages));
+                    });
+                } else {
+                    showError('project_id', fallback);
+                }
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+    });
+};
+
+window.initializeCompanyLogoForms = (root = document) => {
+    root.querySelectorAll('[data-company-logo-upload]').forEach((widget) => {
+        if (widget.dataset.companyLogoInitialized === 'true') return;
+        widget.dataset.companyLogoInitialized = 'true';
+
+        const input = widget.querySelector('[data-company-logo-input]');
+        const preview = widget.querySelector('[data-company-logo-preview]');
+        const errorEl = widget.querySelector('[data-company-logo-error]');
+        const uploadUrl = input?.dataset.uploadUrl;
+        const label = input ? widget.querySelector(`label[for="${input.id}"]`) : null;
+
+        if (! input || ! uploadUrl) return;
+
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            if (! file) return;
+
+            const formData = new FormData();
+            formData.append('logo', file);
+
+            if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+            if (label) label.classList.add('pointer-events-none', 'opacity-60');
+
+            try {
+                const response = await window.axios.post(uploadUrl, formData, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+
+                if (preview) {
+                    const img = document.createElement('img');
+                    img.src = response.data.logo_url + '?t=' + Date.now();
+                    img.alt = 'Logo';
+                    img.className = 'h-full w-full object-contain';
+                    preview.innerHTML = '';
+                    preview.appendChild(img);
+                }
+
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: response.data.message ?? 'Logo actualizado correctamente.' },
+                }));
+            } catch (error) {
+                const message = Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                    || error.response?.data?.message
+                    || 'No fue posible cargar el logo.';
+                if (errorEl) { errorEl.textContent = message; errorEl.classList.remove('hidden'); }
+                window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message, type: 'error' } }));
+            } finally {
+                if (label) label.classList.remove('pointer-events-none', 'opacity-60');
+                input.value = '';
+            }
+        });
     });
 };
 

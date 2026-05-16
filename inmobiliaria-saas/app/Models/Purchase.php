@@ -22,6 +22,7 @@ class Purchase extends Model
         'purchase_date',
         'description',
         'subtotal_amount',
+        'unit_price',
         'quantity',
         'tax_amount',
         'discount_amount',
@@ -34,6 +35,8 @@ class Purchase extends Model
         return [
             'purchase_date' => 'date',
             'subtotal_amount' => 'decimal:2',
+            'unit_price' => 'decimal:4',
+            'quantity' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',

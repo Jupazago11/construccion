@@ -4,7 +4,8 @@
         'provider_id' => $expense->provider_id,
         'invoice_id' => $expense->invoice_id,
         'product_id' => $expense->product_id,
-        'subtotal_amount' => $expense->subtotal_amount ?? $expense->total_amount ?? 0,
+        'unit_price' => $expense->unit_price ?? $expense->subtotal_amount ?? 0,
+        'quantity' => $expense->quantity,
     ];
 
     $projects = $payload['projects'] ?? [];
@@ -17,7 +18,6 @@
     data-ajax-form
     data-transaction-form
     data-transaction-type="{{ $payload['transactionType'] ?? 'expense' }}"
-    data-invoice-store-url="{{ $payload['invoiceStoreUrl'] ?? '' }}"
     class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6"
 >
     @csrf
@@ -77,55 +77,44 @@
             </div>
 
             <div class="relative md:col-span-2">
-                <div class="flex items-center justify-between gap-3">
-                    <x-input-label for="invoice_search" :value="'Factura (opcional)'" />
-                    <button type="button" class="app-create-button-sm" title="Crear factura" data-transaction-create-invoice>+</button>
-                </div>
+                <x-input-label for="invoice_search" :value="'Factura (opcional)'" />
                 <input id="invoice_search" data-transaction-invoice-search class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" placeholder="Sin factura">
                 <input type="hidden" name="invoice_id" data-transaction-invoice>
                 <div data-transaction-invoice-menu class="absolute left-0 right-0 z-[70] mt-2 hidden max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-1 shadow-xl"></div>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="invoice_id"></p>
             </div>
 
-            <div data-transaction-invoice-create class="hidden md:col-span-2 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                <div class="grid gap-4 md:grid-cols-2">
-                    <div>
-                        <x-input-label for="invoice_number" :value="'Número de factura'" />
-                        <x-text-input id="invoice_number" type="text" class="mt-1 block w-full" data-invoice-number />
-                    </div>
-                    <div>
-                        <x-input-label for="invoice_date" :value="'Fecha de factura'" />
-                        <x-text-input id="invoice_date" type="date" class="mt-1 block w-full" data-invoice-date :value="now()->toDateString()" />
-                    </div>
-                    <div class="md:col-span-2">
-                        <x-input-label for="invoice_description" :value="'Observación (opcional)'" />
-                        <textarea id="invoice_description" rows="2" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" data-invoice-description></textarea>
-                    </div>
-                    <div class="flex justify-end gap-3 md:col-span-2">
-                        <button type="button" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-white" data-invoice-cancel>Cancelar</button>
-                        <button type="button" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60" data-invoice-save>Crear factura</button>
-                    </div>
-                </div>
-            </div>
-
             <div>
-                <x-input-label for="subtotal_amount" :value="'Costo'" />
+                <x-input-label for="unit_price" :value="'Valor unitario'" />
                 <x-text-input
-                    id="subtotal_amount"
-                    name="subtotal_amount"
+                    id="unit_price"
+                    name="unit_price"
                     type="text"
                     inputmode="decimal"
                     autocomplete="off"
                     class="mt-1 block w-full"
-                    :value="$expense->subtotal_amount ?? $expense->total_amount ?? 0"
+                    :value="$expense->unit_price ?? $expense->subtotal_amount ?? 0"
+                    data-transaction-unit-price
                     required
                 />
-                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="subtotal_amount"></p>
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="unit_price"></p>
             </div>
 
             <div>
                 <x-input-label for="quantity" :value="'Cantidad (opcional)'" />
-                <x-text-input id="quantity" name="quantity" type="text" class="mt-1 block w-full" :value="$expense->quantity" placeholder="Ej. 2 volquetas, 15 bultos, 6 días" />
+                <x-text-input
+                    id="quantity"
+                    name="quantity"
+                    type="number"
+                    inputmode="decimal"
+                    step="any"
+                    min="0"
+                    class="mt-1 block w-full"
+                    :value="$expense->quantity"
+                    data-transaction-quantity
+                    placeholder="1"
+                />
+                <div class="mt-2 hidden rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2.5" data-transaction-total-preview></div>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="quantity"></p>
             </div>
 

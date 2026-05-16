@@ -23,7 +23,9 @@
       "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run build 2>&1\")",
       "Bash(./vendor/bin/sail npm *)",
       "Bash(ls \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\jupazago\\\\\\\\Documentos\\\\\\\\construccion\\\\\\\\inmobiliaria-saas\" 2>&1 | head -5)",
-      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run build 2>&1 | tail -25\")"
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run build 2>&1 | tail -25\")",
+      "Bash(cd \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\jupazago\\\\Documentos\\\\construccion\\\\inmobiliaria-saas\")",
+      "Bash(npm run *)"
     ]
   }
 }

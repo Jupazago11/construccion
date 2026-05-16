@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CompanyController extends Controller
 {
@@ -193,6 +194,44 @@ class CompanyController extends Controller
         }
 
         return redirect()->route('companies.index')->with('status', 'Empresa archivada correctamente.');
+    }
+
+    public function logo(Request $request, Company $company): \Illuminate\Http\RedirectResponse
+    {
+        abort_if(! $company->logo_path, 404);
+
+        $path = $company->logo_path;
+
+        abort_if(! Storage::disk('r2')->exists($path), 404);
+
+        $url = Storage::disk('r2')->temporaryUrl($path, now()->addDay());
+
+        return redirect($url)->header('Cache-Control', 'public, max-age=3600');
+    }
+
+    public function storeLogo(Request $request, Company $company): JsonResponse
+    {
+        $this->authorize('update', $company);
+        abort_unless($request->user()->isSuperAdmin(), 403);
+
+        $request->validate([
+            'logo' => ['required', 'image', 'max:4096', 'mimes:png,jpg,jpeg,webp,svg'],
+        ]);
+
+        if ($company->logo_path) {
+            Storage::disk('r2')->delete($company->logo_path);
+        }
+
+        $prefix = trim((string) config('filesystems.r2_root_prefix', env('R2_ROOT_PREFIX', 'inmobiliaria-saas')), '/');
+        $directory = collect([$prefix, 'companies', $company->id, 'logo'])->filter()->implode('/');
+        $path = $request->file('logo')->store($directory, 'r2');
+
+        $company->update(['logo_path' => $path]);
+
+        return response()->json([
+            'message' => 'Logo actualizado correctamente.',
+            'logo_url' => route('companies.logo', $company),
+        ]);
     }
 
     protected function companyHasDependencies(Company $company): bool

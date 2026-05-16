@@ -50,8 +50,8 @@ class PurchaseStoreRequest extends FormRequest
                 'integer',
                 Rule::exists(Product::class, 'id')->where('company_id', $this->resolvedCompanyId())->where('status', 'active'),
             ],
-            'subtotal_amount' => ['required', 'numeric', 'min:0'],
-            'quantity' => ['nullable', 'string', 'max:255'],
+            'unit_price' => ['required', 'numeric', 'min:0'],
+            'quantity' => ['nullable', 'numeric', 'min:0'],
             'description' => ['nullable', 'string'],
         ];
     }

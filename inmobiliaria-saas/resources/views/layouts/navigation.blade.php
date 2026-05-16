@@ -13,7 +13,15 @@
                 <!-- Logo -->
                 <div class="flex shrink-0 items-center">
                     <a href="{{ $navUrl(Auth::user()->homeRouteName()) }}">
-                        <x-application-logo class="app-logo block h-9 w-auto fill-current text-stone-800" />
+                        @if (! Auth::user()->isSuperAdmin() && Auth::user()->company?->logo_path)
+                            <img
+                                src="{{ route('companies.logo', Auth::user()->company) }}"
+                                alt="{{ Auth::user()->company->name }}"
+                                class="block h-9 w-auto max-w-[9rem] object-contain"
+                            >
+                        @else
+                            <x-application-logo class="app-logo block h-9 w-auto fill-current text-stone-800" />
+                        @endif
                     </a>
                 </div>
 

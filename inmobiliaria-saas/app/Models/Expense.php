@@ -28,6 +28,7 @@ class Expense extends Model
         'payment_method',
         'description',
         'subtotal_amount',
+        'unit_price',
         'quantity',
         'tax_amount',
         'discount_amount',
@@ -40,6 +41,8 @@ class Expense extends Model
         return [
             'expense_date' => 'date',
             'subtotal_amount' => 'decimal:2',
+            'unit_price' => 'decimal:4',
+            'quantity' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',

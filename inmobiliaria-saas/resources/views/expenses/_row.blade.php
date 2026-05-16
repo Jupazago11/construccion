@@ -12,8 +12,8 @@
                 {{ $expense->product?->group?->name ?: 'Sin grupo' }} · {{ $expense->product?->subgroup?->name ?: 'Sin subgrupo' }}
             </div>
         @endif
-        @if ($expense->quantity)
-            <div class="text-xs text-stone-500">Cantidad: {{ $expense->quantity }}</div>
+        @if ($expense->quantity && $expense->quantity != 1)
+            <div class="text-xs text-stone-500">{{ number_format((float) $expense->quantity, 2, ',', '.') }} × $ {{ number_format((float) $expense->unit_price, 0, ',', '.') }}</div>
         @endif
     </td>
     <td class="px-6 py-4 text-stone-600">

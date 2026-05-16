@@ -58,10 +58,21 @@
                         name="asset2_type_id"
                         autocomplete="off"
                         class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
-                        x-effect="syncTypeSelect($el)"
-                        x-on:change="handleTypeChange($event)"
                         required
-                    ></select>
+                    >
+                        <option value="">Selecciona un tipo</option>
+
+                        @foreach ($asset2Types as $type)
+                            @if (($type['status'] ?? null) === 'active')
+                                <option
+                                    value="{{ $type['id'] }}"
+                                    @selected((string) $selectedAsset2TypeId === (string) $type['id'])
+                                >
+                                    {{ $type['name'] }}
+                                </option>
+                            @endif
+                        @endforeach
+                    </select>
                     <button
                         type="button"
                         class="app-create-button-sm shrink-0"

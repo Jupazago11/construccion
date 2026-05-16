@@ -51,7 +51,13 @@
                                 <div class="font-medium text-stone-900">{{ $item->product?->name ?: 'Sin producto' }}</div>
                                 <div class="text-xs text-stone-500">{{ $item->product?->subgroup?->name ?: 'Sin subgrupo' }}</div>
                             </td>
-                            <td class="px-4 py-3 text-stone-600">{{ $item->quantity ?: 'Sin cantidad' }}</td>
+                            <td class="px-4 py-3 text-stone-600">
+                                @if ($item->quantity && $item->quantity != 1)
+                                    {{ number_format((float) $item->quantity, 2, ',', '.') }} × $ {{ number_format((float) $item->unit_price, 0, ',', '.') }}
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-stone-600">{{ $item->description ?: 'Sin descripción' }}</td>
                             <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
                             <td class="px-4 py-3">

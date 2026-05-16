@@ -43,6 +43,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::patch('companies/{company}/status', [CompanyController::class, 'updateStatus'])->name('companies.status');
+    Route::get('companies/{company}/logo', [CompanyController::class, 'logo'])->name('companies.logo');
+    Route::post('companies/{company}/logo', [CompanyController::class, 'storeLogo'])->name('companies.logo.store');
     Route::resource('companies', CompanyController::class);
 
     Route::patch('projects/{project}/status', [ProjectController::class, 'updateStatus'])->name('projects.status');
@@ -109,6 +111,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     Route::patch('expenses/{expense}/status', [ExpenseController::class, 'updateStatus'])->name('expenses.status');
     Route::resource('expenses', ExpenseController::class)->except('show');
+    Route::get('invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
     Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::patch('invoices/{invoice}/status', [InvoiceController::class, 'updateStatus'])->name('invoices.status');

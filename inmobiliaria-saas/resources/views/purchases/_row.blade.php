@@ -8,8 +8,8 @@
         @if ($purchase->product?->group || $purchase->product?->subgroup)
             <div class="text-xs text-stone-500">{{ $purchase->product?->group?->name ?: 'Sin grupo' }} · {{ $purchase->product?->subgroup?->name ?: 'Sin subgrupo' }}</div>
         @endif
-        @if ($purchase->quantity)
-            <div class="text-xs text-stone-500">Cantidad: {{ $purchase->quantity }}</div>
+        @if ($purchase->quantity && $purchase->quantity != 1)
+            <div class="text-xs text-stone-500">{{ number_format((float) $purchase->quantity, 2, ',', '.') }} × $ {{ number_format((float) $purchase->unit_price, 0, ',', '.') }}</div>
         @endif
     </td>
     <td class="px-6 py-4 text-stone-600">{{ $purchase->invoice?->invoice_number ?: 'Sin factura' }}</td>

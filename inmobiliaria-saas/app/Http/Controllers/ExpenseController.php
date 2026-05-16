@@ -98,6 +98,7 @@ class ExpenseController extends Controller
             return view('expenses._modal_form', [
                 'expense' => new Expense([
                     'project_id' => $selectedProjectId,
+                    'invoice_id' => $request->integer('invoice_id') ?: null,
                     'expense_date' => now()->toDateString(),
                     'status' => 'active',
                 ]),
@@ -122,6 +123,10 @@ class ExpenseController extends Controller
         $this->guardProjectStateForMutations($project);
         $this->guardTransactionCatalog($data, $project);
 
+        $unitPrice = (float) $data['unit_price'];
+        $quantity = isset($data['quantity']) && $data['quantity'] !== '' ? (float) $data['quantity'] : null;
+        $subtotal = round($unitPrice * ($quantity ?? 1), 2);
+
         $expense = Expense::query()->create([
             'company_id' => $project->company_id,
             'project_id' => $project->id,
@@ -136,11 +141,12 @@ class ExpenseController extends Controller
             'expense_date' => $data['expense_date'],
             'payment_method' => null,
             'description' => $data['description'] ?? null,
-            'subtotal_amount' => $data['subtotal_amount'],
-            'quantity' => $data['quantity'] ?? null,
+            'unit_price' => $unitPrice,
+            'quantity' => $quantity,
+            'subtotal_amount' => $subtotal,
             'tax_amount' => 0,
             'discount_amount' => 0,
-            'total_amount' => $this->calculateTotal((float) $data['subtotal_amount'], 0, 0),
+            'total_amount' => $this->calculateTotal($subtotal, 0, 0),
             'status' => EntityStatus::Active->value,
         ]);
 
@@ -190,6 +196,10 @@ class ExpenseController extends Controller
         $this->guardTransactionCatalog($data, $project);
         $previousInvoiceId = $expense->invoice_id;
 
+        $unitPrice = (float) $data['unit_price'];
+        $quantity = isset($data['quantity']) && $data['quantity'] !== '' ? (float) $data['quantity'] : null;
+        $subtotal = round($unitPrice * ($quantity ?? 1), 2);
+
         $expense->update([
             'company_id' => $project->company_id,
             'project_id' => $project->id,
@@ -203,11 +213,12 @@ class ExpenseController extends Controller
             'expense_date' => $data['expense_date'],
             'payment_method' => null,
             'description' => $data['description'] ?? null,
-            'subtotal_amount' => $data['subtotal_amount'],
-            'quantity' => $data['quantity'] ?? null,
+            'unit_price' => $unitPrice,
+            'quantity' => $quantity,
+            'subtotal_amount' => $subtotal,
             'tax_amount' => 0,
             'discount_amount' => 0,
-            'total_amount' => $this->calculateTotal((float) $data['subtotal_amount'], 0, 0),
+            'total_amount' => $this->calculateTotal($subtotal, 0, 0),
         ]);
 
         $this->refreshInvoiceTotal($previousInvoiceId);
