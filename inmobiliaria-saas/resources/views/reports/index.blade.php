@@ -166,18 +166,39 @@
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                     <h2 class="text-lg font-semibold text-stone-900">{{ $movementLabel }} por fecha</h2>
                     <div class="mt-4 h-80">
-                        <canvas id="expenses-by-date-chart"></canvas>
+                        @if ($seriesByDate->isNotEmpty())
+                            <canvas id="expenses-by-date-chart"></canvas>
+                        @else
+                            <div class="flex h-full flex-col items-center justify-center gap-3 text-stone-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 16l4-5 4 3 4-6" />
+                                </svg>
+                                <p class="text-sm text-stone-400">Aún no hay {{ strtolower($movementLabel) }} en este período.</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
                 <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                     <h2 class="text-lg font-semibold text-stone-900">Participación por grupo</h2>
                     <div class="mt-4 h-80">
-                        <canvas id="expenses-by-category-chart"></canvas>
+                        @if ($totalsByCategory->isNotEmpty())
+                            <canvas id="expenses-by-category-chart"></canvas>
+                        @else
+                            <div class="flex h-full flex-col items-center justify-center gap-3 text-stone-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                                </svg>
+                                <p class="text-sm text-stone-400">Aún no hay {{ strtolower($movementLabel) }} en este período.</p>
+                            </div>
+                        @endif
                     </div>
-                    <div id="category-chart-detail" class="mt-4 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
-                        Toca un color de la gráfica para ver valor y porcentaje.
-                    </div>
+                    @if ($totalsByCategory->isNotEmpty())
+                        <div id="category-chart-detail" class="mt-4 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+                            Toca un color de la gráfica para ver valor y porcentaje.
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -241,113 +262,119 @@
 
             const categoryLabels = @json($totalsByCategory->take(8)->pluck('name')->values());
             const categoryValues = @json($totalsByCategory->take(8)->pluck('movement_total')->map(fn ($value) => (float) $value)->values());
-            const palette = ['#0f766e', '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#65a30d', '#2563eb'];
+            const palette = ['#93c5e8', '#b8a9dc', '#f4a7bb', '#f8c4a0', '#f5dc9a', '#a8d5b5', '#99d4d0', '#a0b4e8'];
             const currency = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
-            new Chart(document.getElementById('expenses-by-date-chart'), {
-                type: 'line',
-                data: {
-                    labels: dateLabels,
-                    datasets: [{
-                        label: @js($movementLabel.' por fecha'),
-                        data: dateValues,
-                        borderColor: '#0284c7',
-                        pointBackgroundColor: palette,
-                        pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2,
-                        pointRadius: 4,
-                        backgroundColor: 'rgba(2, 132, 199, 0.18)',
-                        tension: 0.35,
-                        fill: true,
-                    }],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
+            const dateCanvas = document.getElementById('expenses-by-date-chart');
+            if (dateCanvas) {
+                new Chart(dateCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: dateLabels,
+                        datasets: [{
+                            label: @js($movementLabel.' por fecha'),
+                            data: dateValues,
+                            borderColor: '#93c5e8',
+                            pointBackgroundColor: palette,
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            backgroundColor: 'rgba(147, 197, 232, 0.22)',
+                            tension: 0.35,
+                            fill: true,
+                        }],
                     },
-                },
-            });
-
-            const categoryChartDetail = document.getElementById('category-chart-detail');
-            const categoryTotal = categoryValues.reduce((sum, value) => sum + value, 0);
-
-            const renderCategoryDetail = (index) => {
-                if (!categoryChartDetail || index === null || categoryLabels[index] === undefined) {
-                    return;
-                }
-
-                const value = Number(categoryValues[index] ?? 0);
-                const percentage = categoryTotal > 0 ? ((value / categoryTotal) * 100) : 0;
-
-                categoryChartDetail.innerHTML = `
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Grupo</div>
-                            <div class="mt-1 font-semibold text-stone-900">${categoryLabels[index]}</div>
-                        </div>
-                        <span class="inline-flex h-3.5 w-3.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
-                    </div>
-                    <div class="mt-3 flex items-end justify-between gap-3">
-                        <div>
-                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Valor</div>
-                            <div class="mt-1 text-lg font-semibold text-stone-900">$ ${currency.format(value)}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Participación</div>
-                            <div class="mt-1 text-lg font-semibold text-stone-900">${percentage.toFixed(1)}%</div>
-                        </div>
-                    </div>
-                `;
-            };
-
-            const categoryChart = new Chart(document.getElementById('expenses-by-category-chart'), {
-                type: 'doughnut',
-                data: {
-                    labels: categoryLabels,
-                    datasets: [{
-                        data: categoryValues,
-                        backgroundColor: palette,
-                        borderColor: '#ffffff',
-                        borderWidth: 2,
-                    }],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    onClick: (_, elements) => {
-                        if (!elements.length) {
-                            return;
-                        }
-
-                        renderCategoryDetail(elements[0].index);
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            onClick: (_, legendItem) => {
-                                renderCategoryDetail(legendItem.index);
-                            },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => {
-                                    const value = Number(context.raw ?? 0);
-                                    const percentage = categoryTotal > 0 ? ((value / categoryTotal) * 100) : 0;
+                    },
+                });
+            }
 
-                                    return `${context.label}: $ ${currency.format(value)} (${percentage.toFixed(1)}%)`;
+            const categoryCanvas = document.getElementById('expenses-by-category-chart');
+            if (categoryCanvas) {
+                const categoryChartDetail = document.getElementById('category-chart-detail');
+                const categoryTotal = categoryValues.reduce((sum, value) => sum + value, 0);
+
+                const renderCategoryDetail = (index) => {
+                    if (!categoryChartDetail || index === null || categoryLabels[index] === undefined) {
+                        return;
+                    }
+
+                    const value = Number(categoryValues[index] ?? 0);
+                    const percentage = categoryTotal > 0 ? ((value / categoryTotal) * 100) : 0;
+
+                    categoryChartDetail.innerHTML = `
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Grupo</div>
+                                <div class="mt-1 font-semibold text-stone-900">${categoryLabels[index]}</div>
+                            </div>
+                            <span class="inline-flex h-3.5 w-3.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
+                        </div>
+                        <div class="mt-3 flex items-end justify-between gap-3">
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Valor</div>
+                                <div class="mt-1 text-lg font-semibold text-stone-900">$ ${currency.format(value)}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Participación</div>
+                                <div class="mt-1 text-lg font-semibold text-stone-900">${percentage.toFixed(1)}%</div>
+                            </div>
+                        </div>
+                    `;
+                };
+
+                const categoryChart = new Chart(categoryCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categoryLabels,
+                        datasets: [{
+                            data: categoryValues,
+                            backgroundColor: palette,
+                            borderColor: '#ffffff',
+                            borderWidth: 2,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: (_, elements) => {
+                            if (!elements.length) {
+                                return;
+                            }
+
+                            renderCategoryDetail(elements[0].index);
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                onClick: (_, legendItem) => {
+                                    renderCategoryDetail(legendItem.index);
+                                },
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        const value = Number(context.raw ?? 0);
+                                        const percentage = categoryTotal > 0 ? ((value / categoryTotal) * 100) : 0;
+
+                                        return `${context.label}: $ ${currency.format(value)} (${percentage.toFixed(1)}%)`;
+                                    },
                                 },
                             },
                         },
                     },
-                },
-            });
+                });
 
-            if (categoryLabels.length > 0) {
-                renderCategoryDetail(0);
-                categoryChart.setActiveElements([{ datasetIndex: 0, index: 0 }]);
-                categoryChart.update();
+                if (categoryLabels.length > 0) {
+                    renderCategoryDetail(0);
+                    categoryChart.setActiveElements([{ datasetIndex: 0, index: 0 }]);
+                    categoryChart.update();
+                }
             }
         });
     </script>
