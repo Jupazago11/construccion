@@ -23,7 +23,7 @@
                         name="files[]"
                         type="file"
                         multiple
-                        accept="image/*,.pdf,application/pdf"
+                        accept="image/*,.pdf,application/pdf,video/*"
                         x-on:change="$event.target.files.length && $event.target.form.requestSubmit()"
                     />
                     <p data-error-for="files"></p>

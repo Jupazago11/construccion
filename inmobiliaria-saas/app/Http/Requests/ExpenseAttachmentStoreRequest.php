@@ -15,7 +15,7 @@ class ExpenseAttachmentStoreRequest extends FormRequest
     {
         return [
             'files' => ['required', 'array', 'min:1'],
-            'files.*' => ['required', 'file', 'max:10240', 'mimetypes:image/jpeg,image/png,image/webp,application/pdf'],
+            'files.*' => ['required', 'file', 'max:204800', 'mimetypes:image/jpeg,image/png,image/webp,application/pdf,video/mp4,video/quicktime,video/webm,video/x-msvideo,video/mpeg,video/3gpp,video/3gpp2'],
         ];
     }
 }

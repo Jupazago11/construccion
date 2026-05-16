@@ -137,7 +137,7 @@ class InvoiceController extends Controller
 
         $data = $request->validate([
             'files' => ['required', 'array', 'min:1'],
-            'files.*' => ['file', 'max:20480'],
+            'files.*' => ['file', 'max:204800', 'mimetypes:image/jpeg,image/png,image/webp,application/pdf,video/mp4,video/quicktime,video/webm,video/x-msvideo,video/mpeg,video/3gpp,video/3gpp2'],
         ]);
 
         foreach ($data['files'] as $file) {
