@@ -33,5 +33,5 @@
     </table>
 </div>
 <div class="mt-4">
-    {{ $history->links('vendor.pagination.tailwind') }}
+    {{ $history->links() }}
 </div>
