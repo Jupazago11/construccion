@@ -1,6 +1,6 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
-        <x-page-header title="Proveedores 2" description="">
+        <x-page-header title="Proveedores" description="">
             @can('create', App\Models\Provider2::class)
                 <button type="button" data-action="create" data-url="{{ route('providers2.create') }}" data-title="Nuevo Proveedor" class="app-create-button" title="Nuevo Proveedor">
                     +
@@ -20,23 +20,23 @@
                 @if (auth()->user()->isSuperAdmin())
                     <div>
                         <x-input-label for="company_id" :value="'Empresa'" />
-                        <select id="company_id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                        <x-clearable-select id="company_id" name="company_id" :selected="(string) ($filters['company_id'] ?? '')">
                             <option value="">Todas las empresas</option>
                             @foreach ($companies as $company)
                                 <option value="{{ $company->id }}" @selected((string) $filters['company_id'] === (string) $company->id)>{{ $company->name }}</option>
                             @endforeach
-                        </select>
+                        </x-clearable-select>
                     </div>
                 @endif
 
                 <div>
                     <x-input-label for="status" :value="'Estado'" />
-                    <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                    <x-clearable-select id="status" name="status" :selected="$filters['status']">
                         <option value="">Todos</option>
                         @foreach (auth()->user()->isSuperAdmin() ? ['active', 'inactive', 'deleted'] : ['active', 'inactive'] as $s)
                             <option value="{{ $s }}" @selected($filters['status'] === $s)>{{ ['active' => 'Activo', 'inactive' => 'Inactivo', 'deleted' => 'Eliminado'][$s] }}</option>
                         @endforeach
-                    </select>
+                    </x-clearable-select>
                 </div>
 
                 <div class="flex items-end">
@@ -63,7 +63,7 @@
                             @empty
                                 <tr data-empty-state>
                                     <td colspan="6" class="px-6 py-10 text-center text-stone-500">
-                                        No se encontraron proveedores 2 con los filtros actuales.
+                                        No se encontraron proveedores con los filtros actuales.
                                     </td>
                                 </tr>
                             @endforelse

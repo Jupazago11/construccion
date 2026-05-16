@@ -17,6 +17,37 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class InvoiceController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $rawType = (string) $request->query('type', '');
+        $type = in_array($rawType, ['expense', 'purchase'], true) ? $rawType : 'expense';
+
+        $this->authorize('viewAny', $type === 'purchase' ? Purchase::class : Expense::class);
+
+        $authUser = $request->user();
+        $companyId = $authUser->isSuperAdmin() ? null : $authUser->company_id;
+
+        $invoices = Invoice::query()
+            ->with(['provider', 'project'])
+            ->where('type', $type)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($inv) => [
+                'id' => $inv->id,
+                'invoice_number' => $inv->invoice_number,
+                'invoice_date' => optional($inv->invoice_date)->format('d/m/Y'),
+                'provider_name' => $inv->provider?->name,
+                'project_name' => $inv->project?->name,
+                'total_amount' => (float) $inv->total_amount,
+                'status' => $inv->status,
+            ]);
+
+        return response()->json(['invoices' => $invoices]);
+    }
+
     public function create(Request $request)
     {
         $type = in_array($request->string('type')->toString(), ['expense', 'purchase'], true)
@@ -310,9 +341,9 @@ class InvoiceController extends Controller
 
     protected function availableProviders($authUser)
     {
-        return \App\Models\Provider::query()
+        return \App\Models\Provider2::query()
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
-            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->where('status', EntityStatus::Active->value)
             ->orderBy('name')
             ->get();
     }

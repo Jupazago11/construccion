@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Project;
-use App\Models\Provider;
+use App\Models\Provider2;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,7 +32,7 @@ class InvoiceStoreRequest extends FormRequest
             'provider_id' => [
                 'required',
                 'integer',
-                Rule::exists(Provider::class, 'id')
+                Rule::exists(Provider2::class, 'id')
                     ->where('company_id', $this->resolvedCompanyId())
                     ->where('status', 'active'),
             ],

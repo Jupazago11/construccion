@@ -53,13 +53,13 @@
                                     <x-dropdown-link :href="$navUrl('users.index')">Usuarios</x-dropdown-link>
                                 @endcan
                                 @can('viewAny', App\Models\Asset2::class)
-                                    <x-dropdown-link :href="$navUrl('assets2.index')">Activos 2</x-dropdown-link>
+                                    <x-dropdown-link :href="$navUrl('assets2.index')">Activos</x-dropdown-link>
                                 @endcan
                                 @can('viewAny', App\Models\Provider2::class)
-                                    <x-dropdown-link :href="$navUrl('providers2.index')">Proveedores 2</x-dropdown-link>
+                                    <x-dropdown-link :href="$navUrl('providers2.index')">Proveedores</x-dropdown-link>
                                 @endcan
                                 @can('viewAny', App\Models\ProductGroup::class)
-                                    <x-dropdown-link :href="$navUrl('product-catalog.index')">Grupos, subgrupos y productos</x-dropdown-link>
+                                    <x-dropdown-link :href="$navUrl('product-catalog.index')">Productos</x-dropdown-link>
                                 @endcan
                             </x-slot>
                         </x-dropdown>
@@ -184,17 +184,17 @@
                         @endcan
                         @can('viewAny', App\Models\Asset2::class)
                             <form method="GET" action="{{ $navUrl('assets2.index') }}">
-                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('assets2.*')) }}">Activos 2</button>
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('assets2.*')) }}">Activos</button>
                             </form>
                         @endcan
                         @can('viewAny', App\Models\Provider2::class)
                             <form method="GET" action="{{ $navUrl('providers2.index') }}">
-                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('providers2.*')) }}">Proveedores 2</button>
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('providers2.*')) }}">Proveedores</button>
                             </form>
                         @endcan
                         @can('viewAny', App\Models\ProductGroup::class)
                             <form method="GET" action="{{ $navUrl('product-catalog.index') }}">
-                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('product-catalog.*')) }}">Grupos, subgrupos y productos</button>
+                                <button type="submit" class="{{ $mobileNavClass(request()->routeIs('product-catalog.*')) }}">Productos</button>
                             </form>
                         @endcan
                     </div>

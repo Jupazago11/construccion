@@ -91,6 +91,16 @@
         box-shadow: 0 14px 28px rgb(0 0 0 / 0.18);
     }
 
+    .app-invoice-list-fab {
+        position: fixed;
+        left: max(1rem, env(safe-area-inset-left));
+        bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 4rem);
+        z-index: 40;
+        width: 3.25rem;
+        height: 3.25rem;
+        box-shadow: 0 8px 20px rgb(0 0 0 / 0.12);
+    }
+
     .app-create-icon-button {
         padding: 0.5rem;
         border-radius: 1rem;
@@ -136,6 +146,30 @@
 
     .tenant-branded .app-logo {
         color: var(--app-accent);
+    }
+
+    .app-save-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 1rem;
+        background-color: var(--app-accent);
+        padding: 0.5rem 1rem;
+        color: #fff;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.25rem;
+        transition: background-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+    }
+
+    .app-save-button:hover:not(:disabled) {
+        background-color: var(--app-accent-hover);
+        box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
+    }
+
+    .app-save-button:disabled {
+        cursor: wait;
+        opacity: 0.6;
     }
 
     .app-two-line-text {

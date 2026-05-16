@@ -9,7 +9,7 @@ use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Project;
-use App\Models\Provider;
+use App\Models\Provider2;
 use App\Models\Purchase;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -328,7 +328,7 @@ class PurchaseController extends Controller
 
     protected function availableProviders($authUser)
     {
-        return Provider::query()
+        return Provider2::query()
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
             ->where('status', EntityStatus::Active->value)
             ->orderBy('name')
@@ -371,7 +371,7 @@ class PurchaseController extends Controller
 
     protected function guardTransactionCatalog(array $data, Project $project): void
     {
-        if (! $project->company->providers()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
+        if (! $project->company->providers2()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
             throw ValidationException::withMessages(['provider_id' => 'El proveedor seleccionado no está activo o no pertenece a la empresa del proyecto.']);
         }
 

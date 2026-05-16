@@ -5,6 +5,7 @@
     </x-slot>
 
     @can('create', App\Models\Purchase::class)
+        <x-invoice-list-panel type="purchase" />
         <button type="button" data-action="create" data-url="{{ route('invoices.create', ['type' => 'purchase']) }}" data-title="Nueva factura" class="app-create-text-fab" title="Nueva factura">
             + Factura
         </button>

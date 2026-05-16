@@ -1,8 +1,8 @@
 <x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
     <x-slot name="header">
-        <x-page-header title="Activos 2" description="">
+        <x-page-header title="Activos" description="">
             @can('create', App\Models\Asset2::class)
-                <button type="button" data-action="create" data-url="{{ route('assets2.create', request()->query()) }}" data-title="Nuevo activo 2" class="app-create-button" title="Nuevo activo 2">
+                <button type="button" data-action="create" data-url="{{ route('assets2.create', request()->query()) }}" data-title="Nuevo activo" class="app-create-button" title="Nuevo activo">
                     +
                 </button>
             @endcan
@@ -20,12 +20,12 @@
                 @if (auth()->user()->isSuperAdmin())
                     <div>
                         <x-input-label for="company_id" :value="'Empresa'" />
-                        <select id="company_id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                        <x-clearable-select id="company_id" name="company_id" :selected="(string) ($filters['company_id'] ?? '')">
                             <option value="">Todas las empresas</option>
                             @foreach ($companies as $company)
                                 <option value="{{ $company->id }}" @selected((string) $filters['company_id'] === (string) $company->id)>{{ $company->name }}</option>
                             @endforeach
-                        </select>
+                        </x-clearable-select>
                     </div>
                 @endif
 
@@ -52,7 +52,7 @@
                             @empty
                                 <tr data-empty-state>
                                     <td colspan="5" class="px-6 py-10 text-center text-stone-500">
-                                        No se encontraron activos 2 con los filtros actuales.
+                                        No se encontraron activos con los filtros actuales.
                                     </td>
                                 </tr>
                             @endforelse

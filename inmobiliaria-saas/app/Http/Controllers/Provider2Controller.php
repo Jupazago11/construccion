@@ -249,7 +249,7 @@ class Provider2Controller extends Controller
                 $query->where('status', EntityStatus::Active->value);
 
                 if ($provider2?->provider2_type_id) {
-                    $query->orWhereKey($provider2->provider2_type_id);
+                    $query->orWhere('id', $provider2->provider2_type_id);
                 }
             })
             ->withCount([

@@ -5,51 +5,75 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <form method="GET" id="reports-filter-form" class="grid gap-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm md:grid-cols-[180px_220px_220px_180px_180px_auto]">
-                <div>
-                    <x-input-label for="report_type" :value="'Indicadores'" />
-                    <select id="report_type" name="report_type" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                        <option value="expense" @selected($filters['report_type'] === 'expense')>Gastos</option>
-                        <option value="purchase" @selected($filters['report_type'] === 'purchase')>Compras</option>
-                    </select>
+            <section x-data="{ filtersOpen: {{ $selectedProject ? 'false' : 'true' }} }" class="rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between gap-3 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">Filtros</h2>
+                    <button
+                        type="button"
+                        class="inline-flex items-center rounded-2xl border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                        x-on:click="filtersOpen = !filtersOpen"
+                        x-text="filtersOpen ? 'Ocultar' : 'Expandir'"
+                    ></button>
                 </div>
 
-                @if (auth()->user()->isSuperAdmin())
-                    <div>
-                        <x-input-label for="company_id" :value="'Empresa'" />
-                        <select id="company_id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                            <option value="">Todas</option>
-                            @foreach ($companies as $company)
-                                <option value="{{ $company->id }}" @selected((string) $filters['company_id'] === (string) $company->id)>{{ $company->name }}</option>
-                            @endforeach
-                        </select>
+                <form method="GET" id="reports-filter-form" class="border-t border-stone-200 p-5">
+                    <div
+                        x-show="filtersOpen"
+                        x-cloak
+                        x-transition:enter="transition ease-out duration-[875ms]"
+                        x-transition:enter-start="opacity-0 -translate-y-2"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-[613ms]"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 -translate-y-2"
+                        class="grid gap-4 md:grid-cols-[180px_220px_220px_180px_180px_auto]"
+                    >
+                        <div>
+                            <x-input-label for="report_type" :value="'Indicadores'" />
+                            <select id="report_type" name="report_type" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                <option value="expense" @selected($filters['report_type'] === 'expense')>Gastos</option>
+                                <option value="purchase" @selected($filters['report_type'] === 'purchase')>Compras</option>
+                            </select>
+                        </div>
+
+                        @if (auth()->user()->isSuperAdmin())
+                            <div>
+                                <x-input-label for="company_id" :value="'Empresa'" />
+                                <select id="company_id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                    <option value="">Todas</option>
+                                    @foreach ($companies as $company)
+                                        <option value="{{ $company->id }}" @selected((string) $filters['company_id'] === (string) $company->id)>{{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
+                        <div>
+                            <x-input-label for="project_id" :value="'Proyecto'" />
+                            <select id="project_id" name="project_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                <option value="">Selecciona un proyecto</option>
+                                @foreach ($projects as $project)
+                                    <option value="{{ $project->id }}" @selected((string) $filters['project_id'] === (string) $project->id)>{{ $project->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <x-input-label for="date_from" :value="'Desde'" />
+                            <x-text-input id="date_from" name="date_from" type="date" class="mt-1 block w-full" :value="$filters['date_from']" />
+                        </div>
+
+                        <div>
+                            <x-input-label for="date_to" :value="'Hasta'" />
+                            <x-text-input id="date_to" name="date_to" type="date" class="mt-1 block w-full" :value="$filters['date_to']" />
+                        </div>
+
+                        <div class="flex items-end">
+                            <x-primary-button class="w-full justify-center md:w-auto">Filtrar</x-primary-button>
+                        </div>
                     </div>
-                @endif
-
-                <div>
-                    <x-input-label for="project_id" :value="'Proyecto'" />
-                    <select id="project_id" name="project_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                        <option value="">Selecciona un proyecto</option>
-                        @foreach ($projects as $project)
-                            <option value="{{ $project->id }}" @selected((string) $filters['project_id'] === (string) $project->id)>{{ $project->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <x-input-label for="date_from" :value="'Desde'" />
-                    <x-text-input id="date_from" name="date_from" type="date" class="mt-1 block w-full" :value="$filters['date_from']" />
-                </div>
-
-                <div>
-                    <x-input-label for="date_to" :value="'Hasta'" />
-                    <x-text-input id="date_to" name="date_to" type="date" class="mt-1 block w-full" :value="$filters['date_to']" />
-                </div>
-
-                <div class="flex items-end">
-                    <x-primary-button class="w-full justify-center md:w-auto">Filtrar</x-primary-button>
-                </div>
-            </form>
+                </form>
+            </section>
 
             @if ($selectedProject)
             <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">

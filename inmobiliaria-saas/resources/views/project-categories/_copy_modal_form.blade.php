@@ -1,4 +1,4 @@
-<form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
+﻿<form method="POST" action="{{ $action }}" data-ajax-form class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
     @csrf
     @if ($method !== 'POST')
         @method($method)
@@ -26,14 +26,9 @@
         </div>
     </div>
 
-    <div class="sticky bottom-0 z-10 mt-auto shrink-0 border-t border-stone-200 bg-white px-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-4 shadow-[0_-8px_18px_rgba(255,255,255,0.92)]">
-        <div class="flex items-center justify-end gap-3">
-        <button type="button" data-action="close-modal" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50">
-            Cancelar
-        </button>
-        <button type="submit" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700">
+    <x-modal-footer>
+        <button type="submit" class="app-save-button">
             Copiar estructura
         </button>
-        </div>
-    </div>
+    </x-modal-footer>
 </form>

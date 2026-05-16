@@ -26,7 +26,7 @@
     })"
 >
     <x-slot name="header">
-        <x-page-header title="Maestras" description="">
+        <x-page-header title="Productos" description="">
             @can('create', App\Models\ProductGroup::class)
                 <button type="button" class="app-create-button" title="Nuevo registro maestro" x-on:click="openModal('group')">+</button>
             @endcan

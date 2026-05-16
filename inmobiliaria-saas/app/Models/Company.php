@@ -44,6 +44,11 @@ class Company extends Model
         return $this->hasMany(Provider::class);
     }
 
+    public function providers2(): HasMany
+    {
+        return $this->hasMany(Provider2::class);
+    }
+
     public function assets(): HasMany
     {
         return $this->hasMany(Asset::class);
