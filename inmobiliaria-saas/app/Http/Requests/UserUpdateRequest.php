@@ -8,7 +8,6 @@ use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class UserUpdateRequest extends FormRequest
 {
@@ -40,7 +39,7 @@ class UserUpdateRequest extends FormRequest
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._-]+$/', Rule::unique('users', 'username')->ignore($managedUser?->id)],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($managedUser?->id)],
-            'password' => ['nullable', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()->symbols()],
+            'password' => ['nullable', 'confirmed', 'min:4'],
             'status' => [
                 Rule::requiredIf($this->canManageStatus($authUser, $managedUser)),
                 'nullable',

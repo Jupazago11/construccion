@@ -229,7 +229,7 @@ class InvoiceController extends Controller
 
         $transactionModel::query()
             ->where('invoice_id', $invoice->id)
-            ->update(['invoice_id' => null]);
+            ->update(['status' => EntityStatus::Deleted->value]);
 
         $invoice->attachments()
             ->where('status', '!=', EntityStatus::Deleted->value)

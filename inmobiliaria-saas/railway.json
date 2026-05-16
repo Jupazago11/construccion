@@ -5,6 +5,7 @@
         "buildCommand": "npm run build"
     },
     "deploy": {
+        "startCommand": "docker/start-container.sh",
         "preDeployCommand": "chmod +x ./railway/init-app.sh && sh ./railway/init-app.sh",
         "healthcheckPath": "/login",
         "healthcheckTimeout": 300,
