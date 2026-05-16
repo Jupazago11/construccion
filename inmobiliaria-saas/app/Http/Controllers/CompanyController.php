@@ -200,13 +200,17 @@ class CompanyController extends Controller
     {
         abort_if(! $company->logo_path, 404);
 
-        $path = $company->logo_path;
+        try {
+            $path = $company->logo_path;
 
-        abort_if(! Storage::disk('r2')->exists($path), 404);
+            abort_if(! Storage::disk('r2')->exists($path), 404);
 
-        $url = Storage::disk('r2')->temporaryUrl($path, now()->addDay());
+            $url = Storage::disk('r2')->temporaryUrl($path, now()->addDay());
 
-        return redirect($url)->header('Cache-Control', 'public, max-age=3600');
+            return redirect($url)->header('Cache-Control', 'public, max-age=3600');
+        } catch (\Throwable) {
+            abort(404);
+        }
     }
 
     public function storeLogo(Request $request, Company $company): JsonResponse
