@@ -47,7 +47,12 @@
 
             <div class="relative">
                 <x-input-label for="provider_search" :value="'Proveedor'" />
-                <input id="provider_search" data-transaction-provider-search class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" required>
+                <div class="relative mt-1">
+                    <input id="provider_search" data-transaction-provider-search class="block w-full rounded-2xl border-stone-300 pr-8 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" required>
+                    <button type="button" data-transaction-provider-clear tabindex="-1" title="Limpiar" class="absolute right-2.5 top-1/2 -translate-y-1/2 hidden text-stone-400 transition hover:text-stone-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
                 <input type="hidden" name="provider_id" data-transaction-provider>
                 <div data-transaction-provider-menu class="absolute left-0 right-0 z-[70] mt-2 hidden max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-1 shadow-xl"></div>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="provider_id"></p>
@@ -55,7 +60,12 @@
 
             <div class="relative">
                 <x-input-label for="product_search" :value="'Producto'" />
-                <input id="product_search" data-transaction-product-search class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" required>
+                <div class="relative mt-1">
+                    <input id="product_search" data-transaction-product-search class="block w-full rounded-2xl border-stone-300 pr-8 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" required>
+                    <button type="button" data-transaction-product-clear tabindex="-1" title="Limpiar" class="absolute right-2.5 top-1/2 -translate-y-1/2 hidden text-stone-400 transition hover:text-stone-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
                 <input type="hidden" name="product_id" data-transaction-product>
                 <div data-transaction-product-menu class="absolute left-0 right-0 z-[70] mt-2 hidden max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-1 shadow-xl"></div>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="product_id"></p>
@@ -63,7 +73,12 @@
 
             <div class="relative md:col-span-2">
                 <x-input-label for="invoice_search" :value="'Factura (opcional)'" />
-                <input id="invoice_search" data-transaction-invoice-search class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" placeholder="Sin factura">
+                <div class="relative mt-1">
+                    <input id="invoice_search" data-transaction-invoice-search class="block w-full rounded-2xl border-stone-300 pr-8 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" placeholder="Sin factura">
+                    <button type="button" data-transaction-invoice-clear tabindex="-1" title="Limpiar" class="absolute right-2.5 top-1/2 -translate-y-1/2 hidden text-stone-400 transition hover:text-stone-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
                 <input type="hidden" name="invoice_id" data-transaction-invoice>
                 <div data-transaction-invoice-menu class="absolute left-0 right-0 z-[70] mt-2 hidden max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-1 shadow-xl"></div>
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="invoice_id"></p>

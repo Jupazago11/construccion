@@ -2436,6 +2436,9 @@ window.initializeTransactionForms = (root = document) => {
         const unitPriceField = form.querySelector('[data-transaction-unit-price]');
         const quantityField = form.querySelector('[data-transaction-quantity]');
         const totalPreviewEl = form.querySelector('[data-transaction-total-preview]');
+        const providerClear = form.querySelector('[data-transaction-provider-clear]');
+        const productClear = form.querySelector('[data-transaction-product-clear]');
+        const invoiceClear = form.querySelector('[data-transaction-invoice-clear]');
 
         const state = {
             projectId: selected.project_id ? String(selected.project_id) : '',
@@ -2464,6 +2467,7 @@ window.initializeTransactionForms = (root = document) => {
         const availableInvoices = () => invoices.filter((invoice) => (
             invoice.project_id === state.projectId
             && invoice.type === form.dataset.transactionType
+            && (! invoice.provider_id || invoice.provider_id === 'null' || invoice.provider_id === state.providerId)
         ));
 
         const closeMenu = (menu) => menu?.classList.add('hidden');
@@ -2550,6 +2554,7 @@ window.initializeTransactionForms = (root = document) => {
                         productSearch.value = item.name;
                     }
 
+                    updateClearButtons();
                     closeProductMenu();
                 });
                 productMenu.appendChild(button);
@@ -2578,6 +2583,12 @@ window.initializeTransactionForms = (root = document) => {
             if (hidden) {
                 hidden.value = state[key];
             }
+        };
+
+        const updateClearButtons = () => {
+            providerClear?.classList.toggle('hidden', ! state.providerId);
+            productClear?.classList.toggle('hidden', ! state.productId);
+            invoiceClear?.classList.toggle('hidden', ! state.invoiceId);
         };
 
         const syncLists = () => {
@@ -2615,6 +2626,7 @@ window.initializeTransactionForms = (root = document) => {
                 },
             });
             renderProductMenu(availableProducts);
+            updateClearButtons();
         };
 
         const renderInvoiceMenu = (items) => {
@@ -2634,6 +2646,7 @@ window.initializeTransactionForms = (root = document) => {
                     if (invoiceSearch) {
                         invoiceSearch.value = item.name === 'Sin factura' ? '' : item.name;
                     }
+                    updateClearButtons();
                     closeMenu(invoiceMenu);
                 },
             });
@@ -2711,6 +2724,7 @@ window.initializeTransactionForms = (root = document) => {
                     if (providerSearch) {
                         providerSearch.value = item.name;
                     }
+                    updateClearButtons();
                     closeMenu(providerMenu);
                 },
             });
@@ -2733,6 +2747,7 @@ window.initializeTransactionForms = (root = document) => {
                     if (providerSearch) {
                         providerSearch.value = item.name;
                     }
+                    updateClearButtons();
                     closeMenu(providerMenu);
                 },
             });
@@ -2788,6 +2803,30 @@ window.initializeTransactionForms = (root = document) => {
                 syncSearch(availableForProject(products), state.productId, productSearch, productField);
                 closeProductMenu();
             }, 120);
+        });
+
+        providerClear?.addEventListener('click', () => {
+            state.providerId = '';
+            state.invoiceId = '';
+            if (providerField) providerField.value = '';
+            if (providerSearch) providerSearch.value = '';
+            if (invoiceField) invoiceField.value = '';
+            if (invoiceSearch) invoiceSearch.value = '';
+            syncLists();
+        });
+
+        productClear?.addEventListener('click', () => {
+            state.productId = '';
+            if (productField) productField.value = '';
+            if (productSearch) productSearch.value = '';
+            syncLists();
+        });
+
+        invoiceClear?.addEventListener('click', () => {
+            state.invoiceId = '';
+            if (invoiceField) invoiceField.value = '';
+            if (invoiceSearch) invoiceSearch.value = '';
+            syncLists();
         });
 
         if (unitPriceField) {
