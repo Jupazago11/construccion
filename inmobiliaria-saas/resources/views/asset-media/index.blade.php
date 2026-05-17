@@ -30,14 +30,39 @@
                     <p data-error-for="files.0"></p>
                 </form>
 
-                <label
-                    for="asset-media-files"
-                    class="app-create-button cursor-pointer"
-                    title="Subir fotos o videos"
-                    :class="saving ? 'pointer-events-none opacity-60' : ''"
-                >
-                    +
-                </label>
+                <form method="POST" action="{{ route('assets.media.store', $asset) }}" enctype="multipart/form-data" data-ajax-form class="sr-only">
+                    @csrf
+
+                    <input
+                        id="asset-media-camera"
+                        name="files[]"
+                        type="file"
+                        accept="image/*,video/*"
+                        capture="environment"
+                        x-on:change="$event.target.files.length && $event.target.form.requestSubmit()"
+                    />
+                    <p data-error-for="files"></p>
+                    <p data-error-for="files.0"></p>
+                </form>
+
+                <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
+                    <label
+                        for="asset-media-camera"
+                        class="inline-flex cursor-pointer items-center rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-orange-600 shadow-lg transition hover:bg-orange-50"
+                        title="Usar camara"
+                        :class="saving ? 'pointer-events-none opacity-60' : ''"
+                    >
+                        Camara
+                    </label>
+                    <label
+                        for="asset-media-files"
+                        class="app-create-button cursor-pointer"
+                        title="Subir desde galeria"
+                        :class="saving ? 'pointer-events-none opacity-60' : ''"
+                    >
+                        +
+                    </label>
+                </div>
             @endcan
 
             <div x-ref="attachments">
