@@ -94,7 +94,7 @@
                 </form>
             </section>
 
-            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm" data-ajax-table>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-stone-200 whitespace-nowrap text-sm">
                         <thead class="bg-stone-50 text-left text-stone-500">
@@ -114,7 +114,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="border-t border-stone-200 px-6 py-4">{{ $purchases->links() }}</div>
+                <div class="border-t border-stone-200 px-6 py-4" x-ref="pagination" data-ajax-pagination>{{ $purchases->links() }}</div>
             </div>
 
             <x-ajax-crud-modal />

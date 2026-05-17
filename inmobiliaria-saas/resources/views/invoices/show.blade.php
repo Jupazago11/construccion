@@ -199,9 +199,9 @@
                                             <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] {{ $item->activity_id ? 'text-emerald-700' : 'text-rose-700' }}">
                                                 {{ $item->activity_id ? 'Actividad' : 'Producto' }}
                                             </div>
-                                            <div class="font-medium text-stone-700">{{ $catalogItem?->name ?: '-' }}</div>
+                                            <div class="whitespace-nowrap font-medium text-stone-700">{{ $catalogItem?->name ?: '-' }}</div>
                                             @if ($catalogSubgroup)
-                                                <div class="mt-0.5 text-xs text-stone-400">{{ $catalogSubgroup->name }}</div>
+                                                <div class="mt-0.5 whitespace-nowrap text-xs text-stone-400">{{ $catalogSubgroup->name }}</div>
                                             @endif
                                         @endif
                                     </td>

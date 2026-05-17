@@ -44,6 +44,7 @@ class InvoiceController extends Controller
                 'project_name' => $inv->project?->name,
                 'total_amount' => (float) $inv->total_amount,
                 'status' => $inv->status,
+                'show_url' => route('invoices.show', $inv),
             ]);
 
         return response()->json(['invoices' => $invoices]);

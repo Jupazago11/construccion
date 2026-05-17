@@ -66,7 +66,7 @@
             @endif
 
             @if (auth()->user()->isSuperAdmin())
-                <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm" data-ajax-table>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-stone-200 text-sm">
                             <thead class="bg-stone-50 text-left text-stone-500">
@@ -80,41 +80,24 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-stone-100" x-ref="tbody">
-                                @forelse ($projects as $project)
-                                    @include('projects._row', ['project' => $project])
-                                @empty
-                                    <tr data-empty-state>
-                                        <td colspan="6" class="px-6 py-10 text-center text-stone-500">
-                                            No se encontraron proyectos con los filtros actuales.
-                                        </td>
-                                    </tr>
-                                @endforelse
+                                @include('projects._table_body', ['projects' => $projects])
                             </tbody>
                         </table>
                     </div>
 
                     @if ($projects->hasPages())
-                        <div class="border-t border-stone-200 px-6 py-4">
+                        <div class="border-t border-stone-200 px-6 py-4" x-ref="pagination" data-ajax-pagination>
                             {{ $projects->links() }}
                         </div>
                     @endif
                 </div>
             @else
-                <div class="grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-3" x-ref="tbody">
-                    @forelse ($projects as $project)
-                        @if (! $loop->first)
-                            <div class="h-px bg-stone-200/80 md:hidden" aria-hidden="true"></div>
-                        @endif
-                        @include('projects._card', ['project' => $project])
-                    @empty
-                        <div data-empty-state class="rounded-3xl border border-dashed border-stone-300 bg-white px-6 py-12 text-center text-stone-500 md:col-span-2 xl:col-span-3">
-                            No se encontraron proyectos registrados.
-                        </div>
-                    @endforelse
+                <div class="grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-3" x-ref="tbody" data-ajax-table>
+                    @include('projects._cards_body', ['projects' => $projects])
                 </div>
 
                 @if ($projects->hasPages())
-                    <div class="rounded-3xl border border-stone-200 bg-white px-6 py-4 shadow-sm">
+                    <div class="rounded-3xl border border-stone-200 bg-white px-6 py-4 shadow-sm" x-ref="pagination" data-ajax-pagination>
                         {{ $projects->links() }}
                     </div>
                 @endif

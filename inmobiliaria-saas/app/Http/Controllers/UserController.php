@@ -12,11 +12,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\View as ViewFacade;
 use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', User::class);
 
@@ -43,6 +44,13 @@ class UserController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('users._table_body', compact('users'))->render(),
+                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $users])->render(),
+            ]);
+        }
 
         return view('users.index', [
             'users' => $users,

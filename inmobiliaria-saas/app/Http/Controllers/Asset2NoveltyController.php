@@ -48,9 +48,10 @@ class Asset2NoveltyController extends Controller
             'asset2_id' => $asset2->id,
             'created_by' => $request->user()->id,
             'asset_novelty_type_id' => $data['asset_novelty_type_id'],
+            'name' => $data['name'],
             'cost' => $data['cost'],
-            'description' => $data['description'],
-            'asset_status' => $data['asset_status'],
+            'description' => $data['description'] ?? null,
+            'asset_status' => $data['asset_status'] ?? $asset2->asset_condition,
             'novelty_date' => $data['novelty_date'],
             'status' => EntityStatus::Active->value,
         ]);
@@ -100,9 +101,10 @@ class Asset2NoveltyController extends Controller
 
         $novelty->update([
             'asset_novelty_type_id' => $data['asset_novelty_type_id'],
+            'name' => $data['name'],
             'cost' => $data['cost'],
-            'description' => $data['description'],
-            'asset_status' => $data['asset_status'],
+            'description' => $data['description'] ?? null,
+            'asset_status' => $data['asset_status'] ?? $asset2->asset_condition ?? $novelty->asset_status,
             'novelty_date' => $data['novelty_date'],
         ]);
 

@@ -166,7 +166,6 @@ Alpine.data('crudTable', (config = {}) => ({
                         if (!isEditForm) {
                             window.requestAnimationFrame(() => {
                                 this.restoreModalFormValues(draft);
-                                this.showToast('Borrador restaurado automáticamente.');
                             });
                         }
                     }
@@ -478,6 +477,7 @@ Alpine.data('crudTable', (config = {}) => ({
 
             this.applyRowChange(response.data);
             this.clearDraft(this.modalUrl);
+
             form.reset();
             if (form.closest('[data-nested-modal-content]')) {
                 this.closeNestedModal();
@@ -1841,7 +1841,8 @@ Alpine.data('activityCatalog', (config = {}) => ({
             });
 
             this.clearDraft(this.tab);
-            this.applyResponse(response.data);
+            await this.goToPage(window.location.href, false);
+            this.showToast(response.data?.message ?? 'Estado actualizado correctamente.', 'success');
         } catch (error) {
             if (error.response?.status === 422 && error.response.data?.errors) {
                 const firstMessage = Object.values(error.response.data.errors).flat()[0];
@@ -1887,7 +1888,8 @@ Alpine.data('activityCatalog', (config = {}) => ({
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
 
-            this.applyResponse(response.data);
+            await this.goToPage(window.location.href, false);
+            this.showToast(response.data?.message ?? 'Estado actualizado correctamente.', 'success');
         } catch (error) {
             window.dispatchEvent(new CustomEvent('crud-toast', {
                 detail: { message: error.response?.data?.message || 'No fue posible archivar el registro.', type: 'error' },
@@ -2066,27 +2068,27 @@ return {
     },
 
     handleTypeChange(event) {
-    event.preventDefault();
-    event.stopPropagation();
+        event.preventDefault();
+        event.stopPropagation();
 
-    const value = event.target.value;
+        const value = event.target.value;
 
-    if (value === '__manage__') {
-        event.target.value = this.selectedTypeId;
-        this.openManager();
-        return;
-    }
-
-    this.previousTypeId = this.selectedTypeId;
-    this.selectedTypeId = value;
-    _selectedTypeId = value;
-
-    selectEls.forEach((select) => {
-        if (select !== event.target) {
-            select.value = value;
+        if (value === '__manage__') {
+            event.target.value = this.selectedTypeId;
+            this.openManager();
+            return;
         }
-    });
-},
+
+        this.previousTypeId = this.selectedTypeId;
+        this.selectedTypeId = value;
+        _selectedTypeId = value;
+
+        selectEls.forEach((select) => {
+            if (select !== event.target) {
+                select.value = value;
+            }
+        });
+    },
 
     openManager() {
         window.dispatchEvent(new CustomEvent('crud-save-open-modal-draft'));

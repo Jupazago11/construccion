@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout x-data="crudTable()" x-on:click="handleClick($event)">
     <x-slot name="header">
         <x-page-header title="Auditoría" description="Consulta la trazabilidad de acciones del SaaS y filtra por empresa, proyecto, evento o módulo." />
     </x-slot>
@@ -63,7 +63,7 @@
                 </div>
             </form>
 
-            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm" data-ajax-table>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-stone-200 text-sm">
                         <thead class="bg-stone-50 text-left text-stone-500">
@@ -76,44 +76,12 @@
                                 <th class="px-6 py-4 font-medium">Detalle</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-stone-100">
-                            @forelse ($activities as $activity)
-                                <tr class="align-top">
-                                    <td class="px-6 py-4 text-stone-600">
-                                        <div>{{ $activity->created_at?->format('Y-m-d H:i:s') }}</div>
-                                        <div class="text-xs text-stone-400">{{ $activity->log_name }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-stone-900">
-                                        <div class="font-semibold">{{ $activity->event ?: 'sin evento' }}</div>
-                                        <div class="text-stone-500">{{ $activity->description_label }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-stone-600">
-                                        <div>{{ $activity->causer?->name ?: 'Sistema' }}</div>
-                                        <div class="text-xs text-stone-400">{{ $activity->causer?->username ? '@'.$activity->causer->username : '' }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-stone-600">
-                                        <div>{{ $activity->company?->name ?: 'Sin empresa' }}</div>
-                                        <div>{{ $activity->project?->name ?: 'Sin proyecto' }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-stone-600">
-                                        <div>{{ class_basename((string) $activity->subject_type) }}</div>
-                                        <div class="text-xs text-stone-400">ID {{ $activity->subject_id ?: 'N/A' }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-stone-600">
-                                        <pre class="max-w-md overflow-x-auto whitespace-pre-wrap rounded-2xl bg-stone-50 px-3 py-2 text-xs text-stone-600">{{ json_encode($activity->properties, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="px-6 py-10 text-center text-stone-500">
-                                        No se encontraron actividades con los filtros actuales.
-                                    </td>
-                                </tr>
-                            @endforelse
+                        <tbody class="divide-y divide-stone-100" x-ref="tbody">
+                            @include('audit._table_body', ['activities' => $activities])
                         </tbody>
                     </table>
                 </div>
-                <div class="border-t border-stone-200 px-6 py-4">
+                <div class="border-t border-stone-200 px-6 py-4" x-ref="pagination" data-ajax-pagination>
                     {{ $activities->links() }}
                 </div>
             </div>

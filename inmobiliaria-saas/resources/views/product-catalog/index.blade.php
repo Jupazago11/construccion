@@ -181,7 +181,7 @@
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            class="grid max-h-[88dvh] w-full max-w-2xl grid-rows-[auto,minmax(0,1fr),auto] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
+            class="grid max-h-[88dvh] w-full max-w-2xl grid-rows-[auto,minmax(0,1fr),auto] overflow-visible rounded-3xl border border-stone-200 bg-white shadow-2xl"
         >
             <div class="flex items-start justify-between gap-4 border-b border-stone-200 px-6 py-5">
                 <div>
@@ -190,7 +190,7 @@
                 <button type="button" class="rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900" title="Cerrar" x-on:click="closeModal()">×</button>
             </div>
 
-            <form class="min-h-0 overflow-y-auto px-6 py-5 transition-all duration-300 ease-out" x-on:submit.prevent="saveRecord">
+            <form class="min-h-0 overflow-visible px-6 py-5 transition-all duration-300 ease-out" x-on:submit.prevent="saveRecord">
                 <div class="mb-5 grid grid-cols-3 gap-2 rounded-2xl bg-stone-100 p-1">
                     <button type="button" class="rounded-xl px-3 py-2 text-sm font-medium transition" :class="tab === 'group' ? 'bg-white text-stone-950 shadow-sm' : 'text-stone-600'" x-on:click="setTab('group')">Grupo</button>
                     <button type="button" class="rounded-xl px-3 py-2 text-sm font-medium transition" :class="tab === 'subgroup' ? 'bg-white text-stone-950 shadow-sm' : 'text-stone-600'" x-on:click="setTab('subgroup')">Subgrupo</button>

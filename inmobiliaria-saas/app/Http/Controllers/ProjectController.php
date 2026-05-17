@@ -11,6 +11,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\View as ViewFacade;
 
 class ProjectController extends Controller
 {
@@ -18,7 +19,11 @@ class ProjectController extends Controller
 
     protected const PROJECT_ROW_VIEW = 'projects._row';
 
-    public function index(Request $request): View
+    protected const PROJECT_CARD_LIST_VIEW = 'projects._cards_body';
+
+    protected const PROJECT_TABLE_LIST_VIEW = 'projects._table_body';
+
+    public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Project::class);
 
@@ -29,27 +34,17 @@ class ProjectController extends Controller
             ? $request->integer('company_id') ?: null
             : $authUser->company_id;
 
-        $projects = Project::query()
-            ->with('company')
-            ->withCount([
-                'categories as active_categories_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
-                'expenses as active_expenses_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
-            ])
-            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
-            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($nested) use ($search) {
-                    $nested
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('city', 'like', "%{$search}%")
-                        ->orWhere('country', 'like', "%{$search}%")
-                        ->orWhere('address', 'like', "%{$search}%");
-                });
-            })
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
+        $projects = $this->buildIndexQuery($request, $companyId, $search, $status)
             ->latest()
             ->paginate(10)
             ->withQueryString();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view($this->projectListContainerPartial($request), compact('projects'))->render(),
+                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $projects])->render(),
+            ]);
+        }
 
         return view('projects.index', [
             'projects' => $projects,
@@ -292,6 +287,35 @@ class ProjectController extends Controller
         return $request->user()?->isSuperAdmin()
             ? self::PROJECT_ROW_VIEW
             : self::PROJECT_CARD_VIEW;
+    }
+
+    protected function projectListContainerPartial(Request $request): string
+    {
+        return $request->user()?->isSuperAdmin()
+            ? self::PROJECT_TABLE_LIST_VIEW
+            : self::PROJECT_CARD_LIST_VIEW;
+    }
+
+    protected function buildIndexQuery(Request $request, ?int $companyId, string $search, string $status)
+    {
+        return Project::query()
+            ->with('company')
+            ->withCount([
+                'categories as active_categories_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+                'expenses as active_expenses_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
+            ->when(! $request->user()?->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
+            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($nested) use ($search) {
+                    $nested
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%")
+                        ->orWhere('country', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%");
+                });
+            })
+            ->when($status !== '', fn ($query) => $query->where('status', $status));
     }
 
     protected function projectHasDependencies(Project $project): bool

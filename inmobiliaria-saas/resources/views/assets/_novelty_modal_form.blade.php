@@ -1,4 +1,4 @@
-﻿@php
+@php
     $activeNoveltyTypes = $activeNoveltyTypes ?? $noveltyTypes->where('status', 'active')->values();
     $selectedNoveltyTypeId = old('asset_novelty_type_id', $novelty->asset_novelty_type_id ?: ($activeNoveltyTypes->first()['id'] ?? null));
     $formUid = 'asset-novelty-' . $asset->id . '-' . ($novelty->exists ? $novelty->id : 'new') . '-' . substr(md5($action), 0, 8);
@@ -31,67 +31,6 @@
                 <div class="font-semibold text-stone-900">{{ $asset->name }}</div>
             </div>
 
-            <div class="grid gap-6 md:grid-cols-2">
-                <div>
-                    <x-input-label for="{{ $formUid }}-asset-novelty-type-id" :value="'Tipo de novedad'" />
-                    <div class="mt-1 flex items-center gap-2">
-                        <select
-                            id="{{ $formUid }}-asset-novelty-type-id"
-                            name="asset_novelty_type_id"
-                            autocomplete="off"
-                            class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
-                            x-effect="syncTypeSelect($el)"
-                            x-on:change="handleTypeChange($event)"
-                            required
-                        ></select>
-                        <button
-                            type="button"
-                            class="app-create-button-sm shrink-0"
-                            title="Administrar tipos de novedad"
-                            x-on:click.stop.prevent="openManager()"
-                        >
-                            +
-                        </button>
-                    </div>
-                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_novelty_type_id"></p>
-                </div>
-
-                <div>
-                    <x-input-label for="{{ $formUid }}-cost" :value="'Costo'" />
-                    <x-text-input
-                        id="{{ $formUid }}-cost"
-                        name="cost"
-                        type="text"
-                        inputmode="numeric"
-                        class="mt-1 block w-full"
-                        :value="$novelty->cost !== null ? number_format((float) $novelty->cost, 0, ',', '.') : ''"
-                        autocomplete="off"
-                        data-currency-input
-                        placeholder="Ej. 1.000.000"
-                        required
-                    />
-                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="cost"></p>
-                </div>
-
-                <div>
-                    <x-input-label for="{{ $formUid }}-novelty-date" :value="'Fecha'" />
-                    <x-text-input id="{{ $formUid }}-novelty-date" name="novelty_date" type="date" class="mt-1 block w-full" :value="optional($novelty->novelty_date)->format('Y-m-d') ?: $novelty->novelty_date" autocomplete="off" required />
-                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="novelty_date"></p>
-                </div>
-
-                <div class="md:col-span-2">
-                    <x-input-label for="{{ $formUid }}-asset-status" :value="'Estado actual del activo'" />
-                    <x-text-input id="{{ $formUid }}-asset-status" name="asset_status" type="text" class="mt-1 block w-full" :value="$novelty->asset_status" placeholder="Ej. Operativo, en mantenimiento, fuera de servicio" autocomplete="off" required />
-                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_status"></p>
-                </div>
-
-                <div class="md:col-span-2">
-                    <x-input-label for="{{ $formUid }}-description" :value="'Descripción'" />
-                    <textarea id="{{ $formUid }}-description" name="description" rows="4" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off" required>{{ $novelty->description }}</textarea>
-                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="description"></p>
-                </div>
-            </div>
-
             @unless ($novelty->exists)
                 <div class="space-y-3">
                     <div class="flex items-center justify-between gap-4">
@@ -102,7 +41,10 @@
                     @forelse ($asset->novelties as $recentNovelty)
                         <div class="rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-600">
                             <div class="flex items-center justify-between gap-4">
-                                <div class="font-medium text-stone-900">{{ $recentNovelty->novelty_date?->format('Y-m-d') }}</div>
+                                <div>
+                                    <div class="font-medium text-stone-900">{{ $recentNovelty->name ?: 'Novedad' }}</div>
+                                    <div class="text-xs text-stone-400">{{ $recentNovelty->novelty_date?->format('Y-m-d') }}</div>
+                                </div>
                                 <div class="flex items-center gap-2">
                                     <div>$ {{ number_format((float) $recentNovelty->cost, 0, ',', '.') }}</div>
                                     <button
@@ -142,6 +84,84 @@
                     @endforelse
                 </div>
             @endunless
+
+            <div class="grid gap-6 md:grid-cols-2">
+                <div class="md:col-span-2">
+                    <x-input-label for="{{ $formUid }}-name" :value="'Nombre de la novedad'" />
+                    <x-text-input
+                        id="{{ $formUid }}-name"
+                        name="name"
+                        type="text"
+                        class="mt-1 block w-full"
+                        :value="$novelty->name"
+                        placeholder="Ej. Cambio de llanta delantera"
+                        autocomplete="off"
+                        required
+                    />
+                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="name"></p>
+                </div>
+
+                <div>
+                    <x-input-label for="{{ $formUid }}-asset-novelty-type-id" :value="'Tipo de novedad'" />
+                    <div class="mt-1 flex items-center gap-2">
+                        <select
+                            id="{{ $formUid }}-asset-novelty-type-id"
+                            name="asset_novelty_type_id"
+                            autocomplete="off"
+                            class="block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
+                            required
+                        >
+                            @if ($activeNoveltyTypes->isEmpty())
+                                <option value="">No hay tipos activos</option>
+                            @else
+                                <option value="">Selecciona un tipo</option>
+                                @foreach ($activeNoveltyTypes as $type)
+                                    <option value="{{ $type['id'] }}" @selected((string) $selectedNoveltyTypeId === (string) $type['id'])>{{ $type['name'] }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                        <button
+                            type="button"
+                            class="app-create-button-sm shrink-0"
+                            title="Administrar tipos de novedad"
+                            x-on:click.stop.prevent="openManager()"
+                        >
+                            +
+                        </button>
+                    </div>
+                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_novelty_type_id"></p>
+                </div>
+
+                <div>
+                    <x-input-label for="{{ $formUid }}-cost" :value="'Costo'" />
+                    <x-text-input
+                        id="{{ $formUid }}-cost"
+                        name="cost"
+                        type="text"
+                        inputmode="numeric"
+                        class="mt-1 block w-full"
+                        :value="$novelty->cost !== null ? number_format((float) $novelty->cost, 0, ',', '.') : ''"
+                        autocomplete="off"
+                        data-currency-input
+                        placeholder="Ej. 1.000.000"
+                        required
+                    />
+                    <p class="mt-2 text-xs text-stone-500">Escribe solo números. El valor se formatea automáticamente con puntos de miles.</p>
+                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="cost"></p>
+                </div>
+
+                <div>
+                    <x-input-label for="{{ $formUid }}-novelty-date" :value="'Fecha'" />
+                    <x-text-input id="{{ $formUid }}-novelty-date" name="novelty_date" type="date" class="mt-1 block w-full" :value="optional($novelty->novelty_date)->format('Y-m-d') ?: $novelty->novelty_date" autocomplete="off" required />
+                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="novelty_date"></p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <x-input-label for="{{ $formUid }}-description" :value="'Descripción'" />
+                    <textarea id="{{ $formUid }}-description" name="description" rows="4" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900" autocomplete="off">{{ $novelty->description }}</textarea>
+                    <p class="mt-2 hidden text-sm text-rose-600" data-error-for="description"></p>
+                </div>
+            </div>
         </div>
 
         <template x-teleport="body">

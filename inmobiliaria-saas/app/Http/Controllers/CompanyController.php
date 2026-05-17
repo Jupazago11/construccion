@@ -12,10 +12,11 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View as ViewFacade;
 
 class CompanyController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Company::class);
 
@@ -39,6 +40,13 @@ class CompanyController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('companies._table_body', compact('companies'))->render(),
+                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $companies])->render(),
+            ]);
+        }
 
         return view('companies.index', [
             'companies' => $companies,

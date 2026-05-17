@@ -16,6 +16,7 @@ class AssetNovelty extends Model
         'asset_id',
         'created_by',
         'asset_novelty_type_id',
+        'name',
         'cost',
         'description',
         'asset_status',

@@ -49,6 +49,14 @@
             });
             if (!res.ok) inv.status = next === 'open' ? 'closed' : 'open';
         },
+        openInvoice(inv) {
+            if (!inv?.show_url) {
+                return;
+            }
+
+            this.open = false;
+            window.location.assign(inv.show_url);
+        },
         fmt(v) {
             return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v);
         }
@@ -132,7 +140,14 @@
             </div>
 
             <template x-for="inv in filteredInvoices" :key="inv.id">
-                <div class="flex items-center gap-3 border-b border-stone-100 px-5 py-3.5">
+                <div
+                    role="button"
+                    tabindex="0"
+                    @click="openInvoice(inv)"
+                    @keydown.enter.prevent="openInvoice(inv)"
+                    @keydown.space.prevent="openInvoice(inv)"
+                    class="flex w-full cursor-pointer items-center gap-3 border-b border-stone-100 px-5 py-3.5 text-left transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                >
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-sm font-medium text-stone-900" x-text="inv.invoice_number || 'Sin número'"></p>
                         <p class="truncate text-xs text-stone-500" x-text="inv.provider_name || '—'"></p>
@@ -144,7 +159,7 @@
                     <div class="flex shrink-0 flex-col items-end gap-1.5">
                         <p class="text-sm font-semibold text-stone-900" x-text="fmt(inv.total_amount)"></p>
                         <button
-                            @click="toggleStatus(inv)"
+                            @click.stop="toggleStatus(inv)"
                             :class="inv.status === 'open'
                                 ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200'"

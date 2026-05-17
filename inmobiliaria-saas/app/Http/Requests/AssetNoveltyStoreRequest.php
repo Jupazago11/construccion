@@ -30,9 +30,10 @@ class AssetNoveltyStoreRequest extends FormRequest
                 Rule::exists(AssetNoveltyType::class, 'id')
                     ->where(fn ($query) => $query->where('status', EntityStatus::Active->value)),
             ],
+            'name' => ['required', 'string', 'max:255'],
             'cost' => ['required', 'numeric', 'min:0'],
-            'description' => ['required', 'string', 'max:1000'],
-            'asset_status' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'asset_status' => ['nullable', 'string', 'max:255'],
             'novelty_date' => ['required', 'date'],
         ];
     }

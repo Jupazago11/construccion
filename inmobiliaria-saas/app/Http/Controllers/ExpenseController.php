@@ -16,11 +16,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View as ViewFacade;
 use Illuminate\Validation\ValidationException;
 
 class ExpenseController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Expense::class);
 
@@ -36,42 +37,18 @@ class ExpenseController extends Controller
             ? $request->string('transaction_view')->toString()
             : '';
 
-        $expenses = Expense::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
-            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
-            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
-            ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
-            ->when($transactionView === 'individual', function ($query) {
-                $query->where(function ($nested) {
-                    $nested
-                        ->whereNull('invoice_id')
-                        ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', EntityStatus::Deleted->value));
-                });
-            })
-            ->when($transactionView === 'invoice', function ($query) {
-                $query
-                    ->whereNotNull('invoice_id')
-                    ->whereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', '!=', EntityStatus::Deleted->value));
-            })
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($nested) use ($search) {
-                    $nested
-                        ->where('expense_number', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhere('quantity', 'like', "%{$search}%")
-                        ->orWhereHas('provider', fn ($providerQuery) => $providerQuery->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('invoice_number', 'like', "%{$search}%"))
-                        ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('activity', fn ($activityQuery) => $activityQuery->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('project', fn ($projectQuery) => $projectQuery->where('name', 'like', "%{$search}%"));
-                });
-            })
-            ->when($dateFrom !== '', fn ($query) => $query->whereDate('expense_date', '>=', $dateFrom))
-            ->when($dateTo !== '', fn ($query) => $query->whereDate('expense_date', '<=', $dateTo))
+        $expenses = $this->buildIndexQuery($request, $companyId, $projectId, $search, $dateFrom, $dateTo, $transactionView)
             ->latest('expense_date')
             ->latest('id')
             ->paginate(10)
             ->withQueryString();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('expenses._table_body', compact('expenses'))->render(),
+                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $expenses])->render(),
+            ]);
+        }
 
         return view('expenses.index', [
             'expenses' => $expenses,
@@ -355,17 +332,68 @@ class ExpenseController extends Controller
     protected function tableHtml(Request $request): string
     {
         $authUser = $request->user();
-        $companyId = $authUser->isSuperAdmin() ? null : $authUser->company_id;
-
-        $expenses = Expense::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
-            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
-            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
+        $companyId = $authUser->isSuperAdmin()
+            ? $request->integer('company_id') ?: null
+            : $authUser->company_id;
+        $expenses = $this->buildIndexQuery(
+            $request,
+            $companyId,
+            $request->integer('project_id') ?: null,
+            trim((string) $request->string('search')),
+            $request->string('date_from')->toString(),
+            $request->string('date_to')->toString(),
+            in_array($request->string('transaction_view')->toString(), ['individual', 'invoice'], true)
+                ? $request->string('transaction_view')->toString()
+                : ''
+        )
             ->latest('expense_date')
             ->latest('id')
             ->paginate(10);
 
         return view('expenses._table_body', compact('expenses'))->render();
+    }
+
+    protected function buildIndexQuery(
+        Request $request,
+        ?int $companyId,
+        ?int $projectId,
+        string $search,
+        string $dateFrom,
+        string $dateTo,
+        string $transactionView
+    ) {
+        return Expense::query()
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
+            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->when(! $request->user()?->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
+            ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
+            ->when($transactionView === 'individual', function ($query) {
+                $query->where(function ($nested) {
+                    $nested
+                        ->whereNull('invoice_id')
+                        ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', EntityStatus::Deleted->value));
+                });
+            })
+            ->when($transactionView === 'invoice', function ($query) {
+                $query
+                    ->whereNotNull('invoice_id')
+                    ->whereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', '!=', EntityStatus::Deleted->value));
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($nested) use ($search) {
+                    $nested
+                        ->where('expense_number', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('quantity', 'like', "%{$search}%")
+                        ->orWhereHas('provider', fn ($providerQuery) => $providerQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('invoice_number', 'like', "%{$search}%"))
+                        ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('activity', fn ($activityQuery) => $activityQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('project', fn ($projectQuery) => $projectQuery->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->when($dateFrom !== '', fn ($query) => $query->whereDate('expense_date', '>=', $dateFrom))
+            ->when($dateTo !== '', fn ($query) => $query->whereDate('expense_date', '<=', $dateTo));
     }
 
     protected function availableProjects($authUser, ?int $companyId = null)

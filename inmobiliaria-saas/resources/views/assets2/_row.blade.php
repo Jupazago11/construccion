@@ -1,5 +1,6 @@
 @php
     $conditionLabels = ['new' => 'Nuevo', 'used' => 'De segunda'];
+    $assetVisibleValue = (float) $asset2->purchase_value + (float) ($asset2->active_novelties_cost_sum ?? 0);
 @endphp
 
 <tr data-row-id="{{ $asset2->id }}">
@@ -14,7 +15,8 @@
         {{ $conditionLabels[$asset2->asset_condition] ?? $asset2->asset_condition }}
     </td>
     <td class="whitespace-nowrap px-6 py-4 text-stone-900">
-        $ {{ number_format((float) $asset2->purchase_value, 0, ',', '.') }}
+        <div>$ {{ number_format($assetVisibleValue, 0, ',', '.') }}</div>
+        <div class="text-xs text-stone-500">Compra + novedades que si dan valor</div>
     </td>
     <td class="px-6 py-4 text-stone-600">
         <div class="app-two-line-text min-w-52">
@@ -30,7 +32,7 @@
                 title="Fotos y videos"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" />
+                    <path fill-rule="evenodd" d="M8 2a3 3 0 00-3 3v7a5 5 0 0010 0V6a1 1 0 10-2 0v6a3 3 0 11-6 0V5a1 1 0 112 0v7a1 1 0 102 0V7a1 1 0 112 0v5a3 3 0 11-6 0V5a3 3 0 016 0v7a5 5 0 11-10 0V5a5 5 0 0110 0v6a1 1 0 11-2 0V5a3 3 0 00-3-3z" clip-rule="evenodd" />
                 </svg>
             </a>
             <button
