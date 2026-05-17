@@ -30,15 +30,14 @@
                     <p data-error-for="files.0"></p>
                 </form>
 
-                <button
-                    type="button"
-                    class="app-create-button"
+                <label
+                    for="asset2-media-files"
+                    class="app-create-button cursor-pointer"
                     title="Subir fotos o videos"
-                    x-on:click="$refs.asset2MediaFiles.click()"
-                    :disabled="saving"
+                    :class="saving ? 'pointer-events-none opacity-60' : ''"
                 >
                     +
-                </button>
+                </label>
             @endcan
 
             <div x-ref="attachments">
