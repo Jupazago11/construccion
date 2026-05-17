@@ -6,7 +6,7 @@
 
     @can('create', App\Models\Purchase::class)
         <x-invoice-list-panel type="purchase" />
-        <button type="button" data-action="create" data-url="{{ route('invoices.create', ['type' => 'purchase']) }}" data-title="Nueva factura" class="app-create-text-fab" title="Nueva factura">
+        <button type="button" data-action="create" data-url="{{ route('invoices.create', ['type' => 'purchase', 'from_index' => 1]) }}" data-title="Nueva factura" class="app-create-text-fab" title="Nueva factura">
             + Factura
         </button>
         <button type="button" data-action="create" data-url="{{ route('purchases.create', array_filter(['project_id' => $filters['project_id']])) }}" data-title="Nueva compra" class="app-create-button" title="Nueva compra">+</button>

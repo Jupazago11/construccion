@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\EntityStatus;
 use App\Http\Requests\ExpenseStoreRequest;
 use App\Http\Requests\ExpenseUpdateRequest;
-use App\Models\Project;
+use App\Models\CatalogActivity;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Product;
+use App\Models\Project;
 use App\Models\Provider2;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -36,7 +37,7 @@ class ExpenseController extends Controller
             : '';
 
         $expenses = Expense::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
@@ -61,6 +62,7 @@ class ExpenseController extends Controller
                         ->orWhereHas('provider', fn ($providerQuery) => $providerQuery->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('invoice_number', 'like', "%{$search}%"))
                         ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('activity', fn ($activityQuery) => $activityQuery->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('project', fn ($projectQuery) => $projectQuery->where('name', 'like', "%{$search}%"));
                 });
             })
@@ -135,7 +137,8 @@ class ExpenseController extends Controller
             'auxiliary_id' => null,
             'provider_id' => $data['provider_id'],
             'invoice_id' => $data['invoice_id'] ?? null,
-            'product_id' => $data['product_id'],
+            'product_id' => $data['product_id'] ?? null,
+            'activity_id' => $data['activity_id'] ?? null,
             'created_by' => $request->user()->id,
             'expense_number' => $data['expense_number'] ?? null,
             'expense_date' => $data['expense_date'],
@@ -151,7 +154,7 @@ class ExpenseController extends Controller
         ]);
 
         $this->refreshInvoiceTotal($expense->invoice_id);
-        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
+        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup']);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -208,7 +211,8 @@ class ExpenseController extends Controller
             'auxiliary_id' => null,
             'provider_id' => $data['provider_id'],
             'invoice_id' => $data['invoice_id'] ?? null,
-            'product_id' => $data['product_id'],
+            'product_id' => $data['product_id'] ?? null,
+            'activity_id' => $data['activity_id'] ?? null,
             'expense_number' => $data['expense_number'] ?? null,
             'expense_date' => $data['expense_date'],
             'payment_method' => null,
@@ -223,7 +227,7 @@ class ExpenseController extends Controller
 
         $this->refreshInvoiceTotal($previousInvoiceId);
         $this->refreshInvoiceTotal($expense->invoice_id);
-        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
+        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup']);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -253,7 +257,7 @@ class ExpenseController extends Controller
             $this->refreshInvoiceTotal($expense->invoice_id);
         });
 
-        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
+        $expense->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup']);
 
         return response()->json([
             'id' => $expense->id,
@@ -330,10 +334,18 @@ class ExpenseController extends Controller
             'subgroup_name' => $product->subgroup?->name,
         ])->values()->all();
 
+        $activities = $this->availableActivities($authUser)->map(fn ($activity) => [
+            'id' => $activity->id,
+            'name' => $activity->name,
+            'company_id' => $activity->company_id,
+            'subgroup_name' => $activity->subgroup?->name,
+        ])->values()->all();
+
         return [
             'projects' => $projects,
             'providers' => $providers,
             'products' => $products,
+            'activities' => $activities,
             'invoices' => $this->availableInvoices($authUser, 'expense')->map(fn ($invoice) => InvoiceController::serializeInvoice($invoice))->values()->all(),
             'invoiceStoreUrl' => route('invoices.store', [], false),
             'transactionType' => 'expense',
@@ -346,7 +358,7 @@ class ExpenseController extends Controller
         $companyId = $authUser->isSuperAdmin() ? null : $authUser->company_id;
 
         $expenses = Expense::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->latest('expense_date')
@@ -408,6 +420,16 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    protected function availableActivities($authUser)
+    {
+        return CatalogActivity::query()
+            ->with(['group', 'subgroup'])
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->where('status', EntityStatus::Active->value)
+            ->orderBy('name')
+            ->get();
+    }
+
     protected function availableInvoices($authUser, string $type)
     {
         return Invoice::query()
@@ -447,7 +469,17 @@ class ExpenseController extends Controller
             ]);
         }
 
-        if (! Product::query()
+        if (! empty($data['activity_id'])) {
+            if (! CatalogActivity::query()
+                ->whereKey($data['activity_id'])
+                ->where('company_id', $project->company_id)
+                ->where('status', EntityStatus::Active->value)
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'activity_id' => 'La actividad seleccionada no está activa o no pertenece a la empresa del proyecto.',
+                ]);
+            }
+        } elseif (! Product::query()
             ->whereKey($data['product_id'])
             ->where('company_id', $project->company_id)
             ->where('status', EntityStatus::Active->value)
@@ -505,7 +537,7 @@ class ExpenseController extends Controller
         }
 
         $items = $invoice->expenses()
-            ->with(['product.subgroup'])
+            ->with(['product.subgroup', 'activity.subgroup'])
             ->where('status', '!=', EntityStatus::Deleted->value)
             ->latest('expense_date')
             ->latest('id')

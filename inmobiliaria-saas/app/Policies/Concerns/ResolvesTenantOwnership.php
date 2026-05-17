@@ -4,6 +4,9 @@ namespace App\Policies\Concerns;
 
 use App\Enums\EntityStatus;
 use App\Models\Asset;
+use App\Models\Asset2;
+use App\Models\Asset2Media;
+use App\Models\Asset2Novelty;
 use App\Models\AssetMedia;
 use App\Models\AssetNovelty;
 use App\Models\AssetNoveltyType;
@@ -59,7 +62,9 @@ trait ResolvesTenantOwnership
             $record instanceof ProductSubgroup => $record->company_id,
             $record instanceof Product => $record->company_id,
             $record instanceof Asset => $record->company_id,
+            $record instanceof Asset2 => $record->company_id,
             $record instanceof AssetMedia => $record->loadMissing('asset')->asset?->company_id,
+            $record instanceof Asset2Media => $record->loadMissing('asset2')->asset2?->company_id,
             $record instanceof AssetType => $record->company_id,
             $record instanceof AssetNoveltyType => $record->company_id,
             $record instanceof Expense => $record->company_id,
@@ -68,6 +73,7 @@ trait ResolvesTenantOwnership
             $record instanceof Purchase => $record->company_id,
             $record instanceof User => $record->company_id,
             $record instanceof AssetNovelty => $record->loadMissing('asset')->asset?->company_id,
+            $record instanceof Asset2Novelty => $record->loadMissing('asset2')->asset2?->company_id,
             $record instanceof Category => $record->loadMissing('project')->project?->company_id,
             $record instanceof Subcategory => $record->loadMissing('category.project')->category?->project?->company_id,
             $record instanceof Auxiliary => $record->loadMissing('subcategory.category.project')->subcategory?->category?->project?->company_id,

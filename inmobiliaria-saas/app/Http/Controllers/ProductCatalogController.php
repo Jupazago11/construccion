@@ -15,16 +15,27 @@ use App\Models\ProductGroup;
 use App\Models\ProductSubgroup;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductCatalogController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', ProductGroup::class);
 
-        return view('product-catalog.index', $this->viewPayload($request));
+        $payload = $this->viewPayload($request);
+
+        if ($request->ajax() && $request->boolean('table_only')) {
+            return response()->json([
+                'table_html' => view('product-catalog._products_table', [
+                    'products' => $payload['products'],
+                ])->render(),
+            ]);
+        }
+
+        return view('product-catalog.index', $payload);
     }
 
     public function storeGroup(ProductGroupStoreRequest $request): JsonResponse
@@ -193,56 +204,49 @@ class ProductCatalogController extends Controller
             ? $request->integer('company_id') ?: null
             : $authUser->company_id;
 
+        $filters = [
+            'company_id'  => $companyId,
+            'search'      => trim($request->input('search', '')),
+            'group_id'    => $request->integer('group_id') ?: null,
+            'subgroup_id' => $request->integer('subgroup_id') ?: null,
+        ];
+
+        $groups = ProductGroup::query()
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get();
+
+        $subgroups = ProductSubgroup::query()
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get();
+
+        $products = Product::query()
+            ->with(['group', 'subgroup'])
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->when(! $authUser->isSuperAdmin(), fn ($q) => $q->where('status', '!=', EntityStatus::Deleted->value))
+            ->when($filters['search'], fn ($q) => $q->where('name', 'ilike', '%' . $filters['search'] . '%'))
+            ->when($filters['group_id'], fn ($q) => $q->where('product_group_id', $filters['group_id']))
+            ->when($filters['subgroup_id'], fn ($q) => $q->where('product_subgroup_id', $filters['subgroup_id']))
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+
         return [
             'companies' => $authUser->isSuperAdmin()
                 ? Company::query()->where('status', '!=', EntityStatus::Deleted->value)->orderBy('name')->get()
                 : collect(),
-            'filters' => ['company_id' => $companyId],
-            'groups' => ProductGroup::query()
-                ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
-                ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
-                ->withCount(['subgroups', 'products'])
-                ->orderBy('name')
-                ->get(),
-            'subgroups' => ProductSubgroup::query()
-                ->with('group')
-                ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
-                ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
-                ->orderBy('name')
-                ->get(),
-            'products' => Product::query()
-                ->with(['group', 'subgroup'])
-                ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
-                ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
-                ->orderBy('name')
-                ->get(),
+            'filters'   => $filters,
+            'groups'    => $groups,
+            'subgroups' => $subgroups,
+            'products'  => $products,
         ];
     }
 
     protected function catalogResponse(Request $request, string $message): JsonResponse
     {
-        $payload = $this->viewPayload($request);
-
-        return response()->json([
-            'message' => $message,
-            'tables' => [
-                'groups' => view('product-catalog._groups_table', $payload)->render(),
-                'subgroups' => view('product-catalog._subgroups_table', $payload)->render(),
-                'products' => view('product-catalog._products_table', $payload)->render(),
-            ],
-            'options' => [
-                'groups' => $payload['groups']->where('status', EntityStatus::Active->value)->values()->map(fn ($group) => [
-                    'id' => $group->id,
-                    'name' => $group->name,
-                    'company_id' => $group->company_id,
-                ]),
-                'subgroups' => $payload['subgroups']->where('status', EntityStatus::Active->value)->values()->map(fn ($subgroup) => [
-                    'id' => $subgroup->id,
-                    'name' => $subgroup->name,
-                    'company_id' => $subgroup->company_id,
-                    'product_group_id' => $subgroup->product_group_id,
-                ]),
-            ],
-        ]);
+        return response()->json(['message' => $message]);
     }
 }

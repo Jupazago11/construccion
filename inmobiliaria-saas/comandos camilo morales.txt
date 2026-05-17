@@ -17,10 +17,23 @@ Ruta del proyecto:
 
 Arranque normal diario:
 
-cd /home/jupazago/Documentos/construccion/inmobiliaria-saas
-./vendor/bin/sail up -d
-rm -f public/hot
-./vendor/bin/sail npm run dev
+Paso 1 - Abrir Docker Desktop en Windows y esperar que este corriendo.
+
+Paso 2 - Abrir PowerShell o terminal de Windows y ejecutar:
+
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail up -d"
+
+Paso 3 - Limpiar hot y arrancar Vite dentro del contenedor:
+
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && rm -f public/hot"
+
+wsl -d Ubuntu -- bash -c "docker exec -d inmobiliaria-saas-laravel.test-1 bash -c 'cd /var/www/html && npm run dev > /tmp/vite.log 2>&1'"
+
+Paso 4 - Verificar que Vite levanto (esperar unos segundos):
+
+wsl -d Ubuntu -- bash -c "docker exec inmobiliaria-saas-laravel.test-1 cat /tmp/vite.log"
+
+Debe aparecer "VITE vX.X ready". Si no sale nada, esperar 5 segundos y repetir.
 
 Abrir en navegador:
 
@@ -29,27 +42,30 @@ http://localhost:8081/login
 Notas PC personal:
 
 - En el PC personal Laravel abre por el puerto 8081.
-- Vite corre por el puerto 5173.
-- La terminal de Vite debe quedar abierta.
-- Si la web se ve sin estilos, reiniciar Vite y hacer Ctrl + F5.
+- Vite corre dentro del contenedor Docker, NO en una terminal aparte.
+- NO usar sail npm run dev directamente, usar el docker exec del Paso 3.
+- Si la web se ve sin estilos, repetir Paso 3 y hacer Ctrl + F5.
 
 Primer arranque o si faltan dependencias:
 
-cd /home/jupazago/Documentos/construccion/inmobiliaria-saas
-./vendor/bin/sail up -d
-./vendor/bin/sail composer install
-./vendor/bin/sail npm install
-./vendor/bin/sail artisan key:generate
-./vendor/bin/sail artisan migrate
-./vendor/bin/sail artisan db:seed
-rm -f public/hot
-./vendor/bin/sail npm run dev
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail up -d"
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail composer install"
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm install"
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail artisan key:generate"
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail artisan migrate"
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail artisan db:seed"
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && rm -f public/hot"
+wsl -d Ubuntu -- bash -c "docker exec -d inmobiliaria-saas-laravel.test-1 bash -c 'cd /var/www/html && npm run dev > /tmp/vite.log 2>&1'"
+
+Migraciones pendientes (cuando hay cambios en base de datos):
+
+wsl -d Ubuntu -- docker exec inmobiliaria-saas-laravel.test-1 php artisan migrate --force
 
 Verlo desde celular en PC personal:
 
 Opcion estable:
 
-./vendor/bin/sail npm run build
+wsl -d Ubuntu -- bash -c "cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run build"
 
 Luego abrir desde el celular usando la IP actual del PC:
 

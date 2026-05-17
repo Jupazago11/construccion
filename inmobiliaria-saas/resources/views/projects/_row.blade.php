@@ -25,7 +25,11 @@
             data-status-options='@json($statusOptions)'
             data-entity-label="proyecto"
         >
-            <x-status-badge :value="$project->status" class="cursor-pointer transition hover:opacity-80" />
+            <x-status-badge
+                :value="$project->status"
+                :label="$project->status === 'active' ? 'En construcción' : null"
+                class="cursor-pointer transition hover:opacity-80"
+            />
         </button>
     </td>
     <td class="px-6 py-4">

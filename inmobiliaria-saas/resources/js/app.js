@@ -82,6 +82,53 @@ Alpine.data('crudTable', (config = {}) => ({
         window.location.assign(window.location.href);
     },
 
+    async paginateTable(url) {
+        if (! url || ! this.$refs.tbody || ! this.$refs.pagination) {
+            return;
+        }
+
+        const preservedWindowTop = window.scrollY || window.pageYOffset || 0;
+        const pagination = this.$refs.pagination;
+
+        pagination.classList.add('pointer-events-none', 'opacity-60');
+
+        try {
+            const response = await window.axios.get(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (response.data?.table_html) {
+                this.$refs.tbody.innerHTML = response.data.table_html;
+                Alpine.initTree(this.$refs.tbody);
+            }
+
+            if (response.data?.pagination_html !== undefined) {
+                this.$refs.pagination.innerHTML = response.data.pagination_html;
+                Alpine.initTree(this.$refs.pagination);
+            }
+
+            window.requestAnimationFrame(() => {
+                window.scrollTo({
+                    top: preservedWindowTop,
+                    left: 0,
+                    behavior: 'auto',
+                });
+                window.scrollTo({
+                    top: preservedWindowTop,
+                    left: 0,
+                    behavior: 'auto',
+                });
+            });
+        } catch (error) {
+            this.showToast(this.resolveErrorMessage(error, 'No fue posible cambiar de página.'), 'error');
+        } finally {
+            pagination.classList.remove('pointer-events-none', 'opacity-60');
+        }
+    },
+
     async openModal(url, title) {
         if (this.loading) {
             return;
@@ -114,10 +161,14 @@ Alpine.data('crudTable', (config = {}) => ({
 
                     const draft = this.loadDraft(url);
                     if (draft) {
-                        window.requestAnimationFrame(() => {
-                            this.restoreModalFormValues(draft);
-                            this.showToast('Borrador restaurado automáticamente.');
-                        });
+                        const methodInput = this.$refs.modalContent.querySelector('[name="_method"]');
+                        const isEditForm = methodInput && ['PATCH', 'PUT'].includes(methodInput.value.toUpperCase());
+                        if (!isEditForm) {
+                            window.requestAnimationFrame(() => {
+                                this.restoreModalFormValues(draft);
+                                this.showToast('Borrador restaurado automáticamente.');
+                            });
+                        }
                     }
                 }
             });
@@ -459,6 +510,15 @@ Alpine.data('crudTable', (config = {}) => ({
     },
 
     async handleClick(event) {
+        const paginationLink = event.target.closest('[data-ajax-pagination] a[href]');
+
+        if (paginationLink) {
+            event.preventDefault();
+            event.stopPropagation();
+            await this.paginateTable(paginationLink.href);
+            return;
+        }
+
         const button = event.target.closest('[data-action]');
 
         if (! button) {
@@ -761,6 +821,10 @@ Alpine.data('crudTable', (config = {}) => ({
             }
 
             this.showToast(response.data.message ?? 'Estado de factura actualizado correctamente.');
+
+            if (this.shouldReloadAfterMutation()) {
+                this.reloadCurrentPage();
+            }
         } catch (error) {
             this.showToast(this.resolveErrorMessage(error, 'No fue posible cambiar el estado de la factura.'), 'error');
         }
@@ -1030,6 +1094,7 @@ Alpine.data('crudTable', (config = {}) => ({
 
         return labels[status] ?? status;
     },
+
 }));
 
 Alpine.data('productCatalog', (config = {}) => ({
@@ -1043,6 +1108,8 @@ Alpine.data('productCatalog', (config = {}) => ({
     toastMessage: '',
     toastType: 'success',
     toastTimer: null,
+    filtersOpen: window.innerWidth >= 768,
+    tableLoading: false,
     groups: config.groups ?? [],
     subgroups: config.subgroups ?? [],
     groupSearch: '',
@@ -1062,6 +1129,15 @@ Alpine.data('productCatalog', (config = {}) => ({
     },
 
     init() {
+        try {
+            const stored = sessionStorage.getItem('_catalog_toast');
+            if (stored) {
+                sessionStorage.removeItem('_catalog_toast');
+                const { message, type } = JSON.parse(stored);
+                this.showToast(message, type ?? 'success');
+            }
+        } catch {}
+
         window.addEventListener('crud-toast', (event) => {
             this.showToast(event.detail?.message, event.detail?.type ?? 'success');
         });
@@ -1322,24 +1398,9 @@ Alpine.data('productCatalog', (config = {}) => ({
     },
 
     applyResponse(data) {
-        if (data.tables?.groups && this.$refs.groupsTable) {
-            this.$refs.groupsTable.innerHTML = data.tables.groups;
-        }
-
-        if (data.tables?.subgroups && this.$refs.subgroupsTable) {
-            this.$refs.subgroupsTable.innerHTML = data.tables.subgroups;
-        }
-
-        if (data.tables?.products && this.$refs.productsTable) {
-            this.$refs.productsTable.innerHTML = data.tables.products;
-        }
-
-        this.groups = data.options?.groups ?? this.groups;
-        this.subgroups = data.options?.subgroups ?? this.subgroups;
-
-        window.dispatchEvent(new CustomEvent('crud-toast', {
-            detail: { message: data.message ?? 'Operación realizada correctamente.' },
-        }));
+        const message = data.message ?? 'Operación realizada correctamente.';
+        try { sessionStorage.setItem('_catalog_toast', JSON.stringify({ message, type: 'success' })); } catch {}
+        window.location.reload();
     },
 
     async saveRecord() {
@@ -1363,35 +1424,9 @@ Alpine.data('productCatalog', (config = {}) => ({
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
 
-            this.applyResponse(response.data);
             this.clearDraft(this.tab);
-            if (this.editingId) {
-                this.closeModal();
-                return;
-            }
-
-            const previousCompanyId = this.form.company_id;
-            const previousGroupId = this.tab === 'product' ? this.form.product_group_id : '';
-
-            if (this.tab === 'group') {
-                this.form.product_group_id = '';
-                this.form.product_subgroup_id = '';
-                this.form.name = '';
-                this.groupSearch = '';
-                this.subgroupSearch = '';
-            } else if (this.tab === 'subgroup') {
-                this.form.product_subgroup_id = '';
-                this.form.name = '';
-                this.subgroupSearch = '';
-            } else {
-                this.form.name = '';
-            }
-
-            this.form.company_id = previousCompanyId;
-
-            if (this.tab === 'product') {
-                this.form.product_group_id = previousGroupId;
-            }
+            await this.goToPage(window.location.href, false);
+            this.showToast(response.data?.message ?? 'Estado actualizado correctamente.', 'success');
         } catch (error) {
             if (error.response?.status === 422 && error.response.data?.errors) {
                 const firstMessage = Object.values(error.response.data.errors).flat()[0];
@@ -1406,6 +1441,7 @@ Alpine.data('productCatalog', (config = {}) => ({
 
     async toggleStatus(type, id, status) {
         try {
+            const scrollTop = window.scrollY || window.pageYOffset || 0;
             const formData = new FormData();
             formData.append('_method', 'PATCH');
             formData.append('status', status);
@@ -1414,7 +1450,11 @@ Alpine.data('productCatalog', (config = {}) => ({
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
 
-            this.applyResponse(response.data);
+            await this.goToPage(window.location.href, false);
+            window.requestAnimationFrame(() => {
+                window.scrollTo({ top: scrollTop, behavior: 'auto' });
+            });
+            this.showToast(response.data?.message ?? 'Estado actualizado correctamente.', 'success');
         } catch (error) {
             window.dispatchEvent(new CustomEvent('crud-toast', {
                 detail: { message: error.response?.data?.message || 'No fue posible cambiar el estado.', type: 'error' },
@@ -1432,11 +1472,456 @@ Alpine.data('productCatalog', (config = {}) => ({
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
 
+            await this.goToPage(window.location.href, false);
+            this.showToast(response.data?.message ?? 'Estado actualizado correctamente.', 'success');
+        } catch (error) {
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: error.response?.data?.message || 'No fue posible archivar el registro.', type: 'error' },
+            }));
+        }
+    },
+
+    async goToPage(url, pushState = true) {
+        if (! url || this.tableLoading) {
+            return;
+        }
+
+        this.tableLoading = true;
+
+        try {
+            const targetUrl = new URL(url, window.location.origin);
+            const requestUrl = new URL(targetUrl);
+            requestUrl.searchParams.set('table_only', '1');
+
+            const response = await window.axios.get(requestUrl.toString(), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (this.$refs.productsTable) {
+                this.$refs.productsTable.innerHTML = response.data?.table_html ?? '';
+            }
+
+            if (pushState) {
+                window.history.pushState({ catalogTable: true }, '', `${targetUrl.pathname}${targetUrl.search}`);
+            }
+        } catch (error) {
+            window.location.assign(url);
+        } finally {
+            this.tableLoading = false;
+        }
+    },
+}));
+
+Alpine.data('activityCatalog', (config = {}) => ({
+    modalOpen: false,
+    tab: 'group',
+    editingId: null,
+    saving: false,
+    error: '',
+    errors: {},
+    toastVisible: false,
+    toastMessage: '',
+    toastType: 'success',
+    toastTimer: null,
+    filtersOpen: window.innerWidth >= 768,
+    tableLoading: false,
+    groups: config.groups ?? [],
+    subgroups: config.subgroups ?? [],
+    groupSearch: '',
+    subgroupSearch: '',
+    groupMenuOpen: false,
+    subgroupMenuOpen: false,
+    form: {
+        company_id: config.companyId ? String(config.companyId) : '',
+        activity_group_id: '',
+        activity_subgroup_id: '',
+        name: '',
+    },
+    drafts: {
+        group: null,
+        subgroup: null,
+        activity: null,
+    },
+
+    init() {
+        try {
+            const stored = sessionStorage.getItem('_catalog_toast');
+            if (stored) {
+                sessionStorage.removeItem('_catalog_toast');
+                const { message, type } = JSON.parse(stored);
+                this.showToast(message, type ?? 'success');
+            }
+        } catch {}
+
+        window.addEventListener('crud-toast', (event) => {
+            this.showToast(event.detail?.message, event.detail?.type ?? 'success');
+        });
+    },
+
+    showToast(message, type = 'success') {
+        if (! message) {
+            return;
+        }
+
+        window.clearTimeout(this.toastTimer);
+        this.toastMessage = message;
+        this.toastType = type;
+        this.toastVisible = true;
+        this.toastTimer = window.setTimeout(() => this.hideToast(), 3500);
+    },
+
+    hideToast() {
+        this.toastVisible = false;
+    },
+
+    get filteredGroups() {
+        const companyId = this.form.company_id ? String(this.form.company_id) : '';
+
+        return this.groups.filter((group) => ! companyId || String(group.company_id) === companyId);
+    },
+
+    get visibleGroups() {
+        const term = this.groupSearch.trim().toLocaleLowerCase();
+
+        return this.filteredGroups.filter((group) => ! term || group.name.toLocaleLowerCase().includes(term));
+    },
+
+    get filteredSubgroups() {
+        const companyId = this.form.company_id ? String(this.form.company_id) : '';
+        const groupId = this.form.activity_group_id ? String(this.form.activity_group_id) : '';
+
+        return this.subgroups.filter((subgroup) => (
+            (! companyId || String(subgroup.company_id) === companyId)
+            && (! groupId || String(subgroup.activity_group_id) === groupId)
+        ));
+    },
+
+    get visibleSubgroups() {
+        const term = this.subgroupSearch.trim().toLocaleLowerCase();
+
+        return this.filteredSubgroups.filter((subgroup) => ! term || subgroup.name.toLocaleLowerCase().includes(term));
+    },
+
+    saveCurrentDraft() {
+        if (this.editingId) {
+            return;
+        }
+
+        this.drafts[this.tab] = {
+            form: { ...this.form },
+            groupSearch: this.groupSearch,
+            subgroupSearch: this.subgroupSearch,
+        };
+    },
+
+    restoreDraft(tab) {
+        if (this.editingId) {
+            return;
+        }
+
+        const draft = this.drafts[tab];
+
+        if (! draft) {
+            this.form = {
+                company_id: config.companyId ? String(config.companyId) : '',
+                activity_group_id: '',
+                activity_subgroup_id: '',
+                name: '',
+            };
+            this.groupSearch = '';
+            this.subgroupSearch = '';
+            return;
+        }
+
+        this.form = { ...draft.form };
+        this.groupSearch = draft.groupSearch ?? '';
+        this.subgroupSearch = draft.subgroupSearch ?? '';
+    },
+
+    clearDraft(tab) {
+        this.drafts[tab] = null;
+    },
+
+    setTab(tab) {
+        if (this.tab === tab) {
+            return;
+        }
+
+        this.saveCurrentDraft();
+
+        this.tab = tab;
+        this.editingId = null;
+        this.clearMessages();
+        this.groupMenuOpen = false;
+        this.subgroupMenuOpen = false;
+
+        this.restoreDraft(tab);
+    },
+
+    openModal(tab = 'group') {
+        this.modalOpen = true;
+        this.tab = tab;
+        this.editingId = null;
+        this.clearMessages();
+        this.groupMenuOpen = false;
+        this.subgroupMenuOpen = false;
+        this.restoreDraft(tab);
+    },
+
+    closeModal() {
+        this.saveCurrentDraft();
+        this.modalOpen = false;
+        this.editingId = null;
+        this.clearMessages();
+    },
+
+    editRecord(type, record) {
+        this.modalOpen = true;
+        this.tab = type;
+        this.editingId = record.id;
+        this.clearMessages();
+        this.form = {
+            company_id: record.company_id ? String(record.company_id) : '',
+            activity_group_id: record.activity_group_id ? String(record.activity_group_id) : '',
+            activity_subgroup_id: record.activity_subgroup_id ? String(record.activity_subgroup_id) : '',
+            name: record.name ?? '',
+        };
+        this.groupSearch = this.labelForGroup(this.form.activity_group_id);
+        this.subgroupSearch = this.labelForSubgroup(this.form.activity_subgroup_id);
+    },
+
+    clearMessages() {
+        this.error = '';
+        this.errors = {};
+    },
+
+    friendlyError(message) {
+        const translations = {
+            'The company id field is required.': 'Selecciona una empresa.',
+            'The activity group id field is required.': 'Selecciona un grupo.',
+            'The activity subgroup id field is required.': 'Selecciona un subgrupo.',
+            'The name field is required.': 'Escribe un nombre.',
+            'The name has already been taken.': 'Ese nombre ya existe.',
+            'The selected company id is invalid.': 'La empresa seleccionada no es valida.',
+            'The selected activity group id is invalid.': 'El grupo seleccionado no es valido.',
+            'The selected activity subgroup id is invalid.': 'El subgrupo seleccionado no es valido.',
+        };
+
+        return translations[message] ?? message ?? 'Revisa la informacion enviada.';
+    },
+
+    showErrorToast(message) {
+        window.dispatchEvent(new CustomEvent('crud-toast', {
+            detail: { message: this.friendlyError(message), type: 'error' },
+        }));
+    },
+
+    labelForGroup(id) {
+        return this.groups.find((group) => String(group.id) === String(id))?.name ?? '';
+    },
+
+    labelForSubgroup(id) {
+        return this.subgroups.find((subgroup) => String(subgroup.id) === String(id))?.name ?? '';
+    },
+
+    syncGroupFromSearch() {
+        const typed = this.groupSearch.trim().toLocaleLowerCase();
+        const match = this.filteredGroups.find((group) => group.name.toLocaleLowerCase() === typed);
+        const nextGroupId = match ? String(match.id) : '';
+
+        if (this.form.activity_group_id !== nextGroupId) {
+            this.form.activity_subgroup_id = '';
+            this.subgroupSearch = '';
+        }
+
+        this.form.activity_group_id = nextGroupId;
+    },
+
+    normalizeGroupSearch() {
+        this.groupSearch = this.labelForGroup(this.form.activity_group_id);
+        window.setTimeout(() => {
+            this.groupMenuOpen = false;
+        }, 100);
+    },
+
+    openGroupMenu() {
+        this.groupMenuOpen = true;
+        this.subgroupMenuOpen = false;
+    },
+
+    selectGroup(group) {
+        const nextGroupId = String(group.id);
+
+        if (this.form.activity_group_id !== nextGroupId) {
+            this.form.activity_subgroup_id = '';
+            this.subgroupSearch = '';
+        }
+
+        this.form.activity_group_id = nextGroupId;
+        this.groupSearch = group.name;
+        this.groupMenuOpen = false;
+    },
+
+    syncSubgroupFromSearch() {
+        const typed = this.subgroupSearch.trim().toLocaleLowerCase();
+        const match = this.filteredSubgroups.find((subgroup) => subgroup.name.toLocaleLowerCase() === typed);
+        this.form.activity_subgroup_id = match ? String(match.id) : '';
+    },
+
+    normalizeSubgroupSearch() {
+        this.subgroupSearch = this.labelForSubgroup(this.form.activity_subgroup_id);
+        window.setTimeout(() => {
+            this.subgroupMenuOpen = false;
+        }, 100);
+    },
+
+    openSubgroupMenu() {
+        this.subgroupMenuOpen = true;
+        this.groupMenuOpen = false;
+    },
+
+    selectSubgroup(subgroup) {
+        this.form.activity_subgroup_id = String(subgroup.id);
+        this.subgroupSearch = subgroup.name;
+        this.subgroupMenuOpen = false;
+    },
+
+    urlFor(action, type, id = null) {
+        const key = `${type}${action}`;
+        const url = config.urls?.[key] ?? '';
+
+        return id ? url.replace('__ID__', encodeURIComponent(id)) : url;
+    },
+
+    payload() {
+        const data = new FormData();
+
+        if (this.form.company_id) {
+            data.append('company_id', this.form.company_id);
+        }
+
+        if (this.tab === 'subgroup' || this.tab === 'activity') {
+            data.append('activity_group_id', this.form.activity_group_id);
+        }
+
+        if (this.tab === 'activity') {
+            data.append('activity_subgroup_id', this.form.activity_subgroup_id);
+        }
+
+        data.append('name', this.form.name);
+
+        return data;
+    },
+
+    applyResponse(data) {
+        const message = data.message ?? 'Operacion realizada correctamente.';
+        try { sessionStorage.setItem('_catalog_toast', JSON.stringify({ message, type: 'success' })); } catch {}
+        window.location.reload();
+    },
+
+    async saveRecord() {
+        if (this.saving) {
+            return;
+        }
+
+        this.saving = true;
+        this.clearMessages();
+
+        try {
+            const action = this.editingId ? 'Update' : 'Store';
+            const url = this.urlFor(action, this.tab, this.editingId);
+            const formData = this.payload();
+
+            if (this.editingId) {
+                formData.append('_method', 'PATCH');
+            }
+
+            const response = await window.axios.post(url, formData, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            this.clearDraft(this.tab);
+            this.applyResponse(response.data);
+        } catch (error) {
+            if (error.response?.status === 422 && error.response.data?.errors) {
+                const firstMessage = Object.values(error.response.data.errors).flat()[0];
+                this.showErrorToast(firstMessage);
+            } else {
+                this.showErrorToast(error.response?.data?.message || error.message || 'No fue posible guardar el registro.');
+            }
+        } finally {
+            this.saving = false;
+        }
+    },
+
+    async toggleStatus(type, id, status) {
+        try {
+            const scrollTop = window.scrollY || window.pageYOffset || 0;
+            const formData = new FormData();
+            formData.append('_method', 'PATCH');
+            formData.append('status', status);
+
+            const response = await window.axios.post(this.urlFor('Status', type, id), formData, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            await this.goToPage(window.location.href, false);
+            window.requestAnimationFrame(() => {
+                window.scrollTo({ top: scrollTop, behavior: 'auto' });
+            });
+            this.showToast(response.data?.message ?? 'Estado actualizado correctamente.', 'success');
+        } catch (error) {
+            window.dispatchEvent(new CustomEvent('crud-toast', {
+                detail: { message: error.response?.data?.message || 'No fue posible cambiar el estado.', type: 'error' },
+            }));
+        }
+    },
+
+    async archiveRecord(type, id) {
+        if (! window.confirm('Deseas archivar este registro?')) {
+            return;
+        }
+
+        try {
+            const response = await window.axios.delete(this.urlFor('Destroy', type, id), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
             this.applyResponse(response.data);
         } catch (error) {
             window.dispatchEvent(new CustomEvent('crud-toast', {
                 detail: { message: error.response?.data?.message || 'No fue posible archivar el registro.', type: 'error' },
             }));
+        }
+    },
+
+    async goToPage(url, pushState = true) {
+        if (! url || this.tableLoading) {
+            return;
+        }
+
+        this.tableLoading = true;
+
+        try {
+            const targetUrl = new URL(url, window.location.origin);
+            const requestUrl = new URL(targetUrl);
+            requestUrl.searchParams.set('table_only', '1');
+
+            const response = await window.axios.get(requestUrl.toString(), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (this.$refs.activitiesTable) {
+                this.$refs.activitiesTable.innerHTML = response.data?.table_html ?? '';
+            }
+
+            if (pushState) {
+                window.history.pushState({ catalogTable: true }, '', `${targetUrl.pathname}${targetUrl.search}`);
+            }
+        } catch (error) {
+            window.location.assign(url);
+        } finally {
+            this.tableLoading = false;
         }
     },
 }));
@@ -2987,6 +3472,11 @@ window.initializeStandaloneInvoiceForms = (root = document) => {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 });
 
+                if (form.dataset.invoiceRedirect === 'true' && response.data.redirect_url) {
+                    window.location.assign(response.data.redirect_url);
+                    return;
+                }
+
                 window.dispatchEvent(new CustomEvent('crud-toast', {
                     detail: { message: response.data.message ?? 'Factura creada correctamente.' },
                 }));
@@ -3006,6 +3496,514 @@ window.initializeStandaloneInvoiceForms = (root = document) => {
             }
         });
     });
+};
+
+window.initializeInvoiceShowForms = (root = document) => {
+    // Auto-save simple fields (invoice_number, invoice_date, project_id)
+    root.querySelectorAll('[data-invoice-show-field]').forEach((input) => {
+        if (input.dataset.invoiceShowFieldInitialized === 'true') return;
+        input.dataset.invoiceShowFieldInitialized = 'true';
+
+        const field = input.dataset.invoiceShowField;
+        const url = input.dataset.invoiceSaveUrl;
+        if (!url) return;
+
+        let lastValue = input.value;
+
+        const save = async () => {
+            const current = input.value;
+            if (current === lastValue) return;
+            lastValue = current;
+            try {
+                await window.axios.patch(url, { [field]: current || null }, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message: 'Guardado correctamente.' } }));
+            } catch {
+                window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message: 'No fue posible guardar.', type: 'error' } }));
+            }
+        };
+
+        if (input.tagName === 'SELECT') {
+            input.addEventListener('change', save);
+        } else {
+            input.addEventListener('blur', save);
+        }
+    });
+
+    // Provider combobox
+    const provWidget = root.querySelector('[data-invoice-show-providers-root]')
+        ?? (root === document ? document.querySelector('[data-invoice-show-providers-root]') : null);
+
+    if (!provWidget || provWidget.dataset.invoiceShowProviderInitialized === 'true') return;
+    provWidget.dataset.invoiceShowProviderInitialized = 'true';
+
+    const providersNode = provWidget.querySelector('[data-invoice-show-providers]');
+    const allProviders = providersNode
+        ? JSON.parse(providersNode.textContent || '[]').map((p) => ({ ...p, id: String(p.id) }))
+        : [];
+
+    const providerSearchEl = provWidget.querySelector('[data-invoice-show-provider-search]');
+    const providerField = provWidget.querySelector('[data-invoice-show-provider]');
+    const providerMenu = provWidget.querySelector('[data-invoice-show-provider-menu]');
+    const providerClear = provWidget.querySelector('[data-invoice-show-provider-clear]');
+    const saveUrl = provWidget.dataset.invoiceSaveUrl;
+
+    if (!providerSearchEl || !providerField || !saveUrl) return;
+
+    let providerId = String(providerField.value ?? '');
+    let lastProviderId = providerId;
+
+    const patchProvider = async (value) => {
+        if (value === lastProviderId) return;
+        lastProviderId = value;
+        try {
+            await window.axios.patch(saveUrl, { provider_id: value || null }, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message: 'Proveedor actualizado.' } }));
+        } catch {
+            window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message: 'No fue posible guardar el proveedor.', type: 'error' } }));
+        }
+    };
+
+    const renderProviderMenu = (items) => {
+        if (!providerMenu) return;
+        providerMenu.innerHTML = '';
+        if (items.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'px-4 py-3 text-sm text-stone-400';
+            empty.textContent = 'Sin proveedores disponibles';
+            providerMenu.appendChild(empty);
+            return;
+        }
+        items.forEach((item) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'block w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium text-stone-900 transition hover:bg-stone-100 focus:bg-stone-100 focus:outline-none';
+            btn.textContent = item.name;
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                providerId = item.id;
+                if (providerField) providerField.value = item.id;
+                if (providerSearchEl) providerSearchEl.value = item.name;
+                if (providerMenu) providerMenu.classList.add('hidden');
+                if (providerClear) providerClear.classList.remove('hidden');
+                patchProvider(item.id);
+            });
+            providerMenu.appendChild(btn);
+        });
+    };
+
+    providerSearchEl.addEventListener('focus', () => {
+        const term = providerSearchEl.value.trim().toLocaleLowerCase();
+        renderProviderMenu(allProviders.filter((p) => p.name.toLocaleLowerCase().includes(term)));
+        providerMenu?.classList.remove('hidden');
+    });
+    providerSearchEl.addEventListener('input', () => {
+        const term = providerSearchEl.value.trim().toLocaleLowerCase();
+        const match = allProviders.find((p) => p.name.toLocaleLowerCase() === term);
+        providerId = match ? match.id : '';
+        if (providerField) providerField.value = providerId;
+        renderProviderMenu(allProviders.filter((p) => p.name.toLocaleLowerCase().includes(term)));
+        providerMenu?.classList.remove('hidden');
+    });
+    providerSearchEl.addEventListener('blur', () => {
+        window.setTimeout(() => {
+            const match = allProviders.find((p) => p.id === providerId);
+            providerSearchEl.value = match ? match.name : '';
+            if (providerField) providerField.value = providerId;
+            if (providerMenu) providerMenu.classList.add('hidden');
+            patchProvider(providerId);
+        }, 120);
+    });
+    providerClear?.addEventListener('click', () => {
+        providerId = '';
+        if (providerField) providerField.value = '';
+        if (providerSearchEl) providerSearchEl.value = '';
+        if (providerClear) providerClear.classList.add('hidden');
+        patchProvider('');
+    });
+};
+
+window.initializeInvoiceInlineRows = () => {
+    const addBtn = document.querySelector('[data-invoice-add-row]');
+    const saveAllBtn = document.querySelector('[data-invoice-save-all]');
+    const tbody = document.querySelector('[data-invoice-tbody]');
+    const productsNode = document.querySelector('[data-invoice-products]');
+
+    if (!tbody || !tbody.hasAttribute('data-invoice-editable')) return;
+
+    const storeUrl = addBtn?.dataset.storeUrl;
+    const transactionType = addBtn?.dataset.transactionType ?? 'expense';
+    const projectId = addBtn?.dataset.projectId;
+    const providerId = addBtn?.dataset.providerId;
+    const invoiceId = addBtn?.dataset.invoiceId;
+
+    const products = productsNode
+        ? JSON.parse(productsNode.textContent || '[]').map((p) => ({ ...p, id: String(p.id) }))
+        : [];
+
+    const parsePrice = (str) => parseInt(String(str ?? '').trim().replace(/\./g, '').replace(/[^0-9]/g, ''), 10) || 0;
+    const parseQty = (str) => parseInt(String(str ?? '').trim().replace(/\./g, '').replace(/[^0-9]/g, ''), 10) || 0;
+    const formatPrice = (num) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num || 0);
+
+    const fieldLabels = { invoice_id: 'factura', product_id: 'producto', provider_id: 'proveedor', project_id: 'proyecto', unit_price: 'valor unitario', quantity: 'cantidad', expense_date: 'fecha', purchase_date: 'fecha' };
+    const humanizeError = (msg) => {
+        if (!msg) return 'No fue posible guardar.';
+        return msg
+            .replace(/The selected ([\w_]+) is invalid\./i, (_, f) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" no es válido o no está disponible.`)
+            .replace(/The ([\w_]+) field is required\./i, (_, f) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" es obligatorio.`)
+            .replace(/The ([\w_]+) must be a number\./i, (_, f) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" debe ser un número.`)
+            .replace(/The ([\w_]+) must be at least ([\d.]+)\./i, (_, f, v) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" debe ser al menos ${v}.`);
+    };
+
+    const updateInvoiceTotal = () => {
+        const totalEl = document.querySelector('[data-invoice-total-amount]');
+        if (!totalEl) return;
+        let sum = 0;
+        tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]').forEach((tr) => {
+            const qty = parseQty(tr.querySelector('[data-item-quantity]')?.value) || 1;
+            const price = parsePrice(tr.querySelector('[data-item-unit-price]')?.value);
+            sum += qty * price;
+        });
+        totalEl.textContent = '$ ' + formatPrice(sum);
+    };
+
+    const trashSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>`;
+
+    const getUsedProductIds = (excludeTr = null) => {
+        const ids = new Set();
+        tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]').forEach((tr) => {
+            if (tr === excludeTr) return;
+            const val = tr.querySelector('[data-item-product]')?.value;
+            if (val) ids.add(String(val));
+        });
+        return ids;
+    };
+
+    const filterProducts = (term, excludeTr = null) => {
+        const used = getUsedProductIds(excludeTr);
+        return products.filter((p) =>
+            !used.has(p.id) &&
+            (p.name.toLocaleLowerCase().includes(term) ||
+            (p.subgroup_name ?? '').toLocaleLowerCase().includes(term))
+        );
+    };
+
+    const buildProductMenu = (productMenu, items, onSelect) => {
+        productMenu.innerHTML = '';
+        if (items.length === 0) {
+            const el = document.createElement('div');
+            el.className = 'px-4 py-3 text-sm text-stone-400';
+            el.textContent = 'Sin productos disponibles';
+            productMenu.appendChild(el);
+            productMenu.classList.remove('hidden');
+            return;
+        }
+        items.forEach((item) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'block w-full rounded-xl px-4 py-2.5 text-left transition hover:bg-stone-100 focus:outline-none';
+            btn.innerHTML = `<div class="text-sm font-medium text-stone-900">${item.name}</div>${item.subgroup_name ? `<div class="text-xs text-stone-400">${item.subgroup_name}</div>` : ''}`;
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                onSelect(item);
+            });
+            productMenu.appendChild(btn);
+        });
+        productMenu.classList.remove('hidden');
+    };
+
+    const initProductCombobox = (tr, onChange) => {
+        const productSearch = tr.querySelector('[data-item-product-search]');
+        const productField = tr.querySelector('[data-item-product]');
+        const productMenu = tr.querySelector('[data-item-product-menu]');
+        const subgroupEl = tr.querySelector('[data-item-subgroup]');
+
+        if (!productSearch || !productField || !productMenu) return null;
+
+        // Move menu to body so it escapes any overflow:hidden/auto ancestor
+        document.body.appendChild(productMenu);
+        productMenu.style.position = 'fixed';
+        productMenu.style.zIndex = '9999';
+
+        const positionMenu = () => {
+            const rect = productSearch.getBoundingClientRect();
+            productMenu.style.top = (rect.bottom + 2) + 'px';
+            productMenu.style.left = rect.left + 'px';
+            productMenu.style.minWidth = Math.max(rect.width, 288) + 'px';
+        };
+
+        let selectedProductId = String(productField.value || '');
+
+        const applySelection = (item) => {
+            selectedProductId = item.id;
+            productField.value = item.id;
+            productSearch.value = item.name;
+            if (subgroupEl) {
+                subgroupEl.textContent = item.subgroup_name || '';
+                subgroupEl.classList.toggle('hidden', !item.subgroup_name);
+            }
+            productMenu.classList.add('hidden');
+            onChange?.();
+        };
+
+        productSearch.addEventListener('focus', () => {
+            positionMenu();
+            buildProductMenu(productMenu, filterProducts(productSearch.value.trim().toLocaleLowerCase(), tr), applySelection);
+        });
+        productSearch.addEventListener('input', () => {
+            const term = productSearch.value.trim().toLocaleLowerCase();
+            const match = products.find((p) => p.name.toLocaleLowerCase() === term && !getUsedProductIds(tr).has(p.id));
+            selectedProductId = match ? match.id : '';
+            productField.value = selectedProductId;
+            positionMenu();
+            buildProductMenu(productMenu, filterProducts(term, tr), applySelection);
+            onChange?.();
+        });
+        productSearch.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                const match = products.find((p) => p.id === selectedProductId);
+                productSearch.value = match ? match.name : '';
+                if (subgroupEl && !match) {
+                    subgroupEl.textContent = '';
+                    subgroupEl.classList.add('hidden');
+                }
+                productField.value = selectedProductId;
+                productMenu.classList.add('hidden');
+                onChange?.();
+            }, 120);
+        });
+
+        return { getSelectedId: () => selectedProductId };
+    };
+
+    // Initialize existing rows
+    tbody.querySelectorAll('tr[data-item-id]').forEach((tr) => {
+        if (tr.dataset.rowInitialized === 'true') return;
+        tr.dataset.rowInitialized = 'true';
+
+        const deleteUrl = tr.dataset.itemDeleteUrl;
+        const updateUrl = tr.dataset.itemUpdateUrl;
+        const itemDate = tr.dataset.itemDate;
+
+        let dirty = false;
+        const markDirty = () => { dirty = true; };
+
+        const combobox = initProductCombobox(tr, markDirty);
+        const quantityInput = tr.querySelector('[data-item-quantity]');
+        const unitPriceInput = tr.querySelector('[data-item-unit-price]');
+        const totalEl = tr.querySelector('[data-item-total]');
+        const deleteBtn = tr.querySelector('[data-item-delete]');
+
+        // Normalize initial values from DB (may come as raw decimals)
+        if (quantityInput?.value) { const v = parseQty(quantityInput.value); quantityInput.value = v > 0 ? formatPrice(v) : ''; }
+        if (unitPriceInput?.value) { const v = parsePrice(unitPriceInput.value); unitPriceInput.value = v > 0 ? formatPrice(v) : ''; }
+
+        const updateTotal = () => {
+            const qty = parseQty(quantityInput?.value) || 1;
+            const price = parsePrice(unitPriceInput?.value);
+            if (totalEl) totalEl.textContent = price > 0 ? '$ ' + formatPrice(qty * price) : '—';
+            updateInvoiceTotal();
+        };
+
+        quantityInput?.addEventListener('input', () => {
+            const v = parseQty(quantityInput.value);
+            quantityInput.value = v > 0 ? formatPrice(v) : '';
+            updateTotal(); markDirty();
+        });
+        unitPriceInput?.addEventListener('input', () => {
+            const v = parsePrice(unitPriceInput.value);
+            unitPriceInput.value = v > 0 ? formatPrice(v) : '';
+            updateTotal(); markDirty();
+        });
+
+        deleteBtn?.addEventListener('click', async () => {
+            if (!confirm('¿Deseas archivar este ítem? Esta acción no se puede deshacer.')) return;
+            deleteBtn.disabled = true;
+            try {
+                await window.axios.delete(deleteUrl, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                window.location.assign(window.location.href);
+            } catch {
+                deleteBtn.disabled = false;
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: 'No fue posible archivar el ítem.', type: 'error' },
+                }));
+            }
+        });
+
+        tr._invoiceRow = {
+            isNew: false,
+            isDirty: () => dirty,
+            getProductId: () => combobox?.getSelectedId() ?? '',
+            getQuantity: () => { const v = parseQty(quantityInput?.value); return v > 0 ? v : null; },
+            getUnitPrice: () => parsePrice(unitPriceInput?.value),
+            getUpdateUrl: () => updateUrl,
+            getDate: () => itemDate,
+        };
+    });
+
+    // Build a new inline row
+    const buildNewRow = () => {
+        const tr = document.createElement('tr');
+        tr.dataset.inlineRow = 'true';
+        tr.className = 'border-b border-sky-100 bg-sky-50/40';
+        tr.innerHTML = `
+            <td class="px-6 py-2.5 sm:px-8">
+                <div class="relative">
+                    <input type="text" data-item-product-search placeholder="Buscar producto..." autocomplete="off"
+                        class="block w-full min-w-[160px] rounded-xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                    <input type="hidden" data-item-product value="">
+                    <div data-item-product-menu class="hidden max-h-52 overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-xl"></div>
+                </div>
+                <div class="mt-0.5 hidden text-xs text-stone-400" data-item-subgroup></div>
+            </td>
+            <td class="px-4 py-2.5">
+                <input type="text" inputmode="numeric" data-item-quantity placeholder="1"
+                    class="block w-20 rounded-xl border-stone-300 text-right text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+            </td>
+            <td class="px-4 py-2.5">
+                <input type="text" data-item-unit-price inputmode="decimal" placeholder="0"
+                    class="block w-28 rounded-xl border-stone-300 text-right text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+            </td>
+            <td class="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-stone-700" data-item-total>—</td>
+            <td class="py-2.5 pl-8 pr-4 sm:pr-6">
+                <button type="button" data-item-delete
+                    class="rounded-xl border border-rose-200 p-1.5 text-rose-600 transition hover:bg-rose-50"
+                    title="Eliminar fila">${trashSvg}</button>
+            </td>`;
+
+        tbody.appendChild(tr);
+
+        const quantityInput = tr.querySelector('[data-item-quantity]');
+        const unitPriceInput = tr.querySelector('[data-item-unit-price]');
+        const totalEl = tr.querySelector('[data-item-total]');
+        const deleteBtn = tr.querySelector('[data-item-delete]');
+
+        const updateTotal = () => {
+            const qty = parseQty(quantityInput.value) || 1;
+            const price = parsePrice(unitPriceInput.value);
+            totalEl.textContent = price > 0 ? '$ ' + formatPrice(qty * price) : '—';
+            updateInvoiceTotal();
+        };
+
+        const combobox = initProductCombobox(tr, null);
+
+        quantityInput.addEventListener('input', () => {
+            const v = parseQty(quantityInput.value);
+            quantityInput.value = v > 0 ? formatPrice(v) : '';
+            updateTotal();
+        });
+        unitPriceInput.addEventListener('input', () => {
+            const v = parsePrice(unitPriceInput.value);
+            unitPriceInput.value = v > 0 ? formatPrice(v) : '';
+            updateTotal();
+        });
+        deleteBtn.addEventListener('click', () => { tr.remove(); updateInvoiceTotal(); });
+
+        tr._invoiceRow = {
+            isNew: true,
+            isDirty: () => true,
+            getProductId: () => combobox?.getSelectedId() ?? '',
+            getQuantity: () => { const v = parseQty(quantityInput.value); return v > 0 ? v : null; },
+            getUnitPrice: () => parsePrice(unitPriceInput.value),
+        };
+
+        tr.querySelector('[data-item-product-search]')?.focus();
+    };
+
+    if (addBtn && addBtn.dataset.inlineInitialized !== 'true') {
+        addBtn.dataset.inlineInitialized = 'true';
+        addBtn.addEventListener('click', buildNewRow);
+    }
+
+    if (saveAllBtn && saveAllBtn.dataset.inlineInitialized !== 'true') {
+        saveAllBtn.dataset.inlineInitialized = 'true';
+
+        saveAllBtn.addEventListener('click', async () => {
+            const rows = [...tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]')]
+                .filter((tr) => tr._invoiceRow);
+
+            const partialNewRows = rows.filter((tr) => {
+                const r = tr._invoiceRow;
+                if (!r.isNew) return false;
+                const hasProduct = Boolean(r.getProductId());
+                const hasPrice = r.getUnitPrice() > 0;
+                const hasQty = r.getQuantity() !== null;
+                const hasAny = hasProduct || hasPrice || hasQty;
+                return hasAny && !(hasProduct && hasPrice);
+            });
+
+            if (partialNewRows.length > 0) {
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: 'Hay filas incompletas: selecciona producto y valor unitario.', type: 'error' },
+                }));
+                return;
+            }
+
+            saveAllBtn.disabled = true;
+
+            try {
+                const dateKey = transactionType === 'purchase' ? 'purchase_date' : 'expense_date';
+                const today = new Date().toISOString().split('T')[0];
+                const promises = [];
+
+                for (const tr of rows) {
+                    const r = tr._invoiceRow;
+                    if (r.isNew) {
+                        const productId = r.getProductId();
+                        const unitPrice = r.getUnitPrice();
+                        if (!productId || unitPrice <= 0 || !storeUrl) continue;
+                        promises.push(
+                            window.axios.post(storeUrl, {
+                                project_id: projectId,
+                                provider_id: providerId || null,
+                                invoice_id: invoiceId,
+                                product_id: productId,
+                                unit_price: unitPrice,
+                                quantity: r.getQuantity(),
+                                [dateKey]: today,
+                            }, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                        );
+                    } else if (r.isDirty()) {
+                        promises.push(
+                            window.axios.patch(r.getUpdateUrl(), {
+                                project_id: projectId,
+                                provider_id: providerId || null,
+                                invoice_id: invoiceId,
+                                product_id: r.getProductId() || null,
+                                unit_price: r.getUnitPrice(),
+                                quantity: r.getQuantity(),
+                                [dateKey]: r.getDate() || today,
+                            }, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                        );
+                    }
+                }
+
+                if (promises.length === 0) {
+                    window.dispatchEvent(new CustomEvent('crud-toast', {
+                        detail: { message: 'No hay cambios para guardar.' },
+                    }));
+                    saveAllBtn.disabled = false;
+                    return;
+                }
+
+                await Promise.all(promises);
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: 'Factura guardada correctamente.' },
+                }));
+                window.location.assign(window.location.href);
+            } catch (error) {
+                saveAllBtn.disabled = false;
+                const raw = Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                    || error.response?.data?.message;
+                window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message: humanizeError(raw), type: 'error' } }));
+            }
+        });
+    }
 };
 
 window.initializeCompanyLogoForms = (root = document) => {
@@ -4112,6 +5110,1085 @@ document.addEventListener('dragend', () => {
     draggedSortableList = null;
 });
 
+window.initializeTransactionForms = (root = document) => {
+    root.querySelectorAll('form[data-transaction-form]').forEach((form) => {
+        if (form.dataset.transactionInitialized === 'true') {
+            return;
+        }
+
+        form.dataset.transactionInitialized = 'true';
+
+        const payloadNode = form.querySelector('[data-expense-payload]');
+        const selectedNode = form.querySelector('[data-expense-selected]');
+
+        if (! payloadNode || ! selectedNode) {
+            return;
+        }
+
+        const payload = JSON.parse(payloadNode.textContent || '{}');
+        const selected = JSON.parse(selectedNode.textContent || '{}');
+        const projects = (payload.projects ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        const providers = (payload.providers ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        const products = (payload.products ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        const activities = (payload.activities ?? []).map((item) => ({ ...item, id: String(item.id), company_id: String(item.company_id) }));
+        let invoices = (payload.invoices ?? []).map((item) => ({
+            ...item,
+            id: String(item.id),
+            company_id: String(item.company_id),
+            project_id: String(item.project_id),
+            provider_id: String(item.provider_id),
+        }));
+
+        const projectField = form.querySelector('[data-expense-project]') ?? form.querySelector('input[name="project_id"]');
+        const providerField = form.querySelector('[data-transaction-provider]');
+        const providerSearch = form.querySelector('[data-transaction-provider-search]');
+        const providerMenu = form.querySelector('[data-transaction-provider-menu]');
+        const invoiceField = form.querySelector('[data-transaction-invoice]');
+        const invoiceSearch = form.querySelector('[data-transaction-invoice-search]');
+        const invoiceMenu = form.querySelector('[data-transaction-invoice-menu]');
+        const productField = form.querySelector('[data-transaction-product]');
+        const productSearch = form.querySelector('[data-transaction-product-search]');
+        const productMenu = form.querySelector('[data-transaction-product-menu]');
+        const activityField = form.querySelector('[data-transaction-activity]');
+        const activitySearch = form.querySelector('[data-transaction-activity-search]');
+        const activityMenu = form.querySelector('[data-transaction-activity-menu]');
+        const activityToggle = form.querySelector('[data-transaction-is-activity]');
+        const productWrapper = form.querySelector('[data-transaction-product-wrapper]');
+        const activityWrapper = form.querySelector('[data-transaction-activity-wrapper]');
+        const unitPriceField = form.querySelector('[data-transaction-unit-price]');
+        const quantityField = form.querySelector('[data-transaction-quantity]');
+        const totalPreviewEl = form.querySelector('[data-transaction-total-preview]');
+        const providerClear = form.querySelector('[data-transaction-provider-clear]');
+        const productClear = form.querySelector('[data-transaction-product-clear]');
+        const activityClear = form.querySelector('[data-transaction-activity-clear]');
+        const invoiceClear = form.querySelector('[data-transaction-invoice-clear]');
+
+        const state = {
+            projectId: selected.project_id ? String(selected.project_id) : '',
+            providerId: selected.provider_id ? String(selected.provider_id) : '',
+            invoiceId: selected.invoice_id ? String(selected.invoice_id) : '',
+            productId: selected.product_id ? String(selected.product_id) : '',
+            activityId: selected.activity_id ? String(selected.activity_id) : '',
+            isActivity: Boolean(selected.is_activity),
+        };
+
+        if (! state.projectId && projectField?.value) {
+            state.projectId = String(projectField.value);
+        }
+
+        const currentProject = () => projects.find((project) => project.id === state.projectId) ?? null;
+        const optionLabel = (item) => item.name;
+        const availableForProject = (items) => {
+            const project = currentProject();
+
+            if (project) {
+                return items.filter((item) => item.company_id === project.company_id);
+            }
+
+            const availableCompanyIds = new Set(projects.map((item) => item.company_id));
+
+            return items.filter((item) => availableCompanyIds.has(item.company_id));
+        };
+        const availableInvoices = () => invoices.filter((invoice) => (
+            invoice.project_id === state.projectId
+            && invoice.type === form.dataset.transactionType
+            && (! invoice.provider_id || invoice.provider_id === 'null' || invoice.provider_id === state.providerId)
+        ));
+        const closeMenu = (menu) => menu?.classList.add('hidden');
+        const openMenu = (menu) => menu?.classList.remove('hidden');
+
+        const renderMenu = ({ menu, items, emptyText, onSelect, withSubgroup = false }) => {
+            if (! menu) {
+                return;
+            }
+
+            menu.innerHTML = '';
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'px-4 py-3 text-sm text-stone-500';
+                empty.textContent = emptyText;
+                menu.appendChild(empty);
+                return;
+            }
+
+            items.forEach((item) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'block w-full rounded-xl px-4 py-3 text-left transition hover:bg-stone-100 focus:bg-stone-100 focus:outline-none';
+                button.innerHTML = `<span class="block whitespace-nowrap text-sm font-medium text-stone-900">${item.name}</span>${withSubgroup && item.subgroup_name ? `<span class="mt-0.5 block whitespace-nowrap text-xs text-stone-500">${item.subgroup_name}</span>` : ''}`;
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    onSelect(item);
+                });
+                menu.appendChild(button);
+            });
+        };
+
+        const syncSearch = (items, id, search, hidden) => {
+            const selectedItem = items.find((item) => item.id === id);
+
+            if (search) {
+                search.value = selectedItem ? optionLabel(selectedItem) : '';
+            }
+
+            if (hidden) {
+                hidden.value = selectedItem ? selectedItem.id : '';
+            }
+        };
+
+        const resolveTypedValue = (items, search, hidden, key) => {
+            const value = (search?.value ?? '').trim().toLocaleLowerCase();
+            const match = items.find((item) => optionLabel(item).toLocaleLowerCase() === value);
+            state[key] = match ? match.id : '';
+
+            if (hidden) {
+                hidden.value = state[key];
+            }
+        };
+
+        const invoiceLabel = (invoice) => invoice?.label ?? 'Factura sin numero';
+
+        const updateClearButtons = () => {
+            providerClear?.classList.toggle('hidden', ! state.providerId);
+            productClear?.classList.toggle('hidden', ! state.productId);
+            activityClear?.classList.toggle('hidden', ! state.activityId);
+            invoiceClear?.classList.toggle('hidden', ! state.invoiceId);
+        };
+
+        const syncCatalogVisibility = () => {
+            if (activityToggle) {
+                activityToggle.checked = state.isActivity;
+            }
+
+            productWrapper?.classList.toggle('hidden', state.isActivity);
+            activityWrapper?.classList.toggle('hidden', ! state.isActivity);
+        };
+
+        const syncLists = () => {
+            const availableProviders = availableForProject(providers);
+            const availableProducts = availableForProject(products);
+            const availableActivities = availableForProject(activities);
+
+            if (! availableProviders.some((provider) => provider.id === state.providerId)) {
+                state.providerId = '';
+            }
+
+            if (! availableProducts.some((product) => product.id === state.productId)) {
+                state.productId = '';
+            }
+
+            if (! availableActivities.some((activity) => activity.id === state.activityId)) {
+                state.activityId = '';
+            }
+
+            if (! availableInvoices().some((invoice) => invoice.id === state.invoiceId)) {
+                state.invoiceId = '';
+            }
+
+            syncSearch(availableProviders, state.providerId, providerSearch, providerField);
+            syncSearch(availableInvoices().map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) })), state.invoiceId, invoiceSearch, invoiceField);
+            syncSearch(availableProducts, state.productId, productSearch, productField);
+            syncSearch(availableActivities, state.activityId, activitySearch, activityField);
+
+            renderMenu({
+                menu: providerMenu,
+                items: availableProviders,
+                emptyText: 'Sin proveedores disponibles',
+                onSelect: (item) => {
+                    state.providerId = item.id;
+                    if (providerField) providerField.value = item.id;
+                    if (providerSearch) providerSearch.value = item.name;
+                    closeMenu(providerMenu);
+                },
+            });
+
+            renderMenu({
+                menu: productMenu,
+                items: availableProducts,
+                emptyText: 'Sin productos disponibles',
+                withSubgroup: true,
+                onSelect: (item) => {
+                    state.productId = item.id;
+                    state.activityId = '';
+                    if (productField) productField.value = item.id;
+                    if (productSearch) productSearch.value = item.name;
+                    if (activityField) activityField.value = '';
+                    if (activitySearch) activitySearch.value = '';
+                    updateClearButtons();
+                    closeMenu(productMenu);
+                },
+            });
+
+            renderMenu({
+                menu: activityMenu,
+                items: availableActivities,
+                emptyText: 'Sin actividades disponibles',
+                withSubgroup: true,
+                onSelect: (item) => {
+                    state.activityId = item.id;
+                    state.productId = '';
+                    if (activityField) activityField.value = item.id;
+                    if (activitySearch) activitySearch.value = item.name;
+                    if (productField) productField.value = '';
+                    if (productSearch) productSearch.value = '';
+                    updateClearButtons();
+                    closeMenu(activityMenu);
+                },
+            });
+
+            syncCatalogVisibility();
+            updateClearButtons();
+        };
+
+        const syncUnitPrice = (preserveCaret = false) => {
+            if (! unitPriceField) {
+                return;
+            }
+
+            const rawValue = unitPriceField.value;
+            const selectionStart = unitPriceField.selectionStart ?? rawValue.length;
+            const digitsBeforeCaret = countAmountDigits(rawValue.slice(0, selectionStart));
+            const formattedValue = formatIntegerAmount(rawValue);
+
+            unitPriceField.value = formattedValue;
+
+            if (preserveCaret) {
+                const nextCaret = caretPositionFromDigits(formattedValue, digitsBeforeCaret);
+                unitPriceField.setSelectionRange(nextCaret, nextCaret);
+            }
+        };
+
+        const updateTotalPreview = () => {
+            if (! totalPreviewEl) {
+                return;
+            }
+
+            const rawPrice = normalizeIntegerAmount(unitPriceField?.value ?? '');
+            const price = parseFloat(rawPrice) || 0;
+            const qty = parseFloat(quantityField?.value ?? '') || 0;
+
+            if (price > 0 && qty > 0 && qty !== 1) {
+                const total = Math.round(price * qty);
+                const formattedQty = Number.isInteger(qty)
+                    ? String(qty)
+                    : qty.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+                totalPreviewEl.innerHTML = `<span style="display:block;font-size:0.7rem;line-height:1rem;color:#a8a29e;margin-bottom:1px">${formattedQty} x $ ${formatIntegerAmount(String(Math.round(price)))}</span><span style="display:block;font-size:1.25rem;line-height:1.5rem;font-weight:700;color:#1c1917;letter-spacing:-0.01em">$ ${formatIntegerAmount(String(total))}</span>`;
+                totalPreviewEl.classList.remove('hidden');
+            } else {
+                totalPreviewEl.classList.add('hidden');
+            }
+        };
+
+        if (! state.projectId && projects.length === 1) {
+            state.projectId = projects[0].id;
+        }
+
+        if (projectField) {
+            projectField.value = state.projectId;
+            projectField.addEventListener('change', (event) => {
+                state.projectId = String(event.target.value || '');
+                state.providerId = '';
+                state.invoiceId = '';
+                state.productId = '';
+                state.activityId = '';
+                syncLists();
+            });
+        }
+
+        providerSearch?.addEventListener('focus', () => {
+            const items = availableForProject(providers);
+            const term = providerSearch.value.trim().toLocaleLowerCase();
+            renderMenu({
+                menu: providerMenu,
+                items: items.filter((item) => item.name.toLocaleLowerCase().includes(term)),
+                emptyText: 'Sin proveedores disponibles',
+                onSelect: (item) => {
+                    state.providerId = item.id;
+                    state.invoiceId = '';
+                    if (providerField) providerField.value = item.id;
+                    if (providerSearch) providerSearch.value = item.name;
+                    updateClearButtons();
+                    closeMenu(providerMenu);
+                },
+            });
+            openMenu(providerMenu);
+        });
+        providerSearch?.addEventListener('input', () => {
+            const items = availableForProject(providers);
+            const term = providerSearch.value.trim().toLocaleLowerCase();
+            resolveTypedValue(items, providerSearch, providerField, 'providerId');
+            renderMenu({
+                menu: providerMenu,
+                items: items.filter((item) => item.name.toLocaleLowerCase().includes(term)),
+                emptyText: 'Sin proveedores disponibles',
+                onSelect: (item) => {
+                    state.providerId = item.id;
+                    state.invoiceId = '';
+                    if (providerField) providerField.value = item.id;
+                    if (providerSearch) providerSearch.value = item.name;
+                    updateClearButtons();
+                    closeMenu(providerMenu);
+                },
+            });
+            openMenu(providerMenu);
+        });
+        providerSearch?.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                syncSearch(availableForProject(providers), state.providerId, providerSearch, providerField);
+                closeMenu(providerMenu);
+            }, 120);
+        });
+
+        const renderInvoiceMenu = (items) => {
+            renderMenu({
+                menu: invoiceMenu,
+                items: [{ id: '', name: 'Sin factura' }, ...items.map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) }))],
+                emptyText: 'Sin facturas disponibles',
+                onSelect: (item) => {
+                    state.invoiceId = item.id;
+                    if (invoiceField) invoiceField.value = item.id;
+                    if (invoiceSearch) invoiceSearch.value = item.name === 'Sin factura' ? '' : item.name;
+                    updateClearButtons();
+                    closeMenu(invoiceMenu);
+                },
+            });
+        };
+
+        invoiceSearch?.addEventListener('focus', () => {
+            const term = invoiceSearch.value.trim().toLocaleLowerCase();
+            renderInvoiceMenu(availableInvoices().filter((item) => invoiceLabel(item).toLocaleLowerCase().includes(term)));
+            openMenu(invoiceMenu);
+        });
+        invoiceSearch?.addEventListener('input', () => {
+            const term = invoiceSearch.value.trim().toLocaleLowerCase();
+            const normalized = availableInvoices().map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) }));
+            resolveTypedValue(normalized, invoiceSearch, invoiceField, 'invoiceId');
+            renderInvoiceMenu(availableInvoices().filter((item) => invoiceLabel(item).toLocaleLowerCase().includes(term)));
+            openMenu(invoiceMenu);
+        });
+        invoiceSearch?.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                syncSearch(availableInvoices().map((invoice) => ({ ...invoice, name: invoiceLabel(invoice) })), state.invoiceId, invoiceSearch, invoiceField);
+                closeMenu(invoiceMenu);
+            }, 120);
+        });
+
+        const bindCatalogSearch = ({ search, hidden, menu, key, itemsSource, emptyText, clearOther }) => {
+            search?.addEventListener('focus', () => {
+                const items = itemsSource();
+                const term = search.value.trim().toLocaleLowerCase();
+                renderMenu({
+                    menu,
+                    items: items.filter((item) => item.name.toLocaleLowerCase().includes(term) || (item.subgroup_name ?? '').toLocaleLowerCase().includes(term)),
+                    emptyText,
+                    withSubgroup: true,
+                    onSelect: (item) => {
+                        state[key] = item.id;
+                        if (hidden) hidden.value = item.id;
+                        search.value = item.name;
+                        clearOther();
+                        updateClearButtons();
+                        closeMenu(menu);
+                    },
+                });
+                openMenu(menu);
+            });
+
+            search?.addEventListener('input', () => {
+                const items = itemsSource();
+                const term = search.value.trim().toLocaleLowerCase();
+                resolveTypedValue(items, search, hidden, key);
+                if (state[key]) {
+                    clearOther();
+                }
+                renderMenu({
+                    menu,
+                    items: items.filter((item) => item.name.toLocaleLowerCase().includes(term) || (item.subgroup_name ?? '').toLocaleLowerCase().includes(term)),
+                    emptyText,
+                    withSubgroup: true,
+                    onSelect: (item) => {
+                        state[key] = item.id;
+                        if (hidden) hidden.value = item.id;
+                        search.value = item.name;
+                        clearOther();
+                        updateClearButtons();
+                        closeMenu(menu);
+                    },
+                });
+                openMenu(menu);
+            });
+
+            search?.addEventListener('blur', () => {
+                window.setTimeout(() => {
+                    syncSearch(itemsSource(), state[key], search, hidden);
+                    closeMenu(menu);
+                }, 120);
+            });
+        };
+
+        bindCatalogSearch({
+            search: productSearch,
+            hidden: productField,
+            menu: productMenu,
+            key: 'productId',
+            itemsSource: () => availableForProject(products),
+            emptyText: 'Sin productos disponibles',
+            clearOther: () => {
+                state.activityId = '';
+                if (activityField) activityField.value = '';
+                if (activitySearch) activitySearch.value = '';
+            },
+        });
+
+        bindCatalogSearch({
+            search: activitySearch,
+            hidden: activityField,
+            menu: activityMenu,
+            key: 'activityId',
+            itemsSource: () => availableForProject(activities),
+            emptyText: 'Sin actividades disponibles',
+            clearOther: () => {
+                state.productId = '';
+                if (productField) productField.value = '';
+                if (productSearch) productSearch.value = '';
+            },
+        });
+
+        providerClear?.addEventListener('click', () => {
+            state.providerId = '';
+            state.invoiceId = '';
+            if (providerField) providerField.value = '';
+            if (providerSearch) providerSearch.value = '';
+            if (invoiceField) invoiceField.value = '';
+            if (invoiceSearch) invoiceSearch.value = '';
+            syncLists();
+        });
+        productClear?.addEventListener('click', () => {
+            state.productId = '';
+            if (productField) productField.value = '';
+            if (productSearch) productSearch.value = '';
+            syncLists();
+        });
+        activityClear?.addEventListener('click', () => {
+            state.activityId = '';
+            if (activityField) activityField.value = '';
+            if (activitySearch) activitySearch.value = '';
+            syncLists();
+        });
+        invoiceClear?.addEventListener('click', () => {
+            state.invoiceId = '';
+            if (invoiceField) invoiceField.value = '';
+            if (invoiceSearch) invoiceSearch.value = '';
+            syncLists();
+        });
+
+        activityToggle?.addEventListener('change', () => {
+            state.isActivity = Boolean(activityToggle.checked);
+
+            if (state.isActivity) {
+                state.productId = '';
+                if (productField) productField.value = '';
+                if (productSearch) productSearch.value = '';
+                closeMenu(productMenu);
+            } else {
+                state.activityId = '';
+                if (activityField) activityField.value = '';
+                if (activitySearch) activitySearch.value = '';
+                closeMenu(activityMenu);
+            }
+
+            syncCatalogVisibility();
+            updateClearButtons();
+        });
+
+        unitPriceField?.addEventListener('input', () => syncUnitPrice(true));
+        unitPriceField?.addEventListener('blur', () => syncUnitPrice());
+        unitPriceField?.addEventListener('input', updateTotalPreview);
+        quantityField?.addEventListener('input', updateTotalPreview);
+        quantityField?.addEventListener('blur', updateTotalPreview);
+
+        form.addEventListener('submit', () => {
+            if (unitPriceField) {
+                unitPriceField.value = normalizeIntegerAmount(unitPriceField.value);
+            }
+        });
+
+        form.addEventListener('invoice-added', (event) => {
+            const invoice = event.detail ?? {};
+            if (! invoice.id) return;
+            const normalized = {
+                ...invoice,
+                id: String(invoice.id),
+                company_id: String(invoice.company_id ?? ''),
+                project_id: String(invoice.project_id ?? ''),
+                provider_id: String(invoice.provider_id ?? ''),
+            };
+            invoices = invoices.filter((inv) => inv.id !== normalized.id);
+            invoices.push(normalized);
+            state.invoiceId = normalized.id;
+            if (invoiceField) invoiceField.value = normalized.id;
+            if (invoiceSearch) invoiceSearch.value = invoiceLabel(normalized);
+            syncLists();
+        });
+
+        syncLists();
+        syncCatalogVisibility();
+        syncUnitPrice();
+        updateTotalPreview();
+    });
+};
+
+window.initializeInvoiceInlineRows = () => {
+    const addBtn = document.querySelector('[data-invoice-add-row]');
+    const saveAllBtn = document.querySelector('[data-invoice-save-all]');
+    const tbody = document.querySelector('[data-invoice-tbody]');
+    const productsNode = document.querySelector('[data-invoice-products]');
+    const activitiesNode = document.querySelector('[data-invoice-activities]');
+    const invoicePageRootSelector = '[data-invoice-page-root]';
+
+    if (! tbody || ! tbody.hasAttribute('data-invoice-editable')) return;
+
+    const storeUrl = addBtn?.dataset.storeUrl;
+    const transactionType = addBtn?.dataset.transactionType ?? 'expense';
+    const projectId = addBtn?.dataset.projectId;
+    const providerId = addBtn?.dataset.providerId;
+    const invoiceId = addBtn?.dataset.invoiceId;
+
+    const products = productsNode ? JSON.parse(productsNode.textContent || '[]').map((p) => ({ ...p, id: String(p.id) })) : [];
+    const activities = activitiesNode ? JSON.parse(activitiesNode.textContent || '[]').map((a) => ({ ...a, id: String(a.id) })) : [];
+    const activityToggleThemes = {
+        yes: 'border-emerald-200 bg-emerald-100 text-emerald-800',
+        no: 'border-rose-200 bg-rose-100 text-rose-700',
+    };
+    const parsePrice = (str) => parseInt(String(str ?? '').trim().replace(/\./g, '').replace(/[^0-9]/g, ''), 10) || 0;
+    const parseQty = (str) => parseInt(String(str ?? '').trim().replace(/\./g, '').replace(/[^0-9]/g, ''), 10) || 0;
+    const formatPrice = (num) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num || 0);
+    const fieldLabels = { invoice_id: 'factura', product_id: 'producto', activity_id: 'actividad', provider_id: 'proveedor', project_id: 'proyecto', unit_price: 'valor unitario', quantity: 'cantidad', expense_date: 'fecha', purchase_date: 'fecha' };
+    const humanizeError = (msg) => {
+        if (! msg) return 'No fue posible guardar.';
+        return msg
+            .replace(/The selected ([\w_]+) is invalid\./i, (_, f) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" no es valido o no esta disponible.`)
+            .replace(/The ([\w_]+) field is required\./i, (_, f) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" es obligatorio.`)
+            .replace(/The ([\w_]+) must be a number\./i, (_, f) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" debe ser un numero.`)
+            .replace(/The ([\w_]+) must be at least ([\d.]+)\./i, (_, f, v) => `El campo "${fieldLabels[f] ?? f.replace(/_/g, ' ')}" debe ser al menos ${v}.`);
+    };
+
+    const updateInvoiceTotal = () => {
+        const totalEl = document.querySelector('[data-invoice-total-amount]');
+        if (! totalEl) return;
+        let sum = 0;
+        tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]').forEach((tr) => {
+            const qty = parseQty(tr.querySelector('[data-item-quantity]')?.value) || 1;
+            const price = parsePrice(tr.querySelector('[data-item-unit-price]')?.value);
+            sum += qty * price;
+        });
+        totalEl.textContent = '$ ' + formatPrice(sum);
+    };
+
+    const captureInvoicePageState = () => {
+        const xScroll = document.querySelector('[data-invoice-items-x-scroll]');
+
+        return {
+            windowTop: window.scrollY || window.pageYOffset || 0,
+            itemsLeft: xScroll?.scrollLeft ?? 0,
+        };
+    };
+
+    const restoreInvoicePageState = (state = {}) => {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({
+                top: state.windowTop ?? 0,
+                left: 0,
+                behavior: 'auto',
+            });
+
+            const xScroll = document.querySelector('[data-invoice-items-x-scroll]');
+            if (xScroll) {
+                xScroll.scrollLeft = state.itemsLeft ?? 0;
+            }
+        });
+    };
+
+    const refreshInvoicePage = async (toastMessage = null) => {
+        const currentRoot = document.querySelector(invoicePageRootSelector);
+        if (! currentRoot) return false;
+
+        const preservedState = captureInvoicePageState();
+        const response = await window.axios.get(window.location.href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html, application/xhtml+xml',
+            },
+        });
+
+        const parser = new DOMParser();
+        const nextDocument = parser.parseFromString(response.data, 'text/html');
+        const nextRoot = nextDocument.querySelector(invoicePageRootSelector);
+
+        if (! nextRoot) {
+            return false;
+        }
+
+        currentRoot.outerHTML = nextRoot.outerHTML;
+
+        window.requestAnimationFrame(() => {
+            const mountedRoot = document.querySelector(invoicePageRootSelector);
+            if (mountedRoot) {
+                Alpine.initTree(mountedRoot);
+                window.initializeInvoiceAttachmentForms?.(mountedRoot);
+                window.initializeInvoiceShowForms?.(mountedRoot);
+                window.initializeInvoiceInlineRows?.();
+            }
+
+            restoreInvoicePageState(preservedState);
+
+            if (toastMessage) {
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: toastMessage },
+                }));
+            }
+        });
+
+        return true;
+    };
+
+    const trashSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>`;
+
+    const buildCatalogMenu = (menu, items, emptyText, onSelect) => {
+        menu.innerHTML = '';
+        if (items.length === 0) {
+            const el = document.createElement('div');
+            el.className = 'px-4 py-3 text-sm text-stone-400';
+            el.textContent = emptyText;
+            menu.appendChild(el);
+            menu.classList.remove('hidden');
+            return;
+        }
+        items.forEach((item) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'block w-full rounded-xl px-4 py-2.5 text-left transition hover:bg-stone-100 focus:outline-none';
+            btn.innerHTML = `<div class="text-sm font-medium text-stone-900">${item.name}</div>${item.subgroup_name ? `<div class="text-xs text-stone-400">${item.subgroup_name}</div>` : ''}`;
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                onSelect(item);
+            });
+            menu.appendChild(btn);
+        });
+        menu.classList.remove('hidden');
+    };
+
+    const getUsedIds = (selector, excludeTr = null) => {
+        const ids = new Set();
+        tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]').forEach((tr) => {
+            if (tr === excludeTr) return;
+            const val = tr.querySelector(selector)?.value;
+            if (val) ids.add(String(val));
+        });
+        return ids;
+    };
+
+    const initCatalogCombobox = (tr, options) => {
+        const searchEl = tr.querySelector(options.searchSelector);
+        const fieldEl = tr.querySelector(options.fieldSelector);
+        const menuEl = tr.querySelector(options.menuSelector);
+        const subgroupEl = tr.querySelector(options.subgroupSelector);
+
+        if (! searchEl || ! fieldEl || ! menuEl) return null;
+
+        document.body.appendChild(menuEl);
+        menuEl.style.position = 'fixed';
+        menuEl.style.zIndex = '9999';
+
+        const positionMenu = () => {
+            const rect = searchEl.getBoundingClientRect();
+            menuEl.style.top = `${rect.bottom + 2}px`;
+            menuEl.style.left = `${rect.left}px`;
+            menuEl.style.minWidth = `${Math.max(rect.width, 288)}px`;
+        };
+
+        let selectedId = String(fieldEl.value || '');
+        const findItemById = (id) => options.items.find((item) => item.id === String(id)) ?? null;
+
+        const syncSubgroup = (item) => {
+            if (! subgroupEl) return;
+            subgroupEl.textContent = item?.subgroup_name || '';
+            subgroupEl.classList.toggle('hidden', ! item?.subgroup_name);
+        };
+
+        const applySelection = (item) => {
+            selectedId = item.id;
+            fieldEl.value = item.id;
+            searchEl.value = item.name;
+            syncSubgroup(item);
+            menuEl.classList.add('hidden');
+            options.onSelect?.(item);
+        };
+
+        searchEl.addEventListener('focus', () => {
+            positionMenu();
+            const used = getUsedIds(options.fieldSelector, tr);
+            const term = searchEl.value.trim().toLocaleLowerCase();
+            buildCatalogMenu(menuEl, options.items.filter((item) => ! used.has(item.id) && (item.name.toLocaleLowerCase().includes(term) || (item.subgroup_name ?? '').toLocaleLowerCase().includes(term))), options.emptyText, applySelection);
+        });
+
+        searchEl.addEventListener('input', () => {
+            const term = searchEl.value.trim().toLocaleLowerCase();
+            const used = getUsedIds(options.fieldSelector, tr);
+            const match = options.items.find((item) => item.name.toLocaleLowerCase() === term && ! used.has(item.id));
+            selectedId = match ? match.id : '';
+            fieldEl.value = selectedId;
+            positionMenu();
+            buildCatalogMenu(menuEl, options.items.filter((item) => ! used.has(item.id) && (item.name.toLocaleLowerCase().includes(term) || (item.subgroup_name ?? '').toLocaleLowerCase().includes(term))), options.emptyText, applySelection);
+            options.onInput?.(selectedId);
+        });
+
+        searchEl.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                const match = options.items.find((item) => item.id === selectedId);
+                searchEl.value = match ? match.name : '';
+                fieldEl.value = selectedId;
+                syncSubgroup(match);
+                menuEl.classList.add('hidden');
+                options.onInput?.(selectedId);
+            }, 120);
+        });
+
+        syncSubgroup(options.items.find((item) => item.id === selectedId));
+
+        return {
+            getSelectedId: () => selectedId,
+            getSelectedItem: () => findItemById(selectedId),
+            setSelection: (item) => {
+                if (! item) {
+                    selectedId = '';
+                    fieldEl.value = '';
+                    searchEl.value = '';
+                    syncSubgroup(null);
+                    return;
+                }
+
+                applySelection({
+                    ...item,
+                    id: String(item.id),
+                });
+            },
+            clear: () => {
+                selectedId = '';
+                fieldEl.value = '';
+                searchEl.value = '';
+                syncSubgroup(null);
+            },
+        };
+    };
+
+    const attachRow = (tr, isNew) => {
+        if (! isNew) {
+            if (tr.dataset.rowInitialized === 'true') return;
+            tr.dataset.rowInitialized = 'true';
+        }
+
+        const deleteUrl = tr.dataset.itemDeleteUrl;
+        const updateUrl = tr.dataset.itemUpdateUrl;
+        const itemDate = tr.dataset.itemDate;
+        const toggleInput = tr.querySelector('[data-item-is-activity]');
+        const toggleLabel = tr.querySelector('[data-item-activity-toggle-label]');
+        const productWrapper = tr.querySelector('[data-item-product-wrapper]');
+        const activityWrapper = tr.querySelector('[data-item-activity-wrapper]');
+        const quantityInput = tr.querySelector('[data-item-quantity]');
+        const unitPriceInput = tr.querySelector('[data-item-unit-price]');
+        const totalEl = tr.querySelector('[data-item-total]');
+        const deleteBtn = tr.querySelector('[data-item-delete]');
+        let dirty = isNew;
+        const markDirty = () => { dirty = true; };
+        let lastProductSelection = null;
+        let lastActivitySelection = null;
+
+        const productCombobox = initCatalogCombobox(tr, {
+            searchSelector: '[data-item-product-search]',
+            fieldSelector: '[data-item-product]',
+            menuSelector: '[data-item-product-menu]',
+            subgroupSelector: '[data-item-product-subgroup]',
+            items: products,
+            emptyText: 'Sin productos disponibles',
+            onSelect: (item) => {
+                lastProductSelection = item;
+                toggleInput.checked = false;
+                activityCombobox?.clear();
+                syncMode();
+                markDirty();
+            },
+            onInput: (selectedId) => {
+                if (selectedId) {
+                    lastProductSelection = productCombobox?.getSelectedItem() ?? lastProductSelection;
+                    toggleInput.checked = false;
+                    activityCombobox?.clear();
+                    syncMode();
+                }
+                markDirty();
+            },
+        });
+        const activityCombobox = initCatalogCombobox(tr, {
+            searchSelector: '[data-item-activity-search]',
+            fieldSelector: '[data-item-activity]',
+            menuSelector: '[data-item-activity-menu]',
+            subgroupSelector: '[data-item-activity-subgroup]',
+            items: activities,
+            emptyText: 'Sin actividades disponibles',
+            onSelect: (item) => {
+                lastActivitySelection = item;
+                toggleInput.checked = true;
+                productCombobox?.clear();
+                syncMode();
+                markDirty();
+            },
+            onInput: (selectedId) => {
+                if (selectedId) {
+                    lastActivitySelection = activityCombobox?.getSelectedItem() ?? lastActivitySelection;
+                    toggleInput.checked = true;
+                    productCombobox?.clear();
+                    syncMode();
+                }
+                markDirty();
+            },
+        });
+        lastProductSelection = productCombobox?.getSelectedItem() ?? null;
+        lastActivitySelection = activityCombobox?.getSelectedItem() ?? null;
+
+        const syncActivityToggle = () => {
+            if (! toggleInput || ! toggleLabel) return;
+
+            const isActivity = Boolean(toggleInput.checked);
+            toggleLabel.textContent = isActivity ? 'Si' : 'No';
+            toggleLabel.classList.remove(...activityToggleThemes.yes.split(' '), ...activityToggleThemes.no.split(' '));
+            toggleLabel.classList.add(...(isActivity ? activityToggleThemes.yes : activityToggleThemes.no).split(' '));
+        };
+
+        const syncMode = () => {
+            const isActivity = Boolean(toggleInput?.checked);
+            productWrapper?.classList.toggle('hidden', isActivity);
+            activityWrapper?.classList.toggle('hidden', ! isActivity);
+            syncActivityToggle();
+        };
+
+        syncMode();
+        toggleInput?.addEventListener('change', () => {
+            if (toggleInput.checked) {
+                lastProductSelection = productCombobox?.getSelectedItem() ?? lastProductSelection;
+                productCombobox?.clear();
+                if (! activityCombobox?.getSelectedId() && lastActivitySelection) {
+                    activityCombobox?.setSelection(lastActivitySelection);
+                }
+            } else {
+                lastActivitySelection = activityCombobox?.getSelectedItem() ?? lastActivitySelection;
+                activityCombobox?.clear();
+                if (! productCombobox?.getSelectedId() && lastProductSelection) {
+                    productCombobox?.setSelection(lastProductSelection);
+                }
+            }
+            syncMode();
+            markDirty();
+        });
+
+        if (quantityInput?.value) {
+            const v = parseQty(quantityInput.value);
+            quantityInput.value = v > 0 ? formatPrice(v) : '';
+        }
+        if (unitPriceInput?.value) {
+            const v = parsePrice(unitPriceInput.value);
+            unitPriceInput.value = v > 0 ? formatPrice(v) : '';
+        }
+
+        const updateTotal = () => {
+            const qty = parseQty(quantityInput?.value) || 1;
+            const price = parsePrice(unitPriceInput?.value);
+            if (totalEl) totalEl.textContent = price > 0 ? '$ ' + formatPrice(qty * price) : '-';
+            updateInvoiceTotal();
+        };
+
+        quantityInput?.addEventListener('input', () => {
+            const v = parseQty(quantityInput.value);
+            quantityInput.value = v > 0 ? formatPrice(v) : '';
+            updateTotal();
+            markDirty();
+        });
+        unitPriceInput?.addEventListener('input', () => {
+            const v = parsePrice(unitPriceInput.value);
+            unitPriceInput.value = v > 0 ? formatPrice(v) : '';
+            updateTotal();
+            markDirty();
+        });
+
+        deleteBtn?.addEventListener('click', async () => {
+            if (isNew) {
+                tr.remove();
+                updateInvoiceTotal();
+                return;
+            }
+
+            if (! confirm('Deseas archivar este item? Esta accion no se puede deshacer.')) return;
+            deleteBtn.disabled = true;
+            try {
+                await window.axios.delete(deleteUrl, {
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                await refreshInvoicePage('Item archivado correctamente.');
+            } catch {
+                deleteBtn.disabled = false;
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: 'No fue posible archivar el item.', type: 'error' },
+                }));
+            }
+        });
+
+        tr._invoiceRow = {
+            isNew,
+            isDirty: () => dirty,
+            isActivity: () => Boolean(toggleInput?.checked),
+            getProductId: () => productCombobox?.getSelectedId() ?? '',
+            getActivityId: () => activityCombobox?.getSelectedId() ?? '',
+            getQuantity: () => {
+                const v = parseQty(quantityInput?.value);
+                return v > 0 ? v : null;
+            },
+            getUnitPrice: () => parsePrice(unitPriceInput?.value),
+            getUpdateUrl: () => updateUrl,
+            getDate: () => itemDate,
+        };
+
+        updateTotal();
+    };
+
+    tbody.querySelectorAll('tr[data-item-id]').forEach((tr) => attachRow(tr, false));
+
+    const buildNewRow = () => {
+        const tr = document.createElement('tr');
+        tr.dataset.inlineRow = 'true';
+        tr.className = 'border-b border-sky-100 bg-sky-50/40';
+        tr.innerHTML = `
+            <td class="px-4 py-2.5 text-center align-top sm:px-6">
+                <label class="inline-flex cursor-pointer items-center" data-item-activity-toggle>
+                    <input type="checkbox" data-item-is-activity class="sr-only">
+                    <span class="inline-flex min-w-[3.5rem] justify-center rounded-full border border-rose-200 bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition" data-item-activity-toggle-label>No</span>
+                </label>
+            </td>
+            <td class="px-6 py-2.5 sm:px-8">
+                <div data-item-product-wrapper>
+                    <div class="relative">
+                        <input type="text" data-item-product-search placeholder="Buscar producto..." autocomplete="off" class="block w-full min-w-[160px] rounded-xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                        <input type="hidden" data-item-product value="">
+                        <div data-item-product-menu class="hidden max-h-52 overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-xl"></div>
+                    </div>
+                    <div class="mt-0.5 hidden text-xs text-stone-400" data-item-product-subgroup></div>
+                </div>
+                <div class="hidden" data-item-activity-wrapper>
+                    <div class="relative">
+                        <input type="text" data-item-activity-search placeholder="Buscar actividad..." autocomplete="off" class="block w-full min-w-[160px] rounded-xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                        <input type="hidden" data-item-activity value="">
+                        <div data-item-activity-menu class="hidden max-h-52 overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-xl"></div>
+                    </div>
+                    <div class="mt-0.5 hidden text-xs text-stone-400" data-item-activity-subgroup></div>
+                </div>
+            </td>
+            <td class="px-4 py-2.5">
+                <input type="text" inputmode="numeric" data-item-quantity placeholder="1" class="block w-20 rounded-xl border-stone-300 text-right text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+            </td>
+            <td class="px-4 py-2.5">
+                <input type="text" data-item-unit-price inputmode="decimal" placeholder="0" class="block w-28 rounded-xl border-stone-300 text-right text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900">
+            </td>
+            <td class="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-stone-700" data-item-total>-</td>
+            <td class="py-2.5 pl-8 pr-4 sm:pr-6">
+                <button type="button" data-item-delete class="rounded-xl border border-rose-200 p-1.5 text-rose-600 transition hover:bg-rose-50" title="Eliminar fila">${trashSvg}</button>
+            </td>`;
+
+        tbody.appendChild(tr);
+        attachRow(tr, true);
+        tr.querySelector('[data-item-product-search]')?.focus();
+    };
+
+    if (addBtn && addBtn.dataset.inlineInitialized !== 'true') {
+        addBtn.dataset.inlineInitialized = 'true';
+        addBtn.addEventListener('click', buildNewRow);
+    }
+
+    if (saveAllBtn && saveAllBtn.dataset.inlineInitialized !== 'true') {
+        saveAllBtn.dataset.inlineInitialized = 'true';
+        saveAllBtn.addEventListener('click', async () => {
+            const rows = [...tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]')].filter((tr) => tr._invoiceRow);
+            const partialNewRows = rows.filter((tr) => {
+                const r = tr._invoiceRow;
+                if (! r.isNew) return false;
+                const hasCatalog = r.isActivity() ? Boolean(r.getActivityId()) : Boolean(r.getProductId());
+                const hasPrice = r.getUnitPrice() > 0;
+                const hasQty = r.getQuantity() !== null;
+                const hasAny = hasCatalog || hasPrice || hasQty;
+                return hasAny && ! (hasCatalog && hasPrice);
+            });
+
+            if (partialNewRows.length > 0) {
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: 'Hay filas incompletas: selecciona producto o actividad y valor unitario.', type: 'error' },
+                }));
+                return;
+            }
+
+            saveAllBtn.disabled = true;
+
+            try {
+                const dateKey = transactionType === 'purchase' ? 'purchase_date' : 'expense_date';
+                const today = new Date().toISOString().split('T')[0];
+                const promises = [];
+
+                for (const tr of rows) {
+                    const r = tr._invoiceRow;
+                    const payloadRow = {
+                        project_id: projectId,
+                        provider_id: providerId || null,
+                        invoice_id: invoiceId,
+                        product_id: r.isActivity() ? null : (r.getProductId() || null),
+                        activity_id: r.isActivity() ? (r.getActivityId() || null) : null,
+                        is_activity: r.isActivity(),
+                        unit_price: r.getUnitPrice(),
+                        quantity: r.getQuantity(),
+                    };
+
+                    if (r.isNew) {
+                        if ((! payloadRow.product_id && ! payloadRow.activity_id) || payloadRow.unit_price <= 0 || ! storeUrl) continue;
+                        promises.push(window.axios.post(storeUrl, {
+                            ...payloadRow,
+                            [dateKey]: today,
+                        }, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }));
+                    } else if (r.isDirty()) {
+                        promises.push(window.axios.patch(r.getUpdateUrl(), {
+                            ...payloadRow,
+                            [dateKey]: r.getDate() || today,
+                        }, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }));
+                    }
+                }
+
+                if (promises.length === 0) {
+                    window.dispatchEvent(new CustomEvent('crud-toast', {
+                        detail: { message: 'No hay cambios para guardar.' },
+                    }));
+                    saveAllBtn.disabled = false;
+                    return;
+                }
+
+                await Promise.all(promises);
+                await refreshInvoicePage('Factura guardada correctamente.');
+            } catch (error) {
+                saveAllBtn.disabled = false;
+                const raw = Object.values(error.response?.data?.errors ?? {}).flat()[0] || error.response?.data?.message;
+                window.dispatchEvent(new CustomEvent('crud-toast', { detail: { message: humanizeError(raw), type: 'error' } }));
+            }
+        });
+    }
+};
+
 window.initializeProjectStructureSorting();
+window.initializeInvoiceAttachmentForms?.();
+window.initializeInvoiceShowForms?.();
+window.initializeInvoiceInlineRows?.();
 
 Alpine.start();

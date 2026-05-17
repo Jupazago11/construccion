@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Asset2Controller;
+use App\Http\Controllers\Asset2MediaController;
+use App\Http\Controllers\Asset2NoveltyController;
 use App\Http\Controllers\Asset2TypeController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\Provider2Controller;
@@ -10,8 +12,10 @@ use App\Http\Controllers\AssetMediaController;
 use App\Http\Controllers\AssetNoveltyController;
 use App\Http\Controllers\AssetNoveltyTypeController;
 use App\Http\Controllers\AssetTypeController;
+use App\Http\Controllers\ActivityCatalogController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseAttachmentController;
 use App\Http\Controllers\InvoiceController;
@@ -34,6 +38,10 @@ Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'active.user'])
     ->name('dashboard');
 
+Route::get('/home', HomeController::class)
+    ->middleware(['auth', 'active.user'])
+    ->name('home');
+
 Route::middleware(['auth', 'active.user'])->group(function () {
     Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
@@ -48,6 +56,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::resource('companies', CompanyController::class);
 
     Route::patch('projects/{project}/status', [ProjectController::class, 'updateStatus'])->name('projects.status');
+    Route::get('projects/{project}/edit-date', [ProjectController::class, 'editDate'])->name('projects.edit-date');
+    Route::patch('projects/{project}/date', [ProjectController::class, 'updateDate'])->name('projects.date');
     Route::resource('projects', ProjectController::class);
 
     Route::patch('providers2/{provider2}/status', [Provider2Controller::class, 'updateStatus'])->name('providers2.status');
@@ -79,12 +89,38 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::patch('maestras/productos/productos/{product}', [ProductCatalogController::class, 'updateProduct'])->name('product-catalog.products.update');
     Route::patch('maestras/productos/productos/{product}/status', [ProductCatalogController::class, 'statusProduct'])->name('product-catalog.products.status');
     Route::delete('maestras/productos/productos/{product}', [ProductCatalogController::class, 'destroyProduct'])->name('product-catalog.products.destroy');
+    Route::get('maestras/actividades', [ActivityCatalogController::class, 'index'])->name('activity-catalog.index');
+    Route::post('maestras/actividades/grupos', [ActivityCatalogController::class, 'storeGroup'])->name('activity-catalog.groups.store');
+    Route::patch('maestras/actividades/grupos/{activityGroup}', [ActivityCatalogController::class, 'updateGroup'])->name('activity-catalog.groups.update');
+    Route::patch('maestras/actividades/grupos/{activityGroup}/status', [ActivityCatalogController::class, 'statusGroup'])->name('activity-catalog.groups.status');
+    Route::delete('maestras/actividades/grupos/{activityGroup}', [ActivityCatalogController::class, 'destroyGroup'])->name('activity-catalog.groups.destroy');
+    Route::post('maestras/actividades/subgrupos', [ActivityCatalogController::class, 'storeSubgroup'])->name('activity-catalog.subgroups.store');
+    Route::patch('maestras/actividades/subgrupos/{activitySubgroup}', [ActivityCatalogController::class, 'updateSubgroup'])->name('activity-catalog.subgroups.update');
+    Route::patch('maestras/actividades/subgrupos/{activitySubgroup}/status', [ActivityCatalogController::class, 'statusSubgroup'])->name('activity-catalog.subgroups.status');
+    Route::delete('maestras/actividades/subgrupos/{activitySubgroup}', [ActivityCatalogController::class, 'destroySubgroup'])->name('activity-catalog.subgroups.destroy');
+    Route::post('maestras/actividades/actividades', [ActivityCatalogController::class, 'storeActivity'])->name('activity-catalog.activities.store');
+    Route::patch('maestras/actividades/actividades/{activity}', [ActivityCatalogController::class, 'updateActivity'])->name('activity-catalog.activities.update');
+    Route::patch('maestras/actividades/actividades/{activity}/status', [ActivityCatalogController::class, 'statusActivity'])->name('activity-catalog.activities.status');
+    Route::delete('maestras/actividades/actividades/{activity}', [ActivityCatalogController::class, 'destroyActivity'])->name('activity-catalog.activities.destroy');
 
     Route::resource('assets2', Asset2Controller::class)->except('show')->parameters(['assets2' => 'asset2']);
     Route::get('asset2-types', [Asset2TypeController::class, 'index'])->name('asset2-types.index');
     Route::post('asset2-types', [Asset2TypeController::class, 'store'])->name('asset2-types.store');
     Route::patch('asset2-types/{asset2Type}', [Asset2TypeController::class, 'update'])->name('asset2-types.update');
     Route::delete('asset2-types/{asset2Type}', [Asset2TypeController::class, 'destroy'])->name('asset2-types.destroy');
+
+    Route::prefix('assets2/{asset2}')->name('assets2.')->group(function () {
+        Route::get('media', [Asset2MediaController::class, 'index'])->name('media.index');
+        Route::post('media', [Asset2MediaController::class, 'store'])->name('media.store');
+        Route::get('media/{media}/preview', [Asset2MediaController::class, 'preview'])->name('media.preview');
+        Route::delete('media/{media}', [Asset2MediaController::class, 'destroy'])->name('media.destroy');
+
+        Route::get('novelties/create', [Asset2NoveltyController::class, 'create'])->name('novelties.create');
+        Route::post('novelties', [Asset2NoveltyController::class, 'store'])->name('novelties.store');
+        Route::get('novelties/{novelty}/edit', [Asset2NoveltyController::class, 'edit'])->name('novelties.edit');
+        Route::patch('novelties/{novelty}', [Asset2NoveltyController::class, 'update'])->name('novelties.update');
+        Route::delete('novelties/{novelty}', [Asset2NoveltyController::class, 'destroy'])->name('novelties.destroy');
+    });
 
     Route::resource('assets', AssetController::class)->except('show');
     Route::get('asset-types', [AssetTypeController::class, 'index'])->name('asset-types.index');
@@ -115,6 +151,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::get('invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
     Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::patch('invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
+    Route::get('invoices/{invoice}/items/create', [InvoiceController::class, 'createItem'])->name('invoices.items.create');
     Route::patch('invoices/{invoice}/status', [InvoiceController::class, 'updateStatus'])->name('invoices.status');
     Route::post('invoices/{invoice}/attachments', [InvoiceController::class, 'storeAttachment'])->name('invoices.attachments.store');
     Route::get('invoices/{invoice}/attachments/{attachment}/preview', [InvoiceController::class, 'previewAttachment'])->name('invoices.attachments.preview');

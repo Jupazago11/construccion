@@ -43,6 +43,7 @@
                                 <th class="px-6 py-4 font-medium">Tipo</th>
                                 <th class="px-6 py-4 font-medium">Condición</th>
                                 <th class="px-6 py-4 font-medium">Compra</th>
+                                <th class="px-6 py-4 font-medium">Novedades</th>
                                 <th class="px-6 py-4 font-medium"></th>
                             </tr>
                         </thead>
@@ -51,7 +52,7 @@
                                 @include('assets2._row', ['asset2' => $asset2])
                             @empty
                                 <tr data-empty-state>
-                                    <td colspan="5" class="px-6 py-10 text-center text-stone-500">
+                                    <td colspan="6" class="px-6 py-10 text-center text-stone-500">
                                         No se encontraron activos con los filtros actuales.
                                     </td>
                                 </tr>

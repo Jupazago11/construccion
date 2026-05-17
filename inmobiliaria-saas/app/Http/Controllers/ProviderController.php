@@ -12,10 +12,11 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\View as ViewFacade;
 
 class ProviderController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Provider::class);
 
@@ -45,6 +46,13 @@ class ProviderController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('providers._table_body', compact('providers'))->render(),
+                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $providers])->render(),
+            ]);
+        }
 
         return view('providers.index', [
             'providers' => $providers,

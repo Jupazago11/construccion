@@ -46,7 +46,7 @@
                 </div>
             </form>
 
-            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm" data-ajax-table>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-stone-200 whitespace-nowrap text-sm">
                         <thead class="bg-stone-50 text-left text-stone-500">
@@ -60,19 +60,11 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-stone-100" x-ref="tbody">
-                            @forelse ($providers as $provider)
-                                @include('providers._row', ['provider' => $provider])
-                            @empty
-                                <tr data-empty-state>
-                                    <td colspan="6" class="px-6 py-10 text-center text-stone-500">
-                                        No se encontraron proveedores con los filtros actuales.
-                                    </td>
-                                </tr>
-                            @endforelse
+                            @include('providers._table_body', ['providers' => $providers])
                         </tbody>
                     </table>
                 </div>
-                <div class="border-t border-stone-200 px-6 py-4">
+                <div class="border-t border-stone-200 px-6 py-4" x-ref="pagination" data-ajax-pagination>
                     {{ $providers->links() }}
                 </div>
             </div>

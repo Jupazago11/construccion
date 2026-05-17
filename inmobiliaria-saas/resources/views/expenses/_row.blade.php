@@ -1,3 +1,6 @@
+@php($catalogItem = $expense->activity ?: $expense->product)
+@php($catalogGroup = $expense->activity?->group ?: $expense->product?->group)
+@php($catalogSubgroup = $expense->activity?->subgroup ?: $expense->product?->subgroup)
 <tr data-row-id="{{ $expense->id }}">
     <td class="w-32 whitespace-nowrap px-6 py-4">
         <div class="font-semibold text-stone-900">{{ $expense->expense_date?->format('Y-m-d') ?: 'Sin fecha' }}</div>
@@ -6,14 +9,14 @@
         {{ $expense->project?->name ?: 'Sin proyecto' }}
     </td>
     <td class="w-80 px-6 py-4 text-stone-600">
-        <div class="font-medium text-stone-700">{{ $expense->product?->name ?: 'Sin producto' }}</div>
-        @if ($expense->product?->group || $expense->product?->subgroup)
+        <div class="font-medium text-stone-700">{{ $catalogItem?->name ?: 'Sin producto o actividad' }}</div>
+        @if ($catalogGroup || $catalogSubgroup)
             <div class="text-xs text-stone-500">
-                {{ $expense->product?->group?->name ?: 'Sin grupo' }} · {{ $expense->product?->subgroup?->name ?: 'Sin subgrupo' }}
+                {{ $catalogGroup?->name ?: 'Sin grupo' }} · {{ $catalogSubgroup?->name ?: 'Sin subgrupo' }}
             </div>
         @endif
         @if ($expense->quantity && $expense->quantity != 1)
-            <div class="text-xs text-stone-500">{{ number_format((float) $expense->quantity, 2, ',', '.') }} × $ {{ number_format((float) $expense->unit_price, 0, ',', '.') }}</div>
+            <div class="text-xs text-stone-500">{{ number_format((float) $expense->quantity, 2, ',', '.') }} x $ {{ number_format((float) $expense->unit_price, 0, ',', '.') }}</div>
         @endif
     </td>
     <td class="px-6 py-4 text-stone-600">
@@ -63,7 +66,7 @@
                 type="button"
                 data-action="delete"
                 data-url="{{ route('expenses.destroy', $expense) }}"
-                data-confirm-message="¿Deseas archivar este gasto? Solo se permite si no tiene archivos adjuntos."
+                data-confirm-message="Deseas archivar este gasto? Solo se permite si no tiene archivos adjuntos."
                 class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
                 title="Eliminar"
             >

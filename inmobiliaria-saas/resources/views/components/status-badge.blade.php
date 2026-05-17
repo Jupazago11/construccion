@@ -1,4 +1,4 @@
-@props(['value'])
+@props(['value', 'label' => null])
 
 @php
     $classes = match ($value) {
@@ -28,5 +28,5 @@
 @endphp
 
 <span {{ $attributes->merge(['class' => "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ring-1 ring-inset {$classes}"]) }}>
-    {{ $labels[$value] ?? str_replace('_', ' ', $value) }}
+    {{ $label ?? $labels[$value] ?? str_replace('_', ' ', $value) }}
 </span>

@@ -2,6 +2,7 @@
     data-standalone-invoice-form
     data-invoice-type="{{ $type }}"
     data-invoice-store-url="{{ $storeUrl }}"
+    @if (!empty($fromIndex)) data-invoice-redirect="true" @endif
     class="flex h-full min-h-0 flex-col gap-4 overflow-hidden"
 >
     <script type="application/json" data-invoice-projects>{!! json_encode($projects->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'company_id' => $p->company_id])->values(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>

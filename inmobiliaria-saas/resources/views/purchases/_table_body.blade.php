@@ -34,11 +34,11 @@
         </td>
         <td class="px-6 py-4">
             <div class="flex items-center justify-end gap-2">
-                <button type="button" data-action="invoice-detail" data-url="{{ route('invoices.show', $invoice) }}" data-title="Detalle de factura" class="rounded-2xl border border-sky-200 p-2 text-sky-700 transition hover:bg-sky-100" title="Ver detalle">
+                <a href="{{ route('invoices.show', $invoice) }}" class="rounded-2xl border border-sky-200 p-2 text-sky-700 transition hover:bg-sky-100" title="Ver factura">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 4.5c-4.5 0-7.5 4.5-7.5 5.5s3 5.5 7.5 5.5 7.5-4.5 7.5-5.5-3-5.5-7.5-5.5zm0 8.5a3 3 0 110-6 3 3 0 010 6zm0-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
-                </button>
+                </a>
             </div>
         </td>
     </tr>

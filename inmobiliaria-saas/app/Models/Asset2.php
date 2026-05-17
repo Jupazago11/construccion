@@ -6,6 +6,7 @@ use App\Traits\LogsAuditActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Asset2 extends Model
 {
@@ -41,5 +42,15 @@ class Asset2 extends Model
     public function type(): BelongsTo
     {
         return $this->belongsTo(Asset2Type::class, 'asset2_type_id');
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(Asset2Media::class, 'asset2_id');
+    }
+
+    public function novelties(): HasMany
+    {
+        return $this->hasMany(Asset2Novelty::class, 'asset2_id');
     }
 }

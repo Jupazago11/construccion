@@ -68,7 +68,7 @@ class User extends Authenticatable
 
     public function homeRouteName(): string
     {
-        return $this->isSuperAdmin() ? 'dashboard' : 'projects.index';
+        return $this->isSuperAdmin() ? 'dashboard' : 'home';
     }
 
     public function belongsToCompany(?int $companyId): bool

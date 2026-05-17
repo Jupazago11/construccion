@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\EntityStatus;
 use App\Http\Requests\PurchaseStoreRequest;
 use App\Http\Requests\PurchaseUpdateRequest;
+use App\Models\CatalogActivity;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -37,7 +38,7 @@ class PurchaseController extends Controller
             : '';
 
         $purchases = Purchase::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
@@ -61,6 +62,7 @@ class PurchaseController extends Controller
                         ->orWhereHas('provider', fn ($providerQuery) => $providerQuery->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('invoice_number', 'like', "%{$search}%"))
                         ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('activity', fn ($activityQuery) => $activityQuery->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('project', fn ($projectQuery) => $projectQuery->where('name', 'like', "%{$search}%"));
                 });
             })
@@ -127,7 +129,8 @@ class PurchaseController extends Controller
             'project_id' => $project->id,
             'provider_id' => $data['provider_id'],
             'invoice_id' => $data['invoice_id'] ?? null,
-            'product_id' => $data['product_id'],
+            'product_id' => $data['product_id'] ?? null,
+            'activity_id' => $data['activity_id'] ?? null,
             'created_by' => $request->user()->id,
             'purchase_date' => $data['purchase_date'],
             'description' => $data['description'] ?? null,
@@ -141,7 +144,7 @@ class PurchaseController extends Controller
         ]);
 
         $this->refreshInvoiceTotal($purchase->invoice_id);
-        $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
+        $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup']);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -190,7 +193,8 @@ class PurchaseController extends Controller
             'project_id' => $project->id,
             'provider_id' => $data['provider_id'],
             'invoice_id' => $data['invoice_id'] ?? null,
-            'product_id' => $data['product_id'],
+            'product_id' => $data['product_id'] ?? null,
+            'activity_id' => $data['activity_id'] ?? null,
             'purchase_date' => $data['purchase_date'],
             'description' => $data['description'] ?? null,
             'unit_price' => $unitPrice,
@@ -201,7 +205,7 @@ class PurchaseController extends Controller
 
         $this->refreshInvoiceTotal($previousInvoiceId);
         $this->refreshInvoiceTotal($purchase->invoice_id);
-        $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
+        $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup']);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -226,7 +230,7 @@ class PurchaseController extends Controller
             $this->refreshInvoiceTotal($purchase->invoice_id);
         });
 
-        $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup']);
+        $purchase->load(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup']);
 
         return response()->json([
             'id' => $purchase->id,
@@ -285,6 +289,12 @@ class PurchaseController extends Controller
                 'company_id' => $product->company_id,
                 'subgroup_name' => $product->subgroup?->name,
             ])->values()->all(),
+            'activities' => $this->availableActivities($authUser)->map(fn ($activity) => [
+                'id' => $activity->id,
+                'name' => $activity->name,
+                'company_id' => $activity->company_id,
+                'subgroup_name' => $activity->subgroup?->name,
+            ])->values()->all(),
             'invoices' => $this->availableInvoices($authUser, 'purchase')->map(fn ($invoice) => InvoiceController::serializeInvoice($invoice))->values()->all(),
             'invoiceStoreUrl' => route('invoices.store', [], false),
             'transactionType' => 'purchase',
@@ -297,7 +307,7 @@ class PurchaseController extends Controller
         $companyId = $authUser->isSuperAdmin() ? null : $authUser->company_id;
 
         $purchases = Purchase::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->latest('purchase_date')
@@ -345,6 +355,16 @@ class PurchaseController extends Controller
             ->get();
     }
 
+    protected function availableActivities($authUser)
+    {
+        return CatalogActivity::query()
+            ->with(['group', 'subgroup'])
+            ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('company_id', $authUser->company_id))
+            ->where('status', EntityStatus::Active->value)
+            ->orderBy('name')
+            ->get();
+    }
+
     protected function availableInvoices($authUser, string $type)
     {
         return Invoice::query()
@@ -375,7 +395,11 @@ class PurchaseController extends Controller
             throw ValidationException::withMessages(['provider_id' => 'El proveedor seleccionado no está activo o no pertenece a la empresa del proyecto.']);
         }
 
-        if (! Product::query()->whereKey($data['product_id'])->where('company_id', $project->company_id)->where('status', EntityStatus::Active->value)->exists()) {
+        if (! empty($data['activity_id'])) {
+            if (! CatalogActivity::query()->whereKey($data['activity_id'])->where('company_id', $project->company_id)->where('status', EntityStatus::Active->value)->exists()) {
+                throw ValidationException::withMessages(['activity_id' => 'La actividad seleccionada no está activa o no pertenece a la empresa del proyecto.']);
+            }
+        } elseif (! Product::query()->whereKey($data['product_id'])->where('company_id', $project->company_id)->where('status', EntityStatus::Active->value)->exists()) {
             throw ValidationException::withMessages(['product_id' => 'El producto seleccionado no está activo o no pertenece a la empresa del proyecto.']);
         }
 
@@ -427,7 +451,7 @@ class PurchaseController extends Controller
         }
 
         $items = $invoice->purchases()
-            ->with(['product.subgroup'])
+            ->with(['product.subgroup', 'activity.subgroup'])
             ->where('status', '!=', EntityStatus::Deleted->value)
             ->latest('purchase_date')
             ->latest('id')

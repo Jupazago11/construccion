@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\EntityStatus;
 use App\Http\Requests\InvoiceStoreRequest;
+use App\Models\CatalogActivity;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\InvoiceAttachment;
@@ -65,6 +66,7 @@ class InvoiceController extends Controller
             'projects' => $projects,
             'providers' => $providers,
             'storeUrl' => route('invoices.store', [], false),
+            'fromIndex' => $request->boolean('from_index'),
         ])->render();
     }
 
@@ -88,6 +90,7 @@ class InvoiceController extends Controller
 
         return response()->json([
             'invoice' => $this->serializeInvoice($invoice),
+            'redirect_url' => route('invoices.show', $invoice),
             'message' => 'Factura creada correctamente.',
         ]);
     }
@@ -95,6 +98,7 @@ class InvoiceController extends Controller
     public function show(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
 
         $invoice->load([
             'project',
@@ -102,38 +106,141 @@ class InvoiceController extends Controller
             'attachments' => fn ($query) => $query->where('status', '!=', 'deleted')->latest(),
         ]);
 
-        if ($invoice->type === 'purchase') {
-            $items = $invoice->purchases()
-                ->with(['product.subgroup'])
-                ->where('status', '!=', 'deleted')
-                ->latest('purchase_date')
-                ->latest('id')
-                ->get();
+        $isPurchase = $invoice->type === 'purchase';
 
-            return view('invoices._detail_modal', [
-                'invoice' => $invoice,
-                'items' => $items,
-                'typeLabel' => 'compras',
-            ])->render();
-        }
+        $items = $isPurchase
+            ? $invoice->purchases()->with(['product.subgroup', 'activity.subgroup'])->where('status', '!=', 'deleted')->orderBy('purchase_date')->orderBy('id')->get()
+            : $invoice->expenses()->with(['product.subgroup', 'activity.subgroup'])->where('status', '!=', 'deleted')->orderBy('expense_date')->orderBy('id')->get();
 
-        $items = $invoice->expenses()
-            ->with(['product.subgroup'])
-            ->where('status', '!=', 'deleted')
-            ->latest('expense_date')
-            ->latest('id')
-            ->get();
+        $products = \App\Models\Product::query()
+            ->with('subgroup')
+            ->where('company_id', $invoice->company_id)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'subgroup_name' => $p->subgroup?->name])
+            ->values();
 
-        return view('invoices._detail_modal', [
+        $activities = CatalogActivity::query()
+            ->with('subgroup')
+            ->where('company_id', $invoice->company_id)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($a) => ['id' => $a->id, 'name' => $a->name, 'subgroup_name' => $a->subgroup?->name])
+            ->values();
+
+        return view('invoices.show', [
             'invoice' => $invoice,
             'items' => $items,
-            'typeLabel' => 'gastos',
+            'isPurchase' => $isPurchase,
+            'typeLabel' => $isPurchase ? 'compras' : 'gastos',
+            'backUrl' => $isPurchase ? route('purchases.index') : route('expenses.index'),
+            'providers' => $this->availableProviders($request->user()),
+            'projects' => $this->availableProjects($request->user()),
+            'products' => $products,
+            'activities' => $activities,
+        ]);
+    }
+
+    public function update(Request $request, Invoice $invoice): JsonResponse
+    {
+        $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
+        abort_if($invoice->status === EntityStatus::Deleted->value, 403);
+
+        $data = $request->validate([
+            'invoice_number' => ['nullable', 'string', 'max:100'],
+            'invoice_date'   => ['nullable', 'date'],
+            'provider_id'    => ['nullable', 'integer', 'exists:providers2,id'],
+            'project_id'     => ['nullable', 'integer', 'exists:projects,id'],
+            'description'    => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $invoice->update($data);
+
+        return response()->json(['message' => 'Factura actualizada correctamente.']);
+    }
+
+    public function createItem(Request $request, Invoice $invoice)
+    {
+        $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
+
+        abort_if($invoice->status !== 'open', 403, 'La factura está cerrada.');
+
+        $invoice->load(['project', 'provider']);
+
+        $isPurchase = $invoice->type === 'purchase';
+
+        $products = \App\Models\Product::query()
+            ->with('subgroup')
+            ->where('company_id', $invoice->company_id)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($product) => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'company_id' => $invoice->company_id,
+                'subgroup_name' => $product->subgroup?->name,
+            ])
+            ->values();
+
+        $activities = CatalogActivity::query()
+            ->with('subgroup')
+            ->where('company_id', $invoice->company_id)
+            ->where('status', '!=', EntityStatus::Deleted->value)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($activity) => [
+                'id' => $activity->id,
+                'name' => $activity->name,
+                'company_id' => $invoice->company_id,
+                'subgroup_name' => $activity->subgroup?->name,
+            ])
+            ->values();
+
+        $payload = [
+            'transactionType' => $isPurchase ? 'purchase' : 'expense',
+            'products' => $products,
+            'activities' => $activities,
+            'projects' => [[
+                'id' => $invoice->project_id,
+                'name' => $invoice->project?->name,
+                'company_id' => $invoice->company_id,
+            ]],
+            'providers' => [],
+            'invoices' => [],
+        ];
+
+        $selected = [
+            'project_id' => $invoice->project_id,
+            'provider_id' => $invoice->provider_id,
+            'invoice_id' => $invoice->id,
+            'product_id' => null,
+            'activity_id' => null,
+            'is_activity' => false,
+            'unit_price' => 0,
+            'quantity' => null,
+        ];
+
+        return view('invoices._item_modal_form', [
+            'invoice' => $invoice,
+            'isPurchase' => $isPurchase,
+            'payload' => $payload,
+            'selected' => $selected,
+            'action' => $isPurchase
+                ? route('purchases.store')
+                : route('expenses.store'),
+            'method' => 'POST',
         ])->render();
     }
 
     public function storeAttachment(Request $request, Invoice $invoice): JsonResponse
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
 
         $data = $request->validate([
             'files' => ['required', 'array', 'min:1'],
@@ -161,9 +268,10 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function destroyAttachment(Invoice $invoice, InvoiceAttachment $attachment): JsonResponse
+    public function destroyAttachment(Request $request, Invoice $invoice, InvoiceAttachment $attachment): JsonResponse
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
         abort_unless($attachment->invoice_id === $invoice->id, 404);
 
         $attachment->update(['status' => 'deleted']);
@@ -174,9 +282,10 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function previewAttachment(Invoice $invoice, InvoiceAttachment $attachment)
+    public function previewAttachment(Request $request, Invoice $invoice, InvoiceAttachment $attachment)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
         abort_unless($attachment->invoice_id === $invoice->id, 404);
 
         $disk = Storage::disk($attachment->disk);
@@ -203,9 +312,10 @@ class InvoiceController extends Controller
         }, 200, $headers);
     }
 
-    public function updateStatus(Request $request, Invoice $invoice): JsonResponse
+    public function updateStatus(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
 
         $data = $request->validate([
             'status' => ['required', 'in:open,closed'],
@@ -213,19 +323,24 @@ class InvoiceController extends Controller
 
         $invoice->update(['status' => $data['status']]);
 
-        return response()->json([
-            'id' => $invoice->id,
-            'message' => $data['status'] === 'closed'
-                ? 'Factura cerrada correctamente.'
-                : 'Factura abierta correctamente.',
-        ]);
+        $message = $data['status'] === 'closed'
+            ? 'Factura cerrada correctamente.'
+            : 'Factura abierta correctamente.';
+
+        if ($request->expectsJson()) {
+            return response()->json(['id' => $invoice->id, 'message' => $message]);
+        }
+
+        return redirect()->back()->with('status', $message);
     }
 
-    public function destroy(Request $request, Invoice $invoice): JsonResponse
+    public function destroy(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
+        $this->guardCompany($request->user(), $invoice);
 
-        $transactionModel = $invoice->type === 'purchase' ? Purchase::class : Expense::class;
+        $invoiceType = $invoice->type;
+        $transactionModel = $invoiceType === 'purchase' ? Purchase::class : Expense::class;
 
         $transactionModel::query()
             ->where('invoice_id', $invoice->id)
@@ -240,12 +355,18 @@ class InvoiceController extends Controller
             'total_amount' => 0,
         ]);
 
-        return response()->json([
-            'id' => $invoice->id,
-            'table_html' => $this->tableHtml($request, $invoice->type),
-            'close_modal' => true,
-            'message' => 'Factura archivada correctamente.',
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'id' => $invoice->id,
+                'table_html' => $this->tableHtml($request, $invoiceType),
+                'close_modal' => true,
+                'message' => 'Factura archivada correctamente.',
+            ]);
+        }
+
+        $indexRoute = $invoiceType === 'purchase' ? 'purchases.index' : 'expenses.index';
+
+        return redirect()->route($indexRoute)->with('status', 'Factura archivada correctamente.');
     }
 
     public static function serializeInvoice(Invoice $invoice): array
@@ -309,7 +430,7 @@ class InvoiceController extends Controller
 
         if ($type === 'purchase') {
             $purchases = Purchase::query()
-                ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+                ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
                 ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
                 ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
                 ->latest('purchase_date')
@@ -320,7 +441,7 @@ class InvoiceController extends Controller
         }
 
         $expenses = Expense::query()
-            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup'])
+            ->with(['company', 'project', 'provider', 'invoice.project', 'invoice.provider', 'product.group', 'product.subgroup', 'activity.group', 'activity.subgroup'])
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->latest('expense_date')
@@ -328,6 +449,11 @@ class InvoiceController extends Controller
             ->paginate(10);
 
         return view('expenses._table_body', compact('expenses'))->render();
+    }
+
+    private function guardCompany(\App\Models\User $user, Invoice $invoice): void
+    {
+        abort_unless($user->isSuperAdmin() || $invoice->company_id === $user->company_id, 403);
     }
 
     protected function availableProjects($authUser)

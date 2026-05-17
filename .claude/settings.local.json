@@ -27,7 +27,16 @@
       "Bash(cd \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\jupazago\\\\Documentos\\\\construccion\\\\inmobiliaria-saas\")",
       "Bash(npm run *)",
       "Bash(which docker *)",
-      "Read(///wsl.localhost/Ubuntu/usr/local/**)"
+      "Read(///wsl.localhost/Ubuntu/usr/local/**)",
+      "Bash(./vendor/bin/sail up *)",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && rm -f public/hot && echo 'hot eliminado'\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run dev > /tmp/vite.log 2>&1 &\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"sleep 5 && cat /tmp/vite.log\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && ./vendor/bin/sail npm run dev 2>&1 &\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"sleep 8 && curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/login\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/jupazago/Documentos/construccion/inmobiliaria-saas && nohup ./vendor/bin/sail npm run dev > /tmp/vite-sail.log 2>&1 &\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"sleep 10 && curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/ && echo ' - Vite OK' || echo ' - Vite no responde'\")"
     ]
   }
 }

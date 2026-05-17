@@ -12,8 +12,8 @@
         @forelse ($products as $product)
             <tr>
                 <td class="px-5 py-4 font-medium text-stone-900">{{ $product->name }}</td>
-                <td class="px-5 py-4 text-stone-600">{{ $product->group?->name ?: 'Sin grupo' }}</td>
-                <td class="px-5 py-4 text-stone-600">{{ $product->subgroup?->name ?: 'Sin subgrupo' }}</td>
+                <td class="px-5 py-4 text-stone-600">{{ $product->group?->name ?: '—' }}</td>
+                <td class="px-5 py-4 text-stone-600">{{ $product->subgroup?->name ?: '—' }}</td>
                 <td class="px-5 py-4">
                     @if ($product->status !== 'deleted')
                         <button type="button" x-on:click='toggleStatus("product", {{ $product->id }}, "{{ $product->status === 'active' ? 'inactive' : 'active' }}")'>
@@ -41,7 +41,15 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="5" class="px-5 py-8 text-center text-stone-500">No hay productos registrados.</td></tr>
+            <tr>
+                <td colspan="5" class="px-5 py-10 text-center text-stone-400">No hay productos con los filtros seleccionados.</td>
+            </tr>
         @endforelse
     </tbody>
 </table>
+
+@if ($products->hasPages())
+    <div class="border-t border-stone-100 px-5 py-4">
+        @include('components.catalog-pagination', ['paginator' => $products])
+    </div>
+@endif

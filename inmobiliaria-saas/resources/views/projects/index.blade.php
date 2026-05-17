@@ -48,7 +48,7 @@
                             <option value="">Todos</option>
                             @foreach ([
                                 'planning' => 'En gestión',
-                                'active' => 'Activo',
+                                'active' => 'En construcción',
                                 'paused' => 'Pausado',
                                 'completed' => 'Completado',
                                 'cancelled' => 'Cancelado',

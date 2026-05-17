@@ -21,71 +21,171 @@
             productStatus: '{{ route('product-catalog.products.status', ['product' => '__ID__'], false) }}',
             productDestroy: '{{ route('product-catalog.products.destroy', ['product' => '__ID__'], false) }}'
         },
-        groups: {{ \Illuminate\Support\Js::from($activeGroups->map(fn ($group) => ['id' => $group->id, 'name' => $group->name, 'company_id' => $group->company_id])->values()) }},
-        subgroups: {{ \Illuminate\Support\Js::from($activeSubgroups->map(fn ($subgroup) => ['id' => $subgroup->id, 'name' => $subgroup->name, 'company_id' => $subgroup->company_id, 'product_group_id' => $subgroup->product_group_id])->values()) }}
+        groups: {{ \Illuminate\Support\Js::from($activeGroups->map(fn ($g) => ['id' => $g->id, 'name' => $g->name, 'company_id' => $g->company_id])->values()) }},
+        subgroups: {{ \Illuminate\Support\Js::from($activeSubgroups->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'company_id' => $s->company_id, 'product_group_id' => $s->product_group_id])->values()) }}
     })"
 >
     <x-slot name="header">
-        <x-page-header title="Productos" description="">
-            @can('create', App\Models\ProductGroup::class)
-                <button type="button" class="app-create-button" title="Nuevo registro maestro" x-on:click="openModal('group')">+</button>
+        <x-page-header title="Catálogo de productos" description="">
+            @can('create', App\Models\Product::class)
+                <button type="button" class="app-create-button" title="Nuevo producto" x-on:click="openModal('product')">+</button>
             @endcan
         </x-page-header>
     </x-slot>
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-            @if (auth()->user()->isSuperAdmin())
-                <form method="GET" class="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
-                    <div class="grid gap-4 md:grid-cols-[260px_auto]">
-                        <div>
-                            <x-input-label for="company_id" :value="'Empresa'" />
-                            <select id="company_id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+
+            {{-- Filtros --}}
+            <section
+                x-data="{
+                    filtersOpen: window.innerWidth >= 768,
+                    selectedGroup: '{{ $filters['group_id'] ?? '' }}',
+                    allSubgroups: @js($subgroups->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'product_group_id' => $s->product_group_id])->values()),
+                    get filteredSubs() {
+                        if (!this.selectedGroup) return this.allSubgroups;
+                        return this.allSubgroups.filter(s => String(s.product_group_id) === String(this.selectedGroup));
+                    }
+                }"
+                class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm"
+            >
+                <div class="flex items-center justify-between gap-3 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">Filtros</h2>
+
+                    <button
+                        type="button"
+                        class="inline-flex items-center rounded-2xl border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 md:hidden"
+                        x-on:click="filtersOpen = !filtersOpen"
+                        x-text="filtersOpen ? 'Ocultar' : 'Expandir'"
+                    ></button>
+                </div>
+
+                <form method="GET" action="{{ route('product-catalog.index') }}" class="border-t border-stone-200 p-5">
+                    <div
+                        x-show="filtersOpen"
+                        x-transition:enter="transition ease-out duration-[875ms]"
+                        x-transition:enter-start="opacity-0 -translate-y-2"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-[613ms]"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 -translate-y-2"
+                        x-cloak
+                    >
+                    @if (auth()->user()->isSuperAdmin())
+                        <div class="mb-4">
+                            <x-input-label for="filter_company_id" value="Empresa" />
+                            <select
+                                id="filter_company_id"
+                                name="company_id"
+                                class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900 sm:max-w-xs"
+                                x-on:change="$el.form.submit()"
+                            >
                                 <option value="">Todas las empresas</option>
                                 @foreach ($companies as $company)
                                     <option value="{{ $company->id }}" @selected((string) $filters['company_id'] === (string) $company->id)>{{ $company->name }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="flex items-end">
-                            <x-primary-button>Filtrar</x-primary-button>
+                    @endif
+
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div class="sm:col-span-2">
+                            <x-input-label for="filter_search" value="Buscar" />
+                            <x-text-input
+                                id="filter_search"
+                                name="search"
+                                type="text"
+                                class="mt-1 block w-full"
+                                placeholder="Nombre del producto..."
+                                value="{{ $filters['search'] }}"
+                                autocomplete="off"
+                            />
+                        </div>
+
+                        <div>
+                            <x-input-label for="filter_group_id" value="Grupo" />
+                            <select
+                                id="filter_group_id"
+                                name="group_id"
+                                x-model="selectedGroup"
+                                class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
+                            >
+                                <option value="">Todos los grupos</option>
+                                @foreach ($groups as $group)
+                                    <option value="{{ $group->id }}" @selected($filters['group_id'] == $group->id)>{{ $group->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <x-input-label for="filter_subgroup_id" value="Subgrupo" />
+                            <select
+                                id="filter_subgroup_id"
+                                name="subgroup_id"
+                                class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
+                            >
+                                <option value="">Todos los subgrupos</option>
+                                <template x-for="sub in filteredSubs" :key="sub.id">
+                                    <option
+                                        :value="sub.id"
+                                        :selected="sub.id == {{ $filters['subgroup_id'] ?? 0 }}"
+                                        x-text="sub.name"
+                                    ></option>
+                                </template>
+                            </select>
                         </div>
                     </div>
+
+                    <div class="mt-4 flex items-center gap-3">
+                        <x-primary-button>Filtrar</x-primary-button>
+                        <a
+                            href="{{ route('product-catalog.index', auth()->user()->isSuperAdmin() && $filters['company_id'] ? ['company_id' => $filters['company_id']] : []) }}"
+                            class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                        >Limpiar</a>
+                    </div>
+                    </div>
                 </form>
-            @endif
+            </section>
 
-            <div class="grid gap-6 xl:grid-cols-3">
-                <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
-                        <h2 class="text-sm font-semibold text-stone-900">Grupos</h2>
-                    </div>
-                    <div class="overflow-x-auto" x-ref="groupsTable">@include('product-catalog._groups_table')</div>
-                </section>
-
-                <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
-                        <h2 class="text-sm font-semibold text-stone-900">Subgrupos</h2>
-                    </div>
-                    <div class="overflow-x-auto" x-ref="subgroupsTable">@include('product-catalog._subgroups_table')</div>
-                </section>
-
-                <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
-                        <h2 class="text-sm font-semibold text-stone-900">Productos</h2>
-                    </div>
-                    <div class="overflow-x-auto" x-ref="productsTable">@include('product-catalog._products_table')</div>
-                </section>
-            </div>
+            {{-- Tabla de productos --}}
+            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">
+                        Productos
+                        <span class="ml-1 font-normal text-stone-400">({{ $products->total() }})</span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto" x-ref="productsTable">@include('product-catalog._products_table')</div>
+            </section>
 
             <x-ajax-crud-toast />
         </div>
     </div>
 
-    <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/45 px-4 py-6">
-        <div class="grid max-h-[88dvh] w-full max-w-2xl grid-rows-[auto,minmax(0,1fr),auto] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl transition-all duration-300 ease-out">
+    <div
+        x-show="modalOpen"
+        x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/45 px-4 py-6"
+    >
+        <div
+            x-show="modalOpen"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            class="grid max-h-[88dvh] w-full max-w-2xl grid-rows-[auto,minmax(0,1fr),auto] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
+        >
             <div class="flex items-start justify-between gap-4 border-b border-stone-200 px-6 py-5">
                 <div>
-                    <h3 class="text-lg font-semibold text-stone-900" x-text="editingId ? 'Editar maestra' : 'Nueva maestra'"></h3>
+                    <h3 class="text-lg font-semibold text-stone-900" x-text="editingId ? 'Editar' : 'Nuevo registro'"></h3>
                 </div>
                 <button type="button" class="rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900" title="Cerrar" x-on:click="closeModal()">×</button>
             </div>
@@ -182,7 +282,7 @@
             <div class="border-t border-stone-200 px-6 py-4">
                 <div class="flex items-center justify-end gap-3">
                     <button type="button" class="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50" x-on:click="closeModal()">Cancelar</button>
-                    <button type="button" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60" x-on:click="saveRecord" :disabled="saving" x-text="saving ? 'Guardando...' : (editingId ? 'Actualizar' : 'Guardar y continuar')"></button>
+                    <button type="button" class="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-wait disabled:opacity-60" x-on:click="saveRecord" :disabled="saving" x-text="saving ? 'Guardando...' : (editingId ? 'Actualizar' : 'Guardar')"></button>
                 </div>
             </div>
         </div>

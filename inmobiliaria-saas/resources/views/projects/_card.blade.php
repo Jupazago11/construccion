@@ -44,7 +44,11 @@
                     data-entity-label="proyecto"
                     title="Cambiar estado"
                 >
-                    <x-status-badge :value="$project->status" class="cursor-pointer transition hover:opacity-85" />
+                    <x-status-badge
+                        :value="$project->status"
+                        :label="$project->status === 'active' ? 'En construcción' : null"
+                        class="cursor-pointer transition hover:opacity-85"
+                    />
                 </button>
 
                 <button
@@ -86,7 +90,14 @@
 
             <div class="px-5 py-4">
                 <p class="text-xs font-medium uppercase tracking-wide text-stone-400">Inicio</p>
-                <p class="mt-1 font-medium text-stone-800">{{ $project->start_date?->format('Y-m-d') ?: 'Sin fecha' }}</p>
+                <button
+                    type="button"
+                    data-action="edit"
+                    data-url="{{ route('projects.edit-date', $project) }}"
+                    data-title="Cambiar fecha de inicio"
+                    class="mt-1 block text-left font-medium text-stone-800 underline-offset-2 transition hover:text-stone-500 hover:underline"
+                    title="Editar fecha"
+                >{{ $project->start_date?->format('Y-m-d') ?: 'Sin fecha' }}</button>
                 @if ($elapsedTime)
                     <p class="mt-1 text-xs text-stone-500">Tiempo: {{ $elapsedTime }}</p>
                 @endif

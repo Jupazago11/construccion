@@ -7,7 +7,7 @@
     <div class="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-                <div class="font-semibold text-stone-900">Factura {{ $invoice->invoice_number ?: 'sin número' }}</div>
+                <div class="font-semibold text-stone-900">Factura {{ $invoice->invoice_number ?: 'sin numero' }}</div>
                 <div class="mt-1 truncate">{{ $invoice->provider?->name ?: 'Sin proveedor' }} · {{ $invoice->project?->name ?: 'Sin proyecto' }}</div>
             </div>
             <button type="button" data-action="invoice-delete" data-url="{{ route('invoices.destroy', $invoice) }}" class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50" title="Eliminar factura">
@@ -34,9 +34,9 @@
                 <thead class="bg-stone-50 text-left text-stone-500">
                     <tr>
                         <th class="px-4 py-3 font-medium">Fecha</th>
-                        <th class="px-4 py-3 font-medium">Producto</th>
+                        <th class="px-4 py-3 font-medium">Producto / Actividad</th>
                         <th class="px-4 py-3 font-medium">Cantidad</th>
-                        <th class="px-4 py-3 font-medium">Descripción</th>
+                        <th class="px-4 py-3 font-medium">Descripcion</th>
                         <th class="px-4 py-3 font-medium">Total</th>
                         <th class="px-4 py-3 font-medium">Estado</th>
                         <th class="px-4 py-3 font-medium"></th>
@@ -45,20 +45,22 @@
                 <tbody class="divide-y divide-stone-100">
                     @forelse ($items as $item)
                         @php($isPurchase = $invoice->type === 'purchase')
+                        @php($catalogItem = $item->activity ?: $item->product)
+                        @php($catalogSubgroup = $item->activity?->subgroup ?: $item->product?->subgroup)
                         <tr data-row-id="{{ $item->id }}">
                             <td class="px-4 py-3 text-stone-600">{{ ($isPurchase ? $item->purchase_date : $item->expense_date)?->format('Y-m-d') }}</td>
                             <td class="px-4 py-3 text-stone-700">
-                                <div class="font-medium text-stone-900">{{ $item->product?->name ?: 'Sin producto' }}</div>
-                                <div class="text-xs text-stone-500">{{ $item->product?->subgroup?->name ?: 'Sin subgrupo' }}</div>
+                                <div class="font-medium text-stone-900">{{ $catalogItem?->name ?: 'Sin producto o actividad' }}</div>
+                                <div class="text-xs text-stone-500">{{ $catalogSubgroup?->name ?: 'Sin subgrupo' }}</div>
                             </td>
                             <td class="px-4 py-3 text-stone-600">
                                 @if ($item->quantity && $item->quantity != 1)
-                                    {{ number_format((float) $item->quantity, 2, ',', '.') }} × $ {{ number_format((float) $item->unit_price, 0, ',', '.') }}
+                                    {{ number_format((float) $item->quantity, 2, ',', '.') }} x $ {{ number_format((float) $item->unit_price, 0, ',', '.') }}
                                 @else
-                                    —
+                                    -
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-stone-600">{{ $item->description ?: 'Sin descripción' }}</td>
+                            <td class="px-4 py-3 text-stone-600">{{ $item->description ?: 'Sin descripcion' }}</td>
                             <td class="px-4 py-3 text-stone-900">$ {{ number_format((float) $item->total_amount, 0, ',', '.') }}</td>
                             <td class="px-4 py-3">
                                 <button
@@ -76,7 +78,7 @@
                                     <button type="button" data-action="edit" data-url="{{ $isPurchase ? route('purchases.edit', $item) : route('expenses.edit', $item) }}" data-title="{{ $isPurchase ? 'Editar compra' : 'Editar gasto' }}" class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900" title="Editar">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 010 2.828l-8.5 8.5a2 2 0 01-.878.497l-3 1a1 1 0 01-1.265-1.265l1-3a2 2 0 01.497-.878l8.5-8.5a2 2 0 012.828 0z" /></svg>
                                     </button>
-                                    <button type="button" data-action="delete" data-url="{{ $isPurchase ? route('purchases.destroy', $item) : route('expenses.destroy', $item) }}" data-confirm-message="{{ $isPurchase ? '¿Deseas archivar esta compra?' : '¿Deseas archivar este gasto? Solo se permite si no tiene archivos adjuntos.' }}" class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50" title="Archivar">
+                                    <button type="button" data-action="delete" data-url="{{ $isPurchase ? route('purchases.destroy', $item) : route('expenses.destroy', $item) }}" data-confirm-message="{{ $isPurchase ? 'Deseas archivar esta compra?' : 'Deseas archivar este gasto? Solo se permite si no tiene archivos adjuntos.' }}" class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50" title="Archivar">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                     </button>
                                 </div>

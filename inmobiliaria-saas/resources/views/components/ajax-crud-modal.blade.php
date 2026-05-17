@@ -5,15 +5,29 @@
     x-bind:class="nestedModalOpen ? 'pointer-events-none' : ''"
     style="display: none;"
 >
+    {{-- Backdrop --}}
     <div
         x-show="modalOpen && ! nestedModalOpen"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
         class="fixed inset-0 bg-stone-900/50"
         x-on:click="closeModal()"
     ></div>
 
     <div class="relative flex h-full w-full items-center justify-center px-3 py-3 sm:px-6 sm:py-6">
+        {{-- Panel --}}
         <div
             x-show="modalOpen && ! nestedModalOpen"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
             class="grid max-h-[92dvh] w-full max-w-3xl grid-rows-[auto,minmax(0,1fr)] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
         >
             <div class="flex items-start justify-between border-b border-stone-200 px-6 py-5">
@@ -50,15 +64,29 @@
     class="fixed inset-0 z-[60] overflow-hidden"
     style="display: none;"
 >
+    {{-- Nested backdrop --}}
     <div
         x-show="nestedModalOpen"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
         class="fixed inset-0 bg-stone-900/35"
         x-on:click="closeNestedModal()"
     ></div>
 
     <div class="relative flex h-full w-full items-center justify-center px-3 py-3 sm:px-6 sm:py-6">
+        {{-- Nested panel --}}
         <div
             x-show="nestedModalOpen"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
             class="grid max-h-[88dvh] w-full max-w-2xl grid-rows-[auto,minmax(0,1fr)] overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
         >
             <div class="flex items-start justify-between border-b border-stone-200 px-6 py-5">

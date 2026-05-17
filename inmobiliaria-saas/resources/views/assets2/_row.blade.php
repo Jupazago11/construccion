@@ -5,7 +5,7 @@
 <tr data-row-id="{{ $asset2->id }}">
     <td class="px-6 py-4">
         <div class="whitespace-nowrap font-semibold text-stone-900">{{ $asset2->name }}</div>
-        <div class="text-stone-500">{{ $asset2->purchase_date?->format('Y-m-d') ?: 'Sin fecha de compra' }}</div>
+        <div class="whitespace-nowrap text-stone-500">{{ $asset2->purchase_date?->format('Y-m-d') ?: 'Sin fecha de compra' }}</div>
     </td>
     <td class="px-6 py-4 text-stone-600">
         {{ $asset2->type?->name ?: $asset2->asset2_type }}
@@ -16,30 +16,46 @@
     <td class="whitespace-nowrap px-6 py-4 text-stone-900">
         $ {{ number_format((float) $asset2->purchase_value, 0, ',', '.') }}
     </td>
+    <td class="px-6 py-4 text-stone-600">
+        <div class="app-two-line-text min-w-52">
+            <div>{{ number_format((int) ($asset2->active_novelties_count ?? 0)) }} registros</div>
+            <div class="text-stone-500">Costo acumulado: $ {{ number_format((float) ($asset2->active_novelties_cost_sum ?? 0), 0, ',', '.') }}</div>
+        </div>
+    </td>
     <td class="px-6 py-4">
-        <div class="flex items-center justify-end gap-2">
+        <div class="flex items-center justify-end gap-3">
+            <a
+                href="{{ route('assets2.media.index', $asset2) }}"
+                class="rounded-2xl border border-stone-200 p-2.5 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                title="Fotos y videos"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" />
+                </svg>
+            </a>
             <button
                 type="button"
-                data-action="edit"
-                data-url="{{ route('assets2.edit', ['asset2' => $asset2] + request()->query()) }}"
-                data-title="Editar activo 2"
-                class="rounded-2xl border border-stone-200 p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
-                title="Editar"
+                data-action="create"
+                data-url="{{ route('assets2.novelties.create', ['asset2' => $asset2] + request()->query()) }}"
+                data-title="Registrar novedad"
+                x-on:click.prevent.stop="openModal($el.dataset.url, $el.dataset.title)"
+                class="app-create-icon-button"
+                title="Registrar novedad"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M17.414 2.586a2 2 0 010 2.828l-8.5 8.5a2 2 0 01-.878.497l-3 1a1 1 0 01-1.265-1.265l1-3a2 2 0 01.497-.878l8.5-8.5a2 2 0 012.828 0z" />
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 000 2h3a1 1 0 100-2H6z" clip-rule="evenodd" />
                 </svg>
             </button>
             <button
                 type="button"
-                data-action="delete"
-                data-url="{{ route('assets2.destroy', ['asset2' => $asset2] + request()->query()) }}"
-                data-confirm-message="¿Deseas archivar este activo 2?"
-                class="rounded-2xl border border-rose-200 p-2 text-rose-700 transition hover:bg-rose-50"
-                title="Eliminar"
+                data-action="edit"
+                data-url="{{ route('assets2.edit', ['asset2' => $asset2] + request()->query()) }}"
+                data-title="Editar activo"
+                class="rounded-2xl border border-stone-200 p-2.5 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                title="Editar"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.414 2.586a2 2 0 010 2.828l-8.5 8.5a2 2 0 01-.878.497l-3 1a1 1 0 01-1.265-1.265l1-3a2 2 0 01.497-.878l8.5-8.5a2 2 0 012.828 0z" />
                 </svg>
             </button>
         </div>

@@ -6,6 +6,7 @@ use App\Enums\EntityStatus;
 use App\Http\Requests\Asset2StoreRequest;
 use App\Http\Requests\Asset2UpdateRequest;
 use App\Models\Asset2;
+use App\Models\Asset2Novelty;
 use App\Models\Asset2Type;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,6 +31,15 @@ class Asset2Controller extends Controller
 
         $assets2 = (clone $baseQuery)
             ->with(['company', 'type'])
+            ->withCount([
+                'novelties as active_novelties_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+                'media as active_media_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            ])
+            ->withSum([
+                'novelties as active_novelties_cost_sum' => fn ($query) => $query
+                    ->where('status', '!=', EntityStatus::Deleted->value)
+                    ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true)),
+            ], 'cost')
             ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
             ->when(! $authUser->isSuperAdmin(), fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value))
             ->when($search !== '', function ($query) use ($search) {
@@ -219,6 +229,15 @@ class Asset2Controller extends Controller
     protected function loadAsset2ListRelations(Asset2 $asset2): void
     {
         $asset2->load(['company', 'type']);
+        $asset2->loadCount([
+            'novelties as active_novelties_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+            'media as active_media_count' => fn ($query) => $query->where('status', '!=', EntityStatus::Deleted->value),
+        ]);
+        $asset2->loadSum([
+            'novelties as active_novelties_cost_sum' => fn ($query) => $query
+                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true)),
+        ], 'cost');
     }
 
     protected function buildIndexBaseQuery(Request $request, ?int $companyId, string $search): Builder
@@ -239,9 +258,16 @@ class Asset2Controller extends Controller
 
     protected function resolveSummary(Builder $baseQuery): array
     {
+        $asset2Ids = (clone $baseQuery)->select('id');
+
         return [
             'assets2_purchase_total' => (clone $baseQuery)->sum('purchase_value'),
             'assets2_count' => (clone $baseQuery)->count(),
+            'novelties_cost_total' => Asset2Novelty::query()
+                ->where('status', '!=', EntityStatus::Deleted->value)
+                ->whereIn('asset2_id', $asset2Ids)
+                ->whereHas('type', fn ($typeQuery) => $typeQuery->where('adds_value', true))
+                ->sum('cost'),
         ];
     }
 

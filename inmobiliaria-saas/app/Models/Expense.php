@@ -22,6 +22,7 @@ class Expense extends Model
         'provider_id',
         'invoice_id',
         'product_id',
+        'activity_id',
         'created_by',
         'expense_number',
         'expense_date',
@@ -82,6 +83,11 @@ class Expense extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function activity(): BelongsTo
+    {
+        return $this->belongsTo(CatalogActivity::class, 'activity_id');
     }
 
     public function invoice(): BelongsTo

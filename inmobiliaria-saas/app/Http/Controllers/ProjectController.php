@@ -190,6 +190,37 @@ class ProjectController extends Controller
             ->with('status', 'Proyecto actualizado correctamente.');
     }
 
+    public function editDate(Request $request, Project $project): string
+    {
+        $this->authorize('update', $project);
+
+        return view('projects._modal_date_form', [
+            'project' => $project,
+            'action' => route('projects.date', $project),
+        ])->render();
+    }
+
+    public function updateDate(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('update', $project);
+
+        $data = $request->validate([
+            'start_date' => ['nullable', 'date'],
+        ]);
+
+        $project->update([
+            'start_date' => $data['start_date'] ?? null,
+        ]);
+
+        $this->loadProjectListRelations($project);
+
+        return response()->json([
+            'id' => $project->id,
+            'row_html' => view($this->projectListPartial($request), compact('project'))->render(),
+            'message' => 'Fecha de inicio actualizada correctamente.',
+        ]);
+    }
+
     public function updateStatus(Request $request, Project $project): JsonResponse
     {
         $this->authorize('update', $project);
