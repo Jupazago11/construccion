@@ -4132,6 +4132,62 @@ window.initializeInvoiceAttachmentForms = (root = document) => {
     });
 };
 
+window.initializeAssetAttachmentForms = (root = document) => {
+    root.querySelectorAll('form[data-asset-attachment-form]').forEach((form) => {
+        if (form.dataset.assetAttachmentInitialized === 'true') {
+            return;
+        }
+
+        form.dataset.assetAttachmentInitialized = 'true';
+
+        form.querySelector('[data-asset-file-input]')?.addEventListener('change', () => {
+            if (form.querySelector('[data-asset-file-input]')?.files?.length) {
+                form.requestSubmit();
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const uploadTrigger = form.querySelector('label[for]');
+            const data = new FormData(form);
+
+            uploadTrigger?.classList.add('pointer-events-none', 'opacity-60');
+
+            try {
+                const response = await window.axios.post(form.action, data, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+                const attachmentsRoot = document.querySelector('[x-ref="attachments"]');
+
+                if (attachmentsRoot && response.data.attachments_html) {
+                    attachmentsRoot.innerHTML = response.data.attachments_html;
+                    Alpine.initTree(attachmentsRoot);
+                }
+
+                form.reset();
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message: response.data.message ?? 'Archivos cargados correctamente.' },
+                }));
+            } catch (error) {
+                const message = Object.values(error.response?.data?.errors ?? {}).flat()[0]
+                    || error.response?.data?.message
+                    || 'No fue posible cargar los archivos.';
+                window.dispatchEvent(new CustomEvent('crud-toast', {
+                    detail: { message, type: 'error' },
+                }));
+            } finally {
+                uploadTrigger?.classList.remove('pointer-events-none', 'opacity-60');
+            }
+        });
+    });
+};
+
 window.initializeExpenseForms = (root = document) => {
     root.querySelectorAll('form[data-expense-form]').forEach((form) => {
         if (form.dataset.expenseInitialized === 'true') {
@@ -6190,6 +6246,7 @@ window.initializeInvoiceInlineRows = () => {
 
 window.initializeProjectStructureSorting();
 window.initializeInvoiceAttachmentForms?.();
+window.initializeAssetAttachmentForms?.();
 window.initializeInvoiceShowForms?.();
 window.initializeInvoiceInlineRows?.();
 

@@ -14,7 +14,7 @@
     <div class="py-8">
         <div class="mx-auto max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
             @can('update', $asset)
-                <form method="POST" action="{{ route('assets.media.store', $asset) }}" enctype="multipart/form-data" data-ajax-form>
+                <form method="POST" action="{{ route('assets.media.store', $asset) }}" enctype="multipart/form-data" data-asset-attachment-form>
                     @csrf
 
                     <input
@@ -24,13 +24,13 @@
                         multiple
                         accept="image/*,video/*"
                         class="sr-only"
-                        x-on:change="$event.target.files.length && $event.target.form.requestSubmit()"
+                        data-asset-file-input
                     />
                     <p data-error-for="files"></p>
                     <p data-error-for="files.0"></p>
                     <label
                         for="asset-media-files"
-                        class="app-create-icon-button h-11 w-11 cursor-pointer rounded-full"
+                        class="app-create-icon-button fixed bottom-6 right-6 z-40 h-11 w-11 cursor-pointer rounded-full sm:bottom-8 sm:right-8"
                         title="Subir foto o video"
                         :class="saving ? 'pointer-events-none opacity-60' : ''"
                     >
