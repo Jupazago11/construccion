@@ -1,6 +1,7 @@
 <x-app-layout
     x-data="{
         ...crudTable({ reloadOnMutate: true, flash: {{ \Illuminate\Support\Js::from(session('status')) }} }),
+        attachmentsModalOpen: false,
         previewOpen: false,
         previewUrl: '',
         previewType: '',
@@ -56,7 +57,7 @@
                 </div>
 
                 <div
-                    class="grid divide-y divide-stone-100 border-b border-stone-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+                    class="grid divide-y divide-stone-100 border-b border-stone-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0"
                     data-invoice-show-providers-root
                     data-invoice-save-url="{{ route('invoices.update', $invoice) }}"
                 >
@@ -104,6 +105,19 @@
                             @endforeach
                         </select>
                     </div>
+
+                    <div class="px-6 py-4 sm:px-8">
+                        <p class="text-xs font-semibold uppercase tracking-widest text-stone-400">Modo de items</p>
+                        <select
+                            data-invoice-show-field="item_mode"
+                            data-invoice-save-url="{{ route('invoices.update', $invoice) }}"
+                            data-invoice-item-mode
+                            class="mt-2 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
+                        >
+                            <option value="product" {{ $invoice->item_mode !== 'activity' ? 'selected' : '' }}>Producto</option>
+                            <option value="activity" {{ $invoice->item_mode === 'activity' ? 'selected' : '' }}>Actividad</option>
+                        </select>
+                    </div>
                 </div>
 
                 @if ($invoice->description)
@@ -128,9 +142,6 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-stone-200 bg-stone-50 text-left">
-                                @if ($isOpen)
-                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">¿Actividad?</th>
-                                @endif
                                 <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-8">Producto / Actividad</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Cantidad</th>
                                 <th class="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">V. Unit.</th>
@@ -153,19 +164,9 @@
                                     @endif
                                     class="border-b border-stone-100 transition-colors hover:bg-stone-50/30"
                                 >
-                                    @if ($isOpen)
-                                        <td class="px-4 py-2.5 text-center align-top sm:px-6">
-                                            <label class="inline-flex cursor-pointer items-center" data-item-activity-toggle>
-                                                <input type="checkbox" data-item-is-activity class="sr-only" {{ $item->activity_id ? 'checked' : '' }}>
-                                                <span class="inline-flex min-w-[3.5rem] justify-center rounded-full border px-3 py-1 text-xs font-semibold transition {{ $item->activity_id ? 'border-emerald-200 bg-emerald-100 text-emerald-800' : 'border-rose-200 bg-rose-100 text-rose-700' }}" data-item-activity-toggle-label>
-                                                    {{ $item->activity_id ? 'Si' : 'No' }}
-                                                </span>
-                                            </label>
-                                        </td>
-                                    @endif
                                     <td class="px-6 py-2.5 sm:px-8">
                                         @if ($isOpen)
-                                            <div data-item-product-wrapper class="{{ $item->activity_id ? 'hidden' : '' }}">
+                                            <div data-item-product-wrapper class="{{ $invoice->item_mode === 'activity' ? 'hidden' : '' }}">
                                                 <div class="relative">
                                                     <input
                                                         type="text"
@@ -180,7 +181,7 @@
                                                 </div>
                                                 <div class="mt-0.5 text-xs text-stone-400{{ $item->product?->subgroup ? '' : ' hidden' }}" data-item-product-subgroup>{{ $item->product?->subgroup?->name }}</div>
                                             </div>
-                                            <div data-item-activity-wrapper class="{{ $item->activity_id ? '' : 'hidden' }}">
+                                            <div data-item-activity-wrapper class="{{ $invoice->item_mode === 'activity' ? '' : 'hidden' }}">
                                                 <div class="relative">
                                                     <input
                                                         type="text"
@@ -196,15 +197,12 @@
                                                 <div class="mt-0.5 text-xs text-stone-400{{ $item->activity?->subgroup ? '' : ' hidden' }}" data-item-activity-subgroup>{{ $item->activity?->subgroup?->name }}</div>
                                             </div>
                                         @else
-                                            <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] {{ $item->activity_id ? 'text-emerald-700' : 'text-rose-700' }}">
-                                                {{ $item->activity_id ? 'Actividad' : 'Producto' }}
-                                            </div>
                                             <div class="whitespace-nowrap font-medium text-stone-700">{{ $catalogItem?->name ?: '-' }}</div>
                                             @if ($catalogSubgroup)
                                                 <div class="mt-0.5 whitespace-nowrap text-xs text-stone-400">{{ $catalogSubgroup->name }}</div>
                                             @endif
-                                        @endif
-                                    </td>
+                                            @endif
+                                        </td>
                                     <td class="px-4 py-2.5 @if (!$isOpen) text-right text-stone-600 @endif">
                                         @if ($isOpen)
                                             <input
@@ -251,7 +249,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $isOpen ? 6 : 4 }}" class="px-6 py-10 text-center text-stone-400 sm:px-8">
+                                    <td colspan="{{ $isOpen ? 5 : 4 }}" class="px-6 py-10 text-center text-stone-400 sm:px-8">
                                         Sin {{ $typeLabel }} registrados.
                                         @if ($isOpen)
                                             <span class="mt-1 block text-xs">Usa el boton <strong>+ Agregar</strong> para anadir el primero.</span>
@@ -263,53 +261,18 @@
                     </table>
                 </div>
 
-                <div class="flex items-center justify-between border-t-2 border-stone-200 px-6 py-4 sm:px-8">
+                <div class="border-t-2 border-stone-200 px-6 py-4 sm:px-8">
                     @if ($isOpen)
-                        <div class="flex flex-col gap-2">
-                            <button
-                                type="button"
-                                data-invoice-add-row
-                                data-store-url="{{ $isPurchase ? route('purchases.store') : route('expenses.store') }}"
-                                data-transaction-type="{{ $isPurchase ? 'purchase' : 'expense' }}"
-                                data-project-id="{{ $invoice->project_id }}"
-                                data-provider-id="{{ $invoice->provider_id }}"
-                                data-invoice-id="{{ $invoice->id }}"
-                                class="app-create-icon-button rounded-2xl px-3 py-1.5 text-sm font-medium"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" /></svg>
-                                <span>Agregar</span>
-                            </button>
-                            <button
-                                type="button"
-                                data-invoice-save-all
-                                class="rounded-2xl bg-stone-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-stone-700 disabled:opacity-60"
-                            >
-                                Guardar factura
-                            </button>
+                        <div class="text-center">
+                            <p class="text-xs font-semibold uppercase tracking-widest text-stone-400">Total factura</p>
+                            <p class="text-2xl font-bold text-stone-900" data-invoice-total-amount>$ {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}</p>
                         </div>
                     @else
-                        <div></div>
+                        <div class="text-right">
+                            <p class="text-xs font-semibold uppercase tracking-widest text-stone-400">Total factura</p>
+                            <p class="text-2xl font-bold text-stone-900" data-invoice-total-amount>$ {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}</p>
+                        </div>
                     @endif
-                    <div class="text-right">
-                        <p class="text-xs font-semibold uppercase tracking-widest text-stone-400">Total factura</p>
-                        <p class="text-2xl font-bold text-stone-900" data-invoice-total-amount>$ {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-                <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-6 py-4 sm:px-8">
-                    <h3 class="text-sm font-semibold text-stone-900">Archivos adjuntos</h3>
-                    <form data-invoice-attachment-form action="{{ route('invoices.attachments.store', $invoice) }}">
-                        <input id="invoice_files_main" name="files[]" type="file" multiple accept="image/*,video/*,application/pdf" class="sr-only" data-invoice-file-input>
-                        <label for="invoice_files_main" class="app-create-icon-button cursor-pointer rounded-2xl px-3 py-2 text-sm font-medium" title="Subir archivo">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" /></svg>
-                            <span>Adjuntar</span>
-                        </label>
-                    </form>
-                </div>
-                <div class="p-6 sm:p-8" x-ref="attachments" data-invoice-attachments-root>
-                    @include('invoices._attachments', ['invoice' => $invoice])
                 </div>
             </div>
 
@@ -327,6 +290,67 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                     </button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <button
+        type="button"
+        class="fixed bottom-6 left-6 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 shadow-lg transition hover:bg-stone-100 hover:text-stone-900 sm:bottom-8 sm:left-8"
+        title="Ver fotos y videos"
+        x-on:click="attachmentsModalOpen = true"
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C5 3 1.73 7.11 1 10c.73 2.89 4 7 9 7s8.27-4.11 9-7c-.73-2.89-4-7-9-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6.5A2.5 2.5 0 1010 12a2.5 2.5 0 000-5z" /></svg>
+    </button>
+
+    @if ($isOpen)
+        <button
+            type="button"
+            data-invoice-add-row
+            data-store-url="{{ $isPurchase ? route('purchases.store') : route('expenses.store') }}"
+            data-transaction-type="{{ $isPurchase ? 'purchase' : 'expense' }}"
+            data-project-id="{{ $invoice->project_id }}"
+            data-provider-id="{{ $invoice->provider_id }}"
+            data-invoice-id="{{ $invoice->id }}"
+            class="app-create-button fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full p-0 text-xl shadow-lg sm:bottom-8 sm:right-8"
+            title="Agregar fila"
+        >
+            +
+        </button>
+        <button
+            type="button"
+            data-invoice-save-all
+            class="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-2xl bg-stone-800 px-5 py-2.5 text-sm font-medium text-white shadow-lg transition hover:bg-stone-700 disabled:opacity-60 sm:bottom-8"
+            title="Guardar factura"
+        >
+            Guardar factura
+        </button>
+    @endif
+
+    <div
+        x-show="attachmentsModalOpen"
+        x-cloak
+        class="fixed inset-0 z-[65] flex items-center justify-center bg-black/60 p-4"
+        x-on:keydown.escape.window="attachmentsModalOpen = false"
+    >
+        <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" x-on:click.stop>
+            <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
+                <h3 class="text-sm font-semibold text-stone-900">Fotos y videos de la factura</h3>
+                <div class="flex items-center gap-2">
+                    <form data-invoice-attachment-form action="{{ route('invoices.attachments.store', $invoice) }}">
+                        <input id="invoice_files_modal" name="files[]" type="file" multiple accept="image/*,video/*,application/pdf" class="sr-only" data-invoice-file-input>
+                        <label for="invoice_files_modal" class="app-create-icon-button cursor-pointer rounded-2xl px-3 py-2 text-sm font-medium" title="Subir archivo">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" /></svg>
+                            <span>Adjuntar</span>
+                        </label>
+                    </form>
+                    <button type="button" class="rounded-2xl border border-stone-200 px-3 py-2 text-sm text-stone-700 transition hover:bg-stone-50" x-on:click="attachmentsModalOpen = false">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6" x-ref="attachments" data-invoice-attachments-root>
+                @include('invoices._attachments', ['invoice' => $invoice])
             </div>
         </div>
     </div>

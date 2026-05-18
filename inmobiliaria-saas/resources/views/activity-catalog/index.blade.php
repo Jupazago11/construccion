@@ -20,6 +20,8 @@
             activityStatus: '{{ route('activity-catalog.activities.status', ['activity' => '__ID__'], false) }}',
             activityDestroy: '{{ route('activity-catalog.activities.destroy', ['activity' => '__ID__'], false) }}'
         },
+        filterGroupId: {{ \Illuminate\Support\Js::from($filters['group_id'] ? (string) $filters['group_id'] : '') }},
+        filterSubgroupId: {{ \Illuminate\Support\Js::from($filters['subgroup_id'] ? (string) $filters['subgroup_id'] : '') }},
         groups: {{ \Illuminate\Support\Js::from($activeGroups->map(fn ($g) => ['id' => $g->id, 'name' => $g->name, 'company_id' => $g->company_id])->values()) }},
         subgroups: {{ \Illuminate\Support\Js::from($activeSubgroups->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'company_id' => $s->company_id, 'activity_group_id' => $s->activity_group_id])->values()) }}
     })"
@@ -35,15 +37,6 @@
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
             <section
-                x-data="{
-                    filtersOpen: window.innerWidth >= 768,
-                    selectedGroup: '{{ $filters['group_id'] ?? '' }}',
-                    allSubgroups: @js($subgroups->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'activity_group_id' => $s->activity_group_id])->values()),
-                    get filteredSubs() {
-                        if (!this.selectedGroup) return this.allSubgroups;
-                        return this.allSubgroups.filter(s => String(s.activity_group_id) === String(this.selectedGroup));
-                    }
-                }"
                 class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm"
             >
                 <div class="flex items-center justify-between gap-3 px-5 py-4">
@@ -104,13 +97,14 @@
                             <select
                                 id="filter_group_id"
                                 name="group_id"
-                                x-model="selectedGroup"
+                                x-model="filterGroupId"
+                                x-on:change="syncFilterSubgroupSelection()"
                                 class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
                             >
                                 <option value="">Todos los grupos</option>
-                                @foreach ($groups as $group)
-                                    <option value="{{ $group->id }}" @selected($filters['group_id'] == $group->id)>{{ $group->name }}</option>
-                                @endforeach
+                                <template x-for="group in filterableGroups" :key="group.id">
+                                    <option :value="group.id" x-text="group.name"></option>
+                                </template>
                             </select>
                         </div>
 
@@ -119,13 +113,13 @@
                             <select
                                 id="filter_subgroup_id"
                                 name="subgroup_id"
+                                x-model="filterSubgroupId"
                                 class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
                             >
                                 <option value="">Todos los subgrupos</option>
-                                <template x-for="sub in filteredSubs" :key="sub.id">
+                                <template x-for="sub in catalogFilterSubgroups" :key="sub.id">
                                     <option
                                         :value="sub.id"
-                                        :selected="sub.id == {{ $filters['subgroup_id'] ?? 0 }}"
                                         x-text="sub.name"
                                     ></option>
                                 </template>
@@ -142,6 +136,26 @@
                     </div>
                     </div>
                 </form>
+            </section>
+
+            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">
+                        Grupos
+                        <span class="ml-1 font-normal text-stone-400" x-text="`(${groups.length})`"></span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto" x-ref="groupsTable">@include('activity-catalog._groups_table')</div>
+            </section>
+
+            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">
+                        Subgrupos
+                        <span class="ml-1 font-normal text-stone-400" x-text="`(${subgroups.length})`"></span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto" x-ref="subgroupsTable">@include('activity-catalog._subgroups_table')</div>
             </section>
 
             <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">

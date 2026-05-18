@@ -519,6 +519,24 @@ Alpine.data('crudTable', (config = {}) => ({
             return;
         }
 
+        const rowTrigger = event.target.closest('[data-row-open]');
+
+        if (
+            rowTrigger
+            && ! event.target.closest('a, button, input, select, textarea, label, [data-action]')
+        ) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (rowTrigger.dataset.href) {
+                window.location.assign(rowTrigger.dataset.href);
+                return;
+            }
+
+            await this.openModal(rowTrigger.dataset.url, rowTrigger.dataset.title ?? '');
+            return;
+        }
+
         const button = event.target.closest('[data-action]');
 
         if (! button) {
@@ -1186,6 +1204,7 @@ Alpine.data('productCatalog', (config = {}) => ({
 
         return this.filteredSubgroups.filter((subgroup) => ! term || subgroup.name.toLocaleLowerCase().includes(term));
     },
+
     saveCurrentDraft() {
         if (this.editingId) {
             return;
@@ -1527,6 +1546,8 @@ Alpine.data('activityCatalog', (config = {}) => ({
     tableLoading: false,
     groups: config.groups ?? [],
     subgroups: config.subgroups ?? [],
+    filterGroupId: config.filterGroupId ?? '',
+    filterSubgroupId: config.filterSubgroupId ?? '',
     groupSearch: '',
     subgroupSearch: '',
     groupMenuOpen: false,
@@ -1602,6 +1623,18 @@ Alpine.data('activityCatalog', (config = {}) => ({
         return this.filteredSubgroups.filter((subgroup) => ! term || subgroup.name.toLocaleLowerCase().includes(term));
     },
 
+    get filterableGroups() {
+        return this.groups;
+    },
+
+    get catalogFilterSubgroups() {
+        if (! this.filterGroupId) {
+            return this.subgroups;
+        }
+
+        return this.subgroups.filter((subgroup) => String(subgroup.activity_group_id) === String(this.filterGroupId));
+    },
+
     saveCurrentDraft() {
         if (this.editingId) {
             return;
@@ -1640,6 +1673,51 @@ Alpine.data('activityCatalog', (config = {}) => ({
 
     clearDraft(tab) {
         this.drafts[tab] = null;
+    },
+
+    syncFilterSubgroupSelection() {
+        if (! this.filterSubgroupId) {
+            return;
+        }
+
+        const hasSelectedSubgroup = this.catalogFilterSubgroups.some((subgroup) => String(subgroup.id) === String(this.filterSubgroupId));
+
+        if (! hasSelectedSubgroup) {
+            this.filterSubgroupId = '';
+        }
+    },
+
+    syncCollectionsState() {
+        const hasSelectedGroup = ! this.form.activity_group_id
+            || this.filteredGroups.some((group) => String(group.id) === String(this.form.activity_group_id));
+
+        if (! hasSelectedGroup) {
+            this.form.activity_group_id = '';
+            this.groupSearch = '';
+            this.form.activity_subgroup_id = '';
+            this.subgroupSearch = '';
+        } else if (this.form.activity_group_id) {
+            this.groupSearch = this.labelForGroup(this.form.activity_group_id);
+        }
+
+        const hasSelectedSubgroup = ! this.form.activity_subgroup_id
+            || this.filteredSubgroups.some((subgroup) => String(subgroup.id) === String(this.form.activity_subgroup_id));
+
+        if (! hasSelectedSubgroup) {
+            this.form.activity_subgroup_id = '';
+            this.subgroupSearch = '';
+        } else if (this.form.activity_subgroup_id) {
+            this.subgroupSearch = this.labelForSubgroup(this.form.activity_subgroup_id);
+        }
+
+        const hasFilterGroup = ! this.filterGroupId
+            || this.filterableGroups.some((group) => String(group.id) === String(this.filterGroupId));
+
+        if (! hasFilterGroup) {
+            this.filterGroupId = '';
+        }
+
+        this.syncFilterSubgroupSelection();
     },
 
     setTab(tab) {
@@ -1914,8 +1992,29 @@ Alpine.data('activityCatalog', (config = {}) => ({
             });
 
             if (this.$refs.activitiesTable) {
-                this.$refs.activitiesTable.innerHTML = response.data?.table_html ?? '';
+                this.$refs.activitiesTable.innerHTML = response.data?.activities_table_html ?? response.data?.table_html ?? '';
+                Alpine.initTree(this.$refs.activitiesTable);
             }
+
+            if (this.$refs.groupsTable && response.data?.groups_table_html !== undefined) {
+                this.$refs.groupsTable.innerHTML = response.data.groups_table_html;
+                Alpine.initTree(this.$refs.groupsTable);
+            }
+
+            if (this.$refs.subgroupsTable && response.data?.subgroups_table_html !== undefined) {
+                this.$refs.subgroupsTable.innerHTML = response.data.subgroups_table_html;
+                Alpine.initTree(this.$refs.subgroupsTable);
+            }
+
+            if (Array.isArray(response.data?.groups)) {
+                this.groups = response.data.groups;
+            }
+
+            if (Array.isArray(response.data?.subgroups)) {
+                this.subgroups = response.data.subgroups;
+            }
+
+            this.syncCollectionsState();
 
             if (pushState) {
                 window.history.pushState({ catalogTable: true }, '', `${targetUrl.pathname}${targetUrl.search}`);
@@ -2000,6 +2099,8 @@ return {
     previousTypeId: String(config.selectedTypeId ?? ''),
     companyId: String(config.initialCompanyId ?? ''),
     entityName: config.entityName ?? 'activo',
+    quantity: String(config.quantity ?? '1'),
+    purchaseValue: String(config.purchaseValue ?? ''),
     allowEmptySelection: config.allowEmptySelection === true,
     storeUrl: config.storeUrl,
     indexUrl: config.indexUrl,
@@ -2065,6 +2166,20 @@ return {
 
     get selectedTypeAddsValue() {
         return this.selectedType?.adds_value !== false;
+    },
+
+    parseCurrency(value) {
+        const normalized = String(value ?? '').replace(/\D+/g, '');
+        return normalized === '' ? 0 : Number.parseInt(normalized, 10);
+    },
+
+    totalPurchaseValue() {
+        const quantity = Math.max(1, Number.parseInt(String(this.quantity ?? '1').replace(/\D+/g, ''), 10) || 1);
+        return this.parseCurrency(this.purchaseValue) * quantity;
+    },
+
+    formatCurrency(value) {
+        return Number(value || 0).toLocaleString('es-CO');
     },
 
     handleTypeChange(event) {
@@ -5701,6 +5816,7 @@ window.initializeInvoiceInlineRows = () => {
     const addBtn = document.querySelector('[data-invoice-add-row]');
     const saveAllBtn = document.querySelector('[data-invoice-save-all]');
     const tbody = document.querySelector('[data-invoice-tbody]');
+    const itemModeSelect = document.querySelector('[data-invoice-item-mode]');
     const productsNode = document.querySelector('[data-invoice-products]');
     const activitiesNode = document.querySelector('[data-invoice-activities]');
     const invoicePageRootSelector = '[data-invoice-page-root]';
@@ -5722,6 +5838,7 @@ window.initializeInvoiceInlineRows = () => {
     const parsePrice = (str) => parseInt(String(str ?? '').trim().replace(/\./g, '').replace(/[^0-9]/g, ''), 10) || 0;
     const parseQty = (str) => parseInt(String(str ?? '').trim().replace(/\./g, '').replace(/[^0-9]/g, ''), 10) || 0;
     const formatPrice = (num) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num || 0);
+    const getInvoiceItemMode = () => itemModeSelect?.value === 'activity' ? 'activity' : 'product';
     const fieldLabels = { invoice_id: 'factura', product_id: 'producto', activity_id: 'actividad', provider_id: 'proveedor', project_id: 'proyecto', unit_price: 'valor unitario', quantity: 'cantidad', expense_date: 'fecha', purchase_date: 'fecha' };
     const humanizeError = (msg) => {
         if (! msg) return 'No fue posible guardar.';
@@ -5950,8 +6067,6 @@ window.initializeInvoiceInlineRows = () => {
         const deleteUrl = tr.dataset.itemDeleteUrl;
         const updateUrl = tr.dataset.itemUpdateUrl;
         const itemDate = tr.dataset.itemDate;
-        const toggleInput = tr.querySelector('[data-item-is-activity]');
-        const toggleLabel = tr.querySelector('[data-item-activity-toggle-label]');
         const productWrapper = tr.querySelector('[data-item-product-wrapper]');
         const activityWrapper = tr.querySelector('[data-item-activity-wrapper]');
         const quantityInput = tr.querySelector('[data-item-quantity]');
@@ -5972,17 +6087,11 @@ window.initializeInvoiceInlineRows = () => {
             emptyText: 'Sin productos disponibles',
             onSelect: (item) => {
                 lastProductSelection = item;
-                toggleInput.checked = false;
-                activityCombobox?.clear();
-                syncMode();
                 markDirty();
             },
             onInput: (selectedId) => {
                 if (selectedId) {
                     lastProductSelection = productCombobox?.getSelectedItem() ?? lastProductSelection;
-                    toggleInput.checked = false;
-                    activityCombobox?.clear();
-                    syncMode();
                 }
                 markDirty();
             },
@@ -5996,17 +6105,11 @@ window.initializeInvoiceInlineRows = () => {
             emptyText: 'Sin actividades disponibles',
             onSelect: (item) => {
                 lastActivitySelection = item;
-                toggleInput.checked = true;
-                productCombobox?.clear();
-                syncMode();
                 markDirty();
             },
             onInput: (selectedId) => {
                 if (selectedId) {
                     lastActivitySelection = activityCombobox?.getSelectedItem() ?? lastActivitySelection;
-                    toggleInput.checked = true;
-                    productCombobox?.clear();
-                    syncMode();
                 }
                 markDirty();
             },
@@ -6014,40 +6117,13 @@ window.initializeInvoiceInlineRows = () => {
         lastProductSelection = productCombobox?.getSelectedItem() ?? null;
         lastActivitySelection = activityCombobox?.getSelectedItem() ?? null;
 
-        const syncActivityToggle = () => {
-            if (! toggleInput || ! toggleLabel) return;
-
-            const isActivity = Boolean(toggleInput.checked);
-            toggleLabel.textContent = isActivity ? 'Si' : 'No';
-            toggleLabel.classList.remove(...activityToggleThemes.yes.split(' '), ...activityToggleThemes.no.split(' '));
-            toggleLabel.classList.add(...(isActivity ? activityToggleThemes.yes : activityToggleThemes.no).split(' '));
-        };
-
         const syncMode = () => {
-            const isActivity = Boolean(toggleInput?.checked);
+            const isActivity = getInvoiceItemMode() === 'activity';
             productWrapper?.classList.toggle('hidden', isActivity);
             activityWrapper?.classList.toggle('hidden', ! isActivity);
-            syncActivityToggle();
         };
 
         syncMode();
-        toggleInput?.addEventListener('change', () => {
-            if (toggleInput.checked) {
-                lastProductSelection = productCombobox?.getSelectedItem() ?? lastProductSelection;
-                productCombobox?.clear();
-                if (! activityCombobox?.getSelectedId() && lastActivitySelection) {
-                    activityCombobox?.setSelection(lastActivitySelection);
-                }
-            } else {
-                lastActivitySelection = activityCombobox?.getSelectedItem() ?? lastActivitySelection;
-                activityCombobox?.clear();
-                if (! productCombobox?.getSelectedId() && lastProductSelection) {
-                    productCombobox?.setSelection(lastProductSelection);
-                }
-            }
-            syncMode();
-            markDirty();
-        });
 
         if (quantityInput?.value) {
             const v = parseQty(quantityInput.value);
@@ -6103,7 +6179,9 @@ window.initializeInvoiceInlineRows = () => {
         tr._invoiceRow = {
             isNew,
             isDirty: () => dirty,
-            isActivity: () => Boolean(toggleInput?.checked),
+            markDirty,
+            syncMode,
+            isActivity: () => getInvoiceItemMode() === 'activity',
             getProductId: () => productCombobox?.getSelectedId() ?? '',
             getActivityId: () => activityCombobox?.getSelectedId() ?? '',
             getQuantity: () => {
@@ -6125,12 +6203,6 @@ window.initializeInvoiceInlineRows = () => {
         tr.dataset.inlineRow = 'true';
         tr.className = 'border-b border-sky-100 bg-sky-50/40';
         tr.innerHTML = `
-            <td class="px-4 py-2.5 text-center align-top sm:px-6">
-                <label class="inline-flex cursor-pointer items-center" data-item-activity-toggle>
-                    <input type="checkbox" data-item-is-activity class="sr-only">
-                    <span class="inline-flex min-w-[3.5rem] justify-center rounded-full border border-rose-200 bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition" data-item-activity-toggle-label>No</span>
-                </label>
-            </td>
             <td class="px-6 py-2.5 sm:px-8">
                 <div data-item-product-wrapper>
                     <div class="relative">
@@ -6162,8 +6234,16 @@ window.initializeInvoiceInlineRows = () => {
 
         tbody.appendChild(tr);
         attachRow(tr, true);
-        tr.querySelector('[data-item-product-search]')?.focus();
+        tr.querySelector(getInvoiceItemMode() === 'activity' ? '[data-item-activity-search]' : '[data-item-product-search]')?.focus();
     };
+
+    itemModeSelect?.addEventListener('change', () => {
+        tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]').forEach((tr) => {
+            if (! tr._invoiceRow) return;
+            tr._invoiceRow.syncMode?.();
+            tr._invoiceRow.markDirty?.();
+        });
+    });
 
     if (addBtn && addBtn.dataset.inlineInitialized !== 'true') {
         addBtn.dataset.inlineInitialized = 'true';
@@ -6174,19 +6254,20 @@ window.initializeInvoiceInlineRows = () => {
         saveAllBtn.dataset.inlineInitialized = 'true';
         saveAllBtn.addEventListener('click', async () => {
             const rows = [...tbody.querySelectorAll('tr[data-item-id], tr[data-inline-row]')].filter((tr) => tr._invoiceRow);
-            const partialNewRows = rows.filter((tr) => {
+            const currentMode = getInvoiceItemMode();
+            const invalidRows = rows.filter((tr) => {
                 const r = tr._invoiceRow;
-                if (! r.isNew) return false;
-                const hasCatalog = r.isActivity() ? Boolean(r.getActivityId()) : Boolean(r.getProductId());
+                if (! r.isNew && ! r.isDirty()) return false;
+                const hasCatalog = currentMode === 'activity' ? Boolean(r.getActivityId()) : Boolean(r.getProductId());
                 const hasPrice = r.getUnitPrice() > 0;
                 const hasQty = r.getQuantity() !== null;
                 const hasAny = hasCatalog || hasPrice || hasQty;
                 return hasAny && ! (hasCatalog && hasPrice);
             });
 
-            if (partialNewRows.length > 0) {
+            if (invalidRows.length > 0) {
                 window.dispatchEvent(new CustomEvent('crud-toast', {
-                    detail: { message: 'Hay filas incompletas: selecciona producto o actividad y valor unitario.', type: 'error' },
+                    detail: { message: `Hay filas incompletas: selecciona ${currentMode === 'activity' ? 'actividad' : 'producto'} y valor unitario.`, type: 'error' },
                 }));
                 return;
             }
@@ -6200,13 +6281,14 @@ window.initializeInvoiceInlineRows = () => {
 
                 for (const tr of rows) {
                     const r = tr._invoiceRow;
+                    const isActivityMode = currentMode === 'activity';
                     const payloadRow = {
                         project_id: projectId,
                         provider_id: providerId || null,
                         invoice_id: invoiceId,
-                        product_id: r.isActivity() ? null : (r.getProductId() || null),
-                        activity_id: r.isActivity() ? (r.getActivityId() || null) : null,
-                        is_activity: r.isActivity(),
+                        product_id: isActivityMode ? null : (r.getProductId() || null),
+                        activity_id: isActivityMode ? (r.getActivityId() || null) : null,
+                        is_activity: isActivityMode,
                         unit_price: r.getUnitPrice(),
                         quantity: r.getQuantity(),
                     };

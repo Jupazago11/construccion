@@ -1,6 +1,8 @@
 ﻿@php
     $selectedAssetTypeId = old('asset_type_id', $asset->asset_type_id ?: ($assetTypes->firstWhere('status', 'active')['id'] ?? null));
     $formUid = 'asset-' . ($asset->exists ? $asset->id : 'new') . '-' . substr(md5($action), 0, 8);
+    $selectedQuantity = (int) old('quantity', $asset->quantity ?: 1);
+    $selectedPurchaseValue = old('purchase_value', $asset->purchase_value !== null ? number_format((float) $asset->purchase_value, 0, ',', '.') : '');
 @endphp
 
 <form
@@ -14,6 +16,8 @@
         storeUrl: @js(route('asset-types.store')),
         indexUrl: @js(route('asset-types.index')),
         initialCompanyId: @js((string) ($asset->company_id ?: request('company_id') ?: auth()->user()->company_id)),
+        quantity: @js((string) $selectedQuantity),
+        purchaseValue: @js((string) $selectedPurchaseValue),
     })"
     x-init="init()"
     class="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6"
@@ -74,7 +78,20 @@
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_type_id"></p>
             </div>
 
-            <input type="hidden" name="asset_condition" value="{{ $asset->asset_condition ?: 'new' }}">
+            <div>
+                <x-input-label for="{{ $formUid }}-asset-condition" :value="'Condicion'" />
+                <select
+                    id="{{ $formUid }}-asset-condition"
+                    name="asset_condition"
+                    autocomplete="off"
+                    class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900"
+                    required
+                >
+                    <option value="new" @selected(($asset->asset_condition ?: 'new') === 'new')>Nuevo</option>
+                    <option value="used" @selected(($asset->asset_condition ?: 'new') === 'used')>De segunda</option>
+                </select>
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="asset_condition"></p>
+            </div>
 
             <div>
                 <x-input-label for="{{ $formUid }}-purchase-value" :value="'Valor de compra'" />
@@ -84,11 +101,30 @@
                     type="text"
                     inputmode="numeric"
                     class="mt-1 block w-full"
-                    :value="$asset->purchase_value !== null ? number_format((float) $asset->purchase_value, 0, ',', '.') : ''"
+                    :value="$selectedPurchaseValue"
                     autocomplete="off"
                     data-currency-input
+                    x-model="purchaseValue"
                 />
                 <p class="mt-2 hidden text-sm text-rose-600" data-error-for="purchase_value"></p>
+            </div>
+
+            <div>
+                <x-input-label for="{{ $formUid }}-quantity" :value="'Cantidad'" />
+                <x-text-input
+                    id="{{ $formUid }}-quantity"
+                    name="quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="mt-1 block w-full"
+                    :value="$selectedQuantity"
+                    autocomplete="off"
+                    x-model="quantity"
+                    required
+                />
+                <p class="mt-2 text-xs text-stone-500" x-text="`Total proyectado: $ ${formatCurrency(totalPurchaseValue())}`"></p>
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="quantity"></p>
             </div>
 
             <div>

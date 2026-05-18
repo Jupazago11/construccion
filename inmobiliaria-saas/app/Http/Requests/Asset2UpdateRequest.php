@@ -43,6 +43,7 @@ class Asset2UpdateRequest extends FormRequest
                         ->where('status', EntityStatus::Active->value)),
             ],
             'asset_condition' => ['required', Rule::in(['new', 'used'])],
+            'quantity' => ['required', 'integer', 'min:1'],
             'purchase_value' => ['nullable', 'numeric', 'min:0'],
             'purchase_date' => ['nullable', 'date'],
         ];

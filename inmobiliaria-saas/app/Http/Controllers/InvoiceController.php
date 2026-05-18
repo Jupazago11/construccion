@@ -82,6 +82,7 @@ class InvoiceController extends Controller
             'provider_id' => $data['provider_id'],
             'created_by' => $request->user()->id,
             'type' => $data['type'],
+            'item_mode' => 'product',
             'invoice_number' => $data['invoice_number'] ?? null,
             'invoice_date' => $data['invoice_date'] ?? now()->toDateString(),
             'description' => $data['description'] ?? null,
@@ -155,6 +156,7 @@ class InvoiceController extends Controller
             'invoice_date'   => ['nullable', 'date'],
             'provider_id'    => ['nullable', 'integer', 'exists:providers2,id'],
             'project_id'     => ['nullable', 'integer', 'exists:projects,id'],
+            'item_mode'      => ['nullable', 'in:product,activity'],
             'description'    => ['nullable', 'string', 'max:1000'],
         ]);
 

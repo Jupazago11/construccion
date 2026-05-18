@@ -19,6 +19,7 @@ class Invoice extends Model
         'provider_id',
         'created_by',
         'type',
+        'item_mode',
         'invoice_number',
         'invoice_date',
         'description',

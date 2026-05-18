@@ -21,6 +21,7 @@ class Asset2 extends Model
         'asset2_type',
         'asset2_type_id',
         'asset_condition',
+        'quantity',
         'purchase_value',
         'purchase_date',
         'status',
@@ -29,6 +30,7 @@ class Asset2 extends Model
     protected function casts(): array
     {
         return [
+            'quantity' => 'integer',
             'purchase_value' => 'decimal:2',
             'purchase_date' => 'date',
         ];

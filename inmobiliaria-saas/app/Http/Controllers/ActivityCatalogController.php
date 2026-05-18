@@ -27,11 +27,20 @@ class ActivityCatalogController extends Controller
         $payload = $this->viewPayload($request);
 
         if ($request->ajax() && $request->boolean('table_only')) {
-            return response()->json([
+            return response()->json(array_merge([
                 'table_html' => view('activity-catalog._activities_table', [
                     'activities' => $payload['activities'],
                 ])->render(),
-            ]);
+                'activities_table_html' => view('activity-catalog._activities_table', [
+                    'activities' => $payload['activities'],
+                ])->render(),
+                'groups_table_html' => view('activity-catalog._groups_table', [
+                    'groups' => $payload['groups'],
+                ])->render(),
+                'subgroups_table_html' => view('activity-catalog._subgroups_table', [
+                    'subgroups' => $payload['subgroups'],
+                ])->render(),
+            ], $this->catalogCollections($payload)));
         }
 
         return view('activity-catalog.index', $payload);
@@ -248,5 +257,28 @@ class ActivityCatalogController extends Controller
     protected function catalogResponse(string $message): JsonResponse
     {
         return response()->json(['message' => $message]);
+    }
+
+    protected function catalogCollections(array $payload): array
+    {
+        return [
+            'groups' => $payload['groups']
+                ->where('status', EntityStatus::Active->value)
+                ->values()
+                ->map(fn ($group) => [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'company_id' => $group->company_id,
+                ]),
+            'subgroups' => $payload['subgroups']
+                ->where('status', EntityStatus::Active->value)
+                ->values()
+                ->map(fn ($subgroup) => [
+                    'id' => $subgroup->id,
+                    'name' => $subgroup->name,
+                    'company_id' => $subgroup->company_id,
+                    'activity_group_id' => $subgroup->activity_group_id,
+                ]),
+        ];
     }
 }

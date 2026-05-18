@@ -108,6 +108,7 @@ class AssetController extends Controller
             'asset_type_id' => $data['asset_type_id'],
             'asset_type' => AssetType::query()->find($data['asset_type_id'])?->name ?? '',
             'asset_condition' => $data['asset_condition'],
+            'quantity' => (int) $data['quantity'],
             'purchase_value' => (float) ($data['purchase_value'] ?? 0),
             'purchase_date' => $data['purchase_date'] ?? null,
             'status' => EntityStatus::Active->value,
@@ -167,6 +168,7 @@ class AssetController extends Controller
             'asset_type_id' => $data['asset_type_id'],
             'asset_type' => AssetType::query()->find($data['asset_type_id'])?->name ?? $asset->asset_type,
             'asset_condition' => $data['asset_condition'],
+            'quantity' => (int) $data['quantity'],
             'purchase_value' => (float) ($data['purchase_value'] ?? 0),
             'purchase_date' => $data['purchase_date'] ?? null,
         ]);
@@ -269,7 +271,7 @@ class AssetController extends Controller
         $assetIds = (clone $baseQuery)->select('id');
 
         return [
-            'assets_purchase_total' => (clone $baseQuery)->sum('purchase_value'),
+            'assets_purchase_total' => (clone $baseQuery)->get()->sum(fn (Asset $asset) => (float) $asset->purchase_value * (int) ($asset->quantity ?: 1)),
             'novelties_cost_total' => AssetNovelty::query()
                 ->where('status', '!=', EntityStatus::Deleted->value)
                 ->whereIn('asset_id', $assetIds)

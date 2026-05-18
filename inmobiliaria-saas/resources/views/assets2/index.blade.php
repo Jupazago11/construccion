@@ -40,9 +40,9 @@
                         <thead class="bg-stone-50 text-left text-stone-500">
                             <tr>
                                 <th class="px-6 py-4 font-medium">Activo</th>
-                                <th class="px-6 py-4 font-medium">Tipo</th>
-                                <th class="px-6 py-4 font-medium">Condición</th>
-                                <th class="px-6 py-4 font-medium">Compra</th>
+                                <th class="px-6 py-4 font-medium">Cantidad</th>
+                                <th class="px-6 py-4 font-medium">Valor unitario</th>
+                                <th class="px-6 py-4 font-medium">Total</th>
                                 <th class="px-6 py-4 font-medium">Novedades</th>
                                 <th class="px-6 py-4 font-medium"></th>
                             </tr>
