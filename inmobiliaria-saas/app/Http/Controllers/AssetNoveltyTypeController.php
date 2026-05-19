@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 
 class AssetNoveltyTypeController extends Controller
 {
+    // Lista los tipos de novedad del tenant para poblar tablas y formularios de activos.
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Asset::class);
@@ -20,6 +21,7 @@ class AssetNoveltyTypeController extends Controller
         return response()->json($this->typesPayload($companyId));
     }
 
+    // Crea un tipo de novedad y devuelve el catálogo actualizado para refrescar la UI.
     public function store(AssetNoveltyTypeStoreRequest $request): JsonResponse
     {
         $this->authorize('create', Asset::class);
@@ -41,6 +43,7 @@ class AssetNoveltyTypeController extends Controller
         ]);
     }
 
+    // Actualiza nombre, aporte de valor y estado de un tipo perteneciente a la empresa.
     public function update(AssetNoveltyTypeStoreRequest $request, AssetNoveltyType $assetNoveltyType): JsonResponse
     {
         $this->authorize('update', $assetNoveltyType);
@@ -62,6 +65,7 @@ class AssetNoveltyTypeController extends Controller
         ]);
     }
 
+    // Archiva el tipo solo si no tiene novedades activas relacionadas.
     public function destroy(Request $request, AssetNoveltyType $assetNoveltyType): JsonResponse
     {
         $this->authorize('delete', $assetNoveltyType);
@@ -85,6 +89,7 @@ class AssetNoveltyTypeController extends Controller
         ]);
     }
 
+    // Resuelve la empresa objetivo del catálogo de tipos de novedad.
     protected function resolveCompanyId(Request $request): int
     {
         if (! $request->user()->isSuperAdmin()) {
@@ -97,6 +102,7 @@ class AssetNoveltyTypeController extends Controller
         return $companyId;
     }
 
+    // Arma el payload reutilizado por tablas, modales y selects del módulo de activos.
     protected function typesPayload(int $companyId): array
     {
         $types = AssetNoveltyType::query()

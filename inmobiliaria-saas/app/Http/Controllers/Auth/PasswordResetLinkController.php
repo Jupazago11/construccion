@@ -14,6 +14,7 @@ class PasswordResetLinkController extends Controller
     /**
      * Display the password reset link request view.
      */
+    // Muestra el formulario para solicitar el enlace de recuperación.
     public function create(): View
     {
         return view('auth.forgot-password');
@@ -24,6 +25,7 @@ class PasswordResetLinkController extends Controller
      *
      * @throws ValidationException
      */
+    // Solicita el envío del enlace de restablecimiento al correo indicado.
     public function store(Request $request): RedirectResponse
     {
         $request->validate([

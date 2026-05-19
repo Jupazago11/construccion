@@ -1126,10 +1126,25 @@ Alpine.data('productCatalog', (config = {}) => ({
     toastMessage: '',
     toastType: 'success',
     toastTimer: null,
+    isSuperAdmin: config.isSuperAdmin === true,
+    visibilityStorageKey: config.visibilityStorageKey ?? '',
+    tableVisibilityDefaults: {
+        groups: false,
+        subgroups: false,
+        products: true,
+        ...(config.tableVisibilityDefaults ?? {}),
+    },
+    tableVisibility: {
+        groups: false,
+        subgroups: false,
+        products: true,
+    },
     filtersOpen: window.innerWidth >= 768,
     tableLoading: false,
     groups: config.groups ?? [],
     subgroups: config.subgroups ?? [],
+    filterGroupId: config.filterGroupId ?? '',
+    filterSubgroupId: config.filterSubgroupId ?? '',
     groupSearch: '',
     subgroupSearch: '',
     groupMenuOpen: false,
@@ -1147,6 +1162,8 @@ Alpine.data('productCatalog', (config = {}) => ({
     },
 
     init() {
+        this.initTableVisibility();
+
         try {
             const stored = sessionStorage.getItem('_catalog_toast');
             if (stored) {
@@ -1205,6 +1222,49 @@ Alpine.data('productCatalog', (config = {}) => ({
         return this.filteredSubgroups.filter((subgroup) => ! term || subgroup.name.toLocaleLowerCase().includes(term));
     },
 
+    get filterableGroups() {
+        return this.groups;
+    },
+
+    get catalogFilterSubgroups() {
+        if (! this.filterGroupId) {
+            return this.subgroups;
+        }
+
+        return this.subgroups.filter((subgroup) => String(subgroup.product_group_id) === String(this.filterGroupId));
+    },
+
+    initTableVisibility() {
+        this.tableVisibility = { ...this.tableVisibilityDefaults };
+
+        if (! this.isSuperAdmin || ! this.visibilityStorageKey) {
+            return;
+        }
+
+        try {
+            const stored = window.localStorage.getItem(this.visibilityStorageKey);
+            if (! stored) {
+                return;
+            }
+
+            const parsed = JSON.parse(stored);
+            this.tableVisibility = {
+                ...this.tableVisibilityDefaults,
+                ...parsed,
+            };
+        } catch {}
+    },
+
+    persistTableVisibility() {
+        if (! this.isSuperAdmin || ! this.visibilityStorageKey) {
+            return;
+        }
+
+        try {
+            window.localStorage.setItem(this.visibilityStorageKey, JSON.stringify(this.tableVisibility));
+        } catch {}
+    },
+
     saveCurrentDraft() {
         if (this.editingId) {
             return;
@@ -1243,6 +1303,51 @@ Alpine.data('productCatalog', (config = {}) => ({
 
     clearDraft(tab) {
         this.drafts[tab] = null;
+    },
+
+    syncFilterSubgroupSelection() {
+        if (! this.filterSubgroupId) {
+            return;
+        }
+
+        const hasSelectedSubgroup = this.catalogFilterSubgroups.some((subgroup) => String(subgroup.id) === String(this.filterSubgroupId));
+
+        if (! hasSelectedSubgroup) {
+            this.filterSubgroupId = '';
+        }
+    },
+
+    syncCollectionsState() {
+        const hasSelectedGroup = ! this.form.product_group_id
+            || this.filteredGroups.some((group) => String(group.id) === String(this.form.product_group_id));
+
+        if (! hasSelectedGroup) {
+            this.form.product_group_id = '';
+            this.groupSearch = '';
+            this.form.product_subgroup_id = '';
+            this.subgroupSearch = '';
+        } else if (this.form.product_group_id) {
+            this.groupSearch = this.labelForGroup(this.form.product_group_id);
+        }
+
+        const hasSelectedSubgroup = ! this.form.product_subgroup_id
+            || this.filteredSubgroups.some((subgroup) => String(subgroup.id) === String(this.form.product_subgroup_id));
+
+        if (! hasSelectedSubgroup) {
+            this.form.product_subgroup_id = '';
+            this.subgroupSearch = '';
+        } else if (this.form.product_subgroup_id) {
+            this.subgroupSearch = this.labelForSubgroup(this.form.product_subgroup_id);
+        }
+
+        const hasFilterGroup = ! this.filterGroupId
+            || this.filterableGroups.some((group) => String(group.id) === String(this.filterGroupId));
+
+        if (! hasFilterGroup) {
+            this.filterGroupId = '';
+        }
+
+        this.syncFilterSubgroupSelection();
     },
 
     setTab(tab) {
@@ -1517,8 +1622,29 @@ Alpine.data('productCatalog', (config = {}) => ({
             });
 
             if (this.$refs.productsTable) {
-                this.$refs.productsTable.innerHTML = response.data?.table_html ?? '';
+                this.$refs.productsTable.innerHTML = response.data?.products_table_html ?? response.data?.table_html ?? '';
+                Alpine.initTree(this.$refs.productsTable);
             }
+
+            if (this.$refs.groupsTable && response.data?.groups_table_html !== undefined) {
+                this.$refs.groupsTable.innerHTML = response.data.groups_table_html;
+                Alpine.initTree(this.$refs.groupsTable);
+            }
+
+            if (this.$refs.subgroupsTable && response.data?.subgroups_table_html !== undefined) {
+                this.$refs.subgroupsTable.innerHTML = response.data.subgroups_table_html;
+                Alpine.initTree(this.$refs.subgroupsTable);
+            }
+
+            if (Array.isArray(response.data?.groups)) {
+                this.groups = response.data.groups;
+            }
+
+            if (Array.isArray(response.data?.subgroups)) {
+                this.subgroups = response.data.subgroups;
+            }
+
+            this.syncCollectionsState();
 
             if (pushState) {
                 window.history.pushState({ catalogTable: true }, '', `${targetUrl.pathname}${targetUrl.search}`);
@@ -1542,6 +1668,19 @@ Alpine.data('activityCatalog', (config = {}) => ({
     toastMessage: '',
     toastType: 'success',
     toastTimer: null,
+    isSuperAdmin: config.isSuperAdmin === true,
+    visibilityStorageKey: config.visibilityStorageKey ?? '',
+    tableVisibilityDefaults: {
+        groups: true,
+        subgroups: true,
+        activities: true,
+        ...(config.tableVisibilityDefaults ?? {}),
+    },
+    tableVisibility: {
+        groups: true,
+        subgroups: true,
+        activities: true,
+    },
     filtersOpen: window.innerWidth >= 768,
     tableLoading: false,
     groups: config.groups ?? [],
@@ -1565,6 +1704,8 @@ Alpine.data('activityCatalog', (config = {}) => ({
     },
 
     init() {
+        this.initTableVisibility();
+
         try {
             const stored = sessionStorage.getItem('_catalog_toast');
             if (stored) {
@@ -1633,6 +1774,37 @@ Alpine.data('activityCatalog', (config = {}) => ({
         }
 
         return this.subgroups.filter((subgroup) => String(subgroup.activity_group_id) === String(this.filterGroupId));
+    },
+
+    initTableVisibility() {
+        this.tableVisibility = { ...this.tableVisibilityDefaults };
+
+        if (! this.isSuperAdmin || ! this.visibilityStorageKey) {
+            return;
+        }
+
+        try {
+            const stored = window.localStorage.getItem(this.visibilityStorageKey);
+            if (! stored) {
+                return;
+            }
+
+            const parsed = JSON.parse(stored);
+            this.tableVisibility = {
+                ...this.tableVisibilityDefaults,
+                ...parsed,
+            };
+        } catch {}
+    },
+
+    persistTableVisibility() {
+        if (! this.isSuperAdmin || ! this.visibilityStorageKey) {
+            return;
+        }
+
+        try {
+            window.localStorage.setItem(this.visibilityStorageKey, JSON.stringify(this.tableVisibility));
+        } catch {}
     },
 
     saveCurrentDraft() {

@@ -18,6 +18,7 @@ class RegisteredUserController extends Controller
     /**
      * Display the registration view.
      */
+    // Muestra la pantalla de registro público si esa ruta está habilitada.
     public function create(): View
     {
         return view('auth.register');
@@ -28,6 +29,7 @@ class RegisteredUserController extends Controller
      *
      * @throws ValidationException
      */
+    // Registra un nuevo usuario, dispara el evento de verificación y lo autentica de inmediato.
     public function store(Request $request): RedirectResponse
     {
         $request->validate([

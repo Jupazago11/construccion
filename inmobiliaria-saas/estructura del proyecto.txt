@@ -1,0 +1,650 @@
+ESTRUCTURA DEL PROYECTO
+=======================
+
+Proyecto: inmobiliaria-saas
+Stack principal:
+- Backend: Laravel
+- Frontend: Blade + Alpine.js + Tailwind
+- Auth: Laravel auth + middleware propio `active.user`
+- Permisos: spatie/laravel-permission
+- Multiempresa: por `company_id` + policies con validacion tenant
+- Ejecucion habitual del equipo: proyecto abierto desde Windows, pero corre en WSL
+
+
+1. QUE HACE EL PROYECTO
+=======================
+
+Este proyecto es un sistema administrativo multiempresa orientado al control operativo y financiero de construccion.
+
+Capacidades principales:
+- Gestion de empresas
+- Gestion de usuarios por empresa
+- Gestion de proyectos
+- Estructura presupuestal por proyecto:
+  categorias -> subcategorias -> auxiliares
+- Catalogos maestros:
+  proveedores, activos, productos, actividades
+- Registro de gastos
+- Registro de compras
+- Manejo de facturas y adjuntos
+- Reportes
+- Auditoria de cambios
+
+Idea general del dominio:
+- Una empresa tiene usuarios, proyectos, catalogos, activos, gastos y compras.
+- Los catalogos de productos y actividades sirven para clasificar compras y gastos.
+- Los proyectos tienen una estructura presupuestal jerarquica.
+- El sistema usa policies para restringir acceso por rol y por empresa.
+
+
+2. ESTRUCTURA DE CARPETAS IMPORTANTES
+=====================================
+
+Arbol resumido:
+
+inmobiliaria-saas/
+|- app/
+|  |- Enums/                    Roles y estados del sistema
+|  |- Http/
+|  |  |- Controllers/          Logica HTTP por modulo
+|  |  |- Middleware/           Restricciones globales de acceso
+|  |  |- Requests/             Validacion de formularios
+|  |- Models/                  Entidades Eloquent
+|  |- Policies/                Autorizacion por rol + tenant
+|  |- Traits/                  Reutilizacion, por ejemplo auditoria
+|- database/
+|  |- migrations/              Estructura de BD
+|  |- seeders/                 Datos base: roles, modulos, demos
+|- resources/
+|  |- js/app.js                Alpine y logica cliente
+|  |- views/                   Pantallas Blade
+|  |  |- layouts/              Layouts globales y navegacion
+|  |  |- components/           Componentes Blade reutilizables
+|  |  |- projects/
+|  |  |- product-catalog/
+|  |  |- activity-catalog/
+|  |  |- expenses/
+|  |  |- purchases/
+|  |  |- invoices/
+|  |  |- assets2/
+|  |  |- providers2/
+|  |  |- reports/
+|  |  |- audit/
+|- routes/
+|  |- web.php                  Arbol principal de rutas web
+|  |- auth.php                 Rutas de autenticacion
+|- tests/                      Lugar para pruebas
+|- public/                     Entrada publica
+|- config/                     Configuracion de Laravel y paquetes
+
+
+3. ARBOL DE RUTAS FUNCIONALES
+=============================
+
+Rutas base:
+- `/` -> redirecciona a login
+- `/dashboard` -> Panel del SuperAdmin
+- `/home` -> Home para usuarios no superadmin
+
+Todas las rutas operativas principales cuelgan de:
+- middleware `auth`
+- middleware `active.user`
+
+Arbol de `routes/web.php`:
+
+Raiz autenticada
+|- audit
+|- reports
+|- profile
+|- companies
+|  |- status
+|  |- logo
+|- projects
+|  |- status
+|  |- edit-date
+|  |- date
+|  |- categories
+|  |  |- copy
+|  |  |- reorder
+|  |  |- CRUD categorias
+|  |- subcategories
+|  |  |- reorder
+|  |  |- CRUD subcategorias
+|  |- auxiliaries
+|     |- reorder
+|     |- CRUD auxiliares
+|- providers2
+|  |- status
+|- provider2-types
+|- providers
+|  |- status
+|- provider-types
+|  |- status
+|- maestras
+|  |- productos
+|  |  |- grupos
+|  |  |- subgrupos
+|  |  |- productos
+|  |- actividades
+|     |- grupos
+|     |- subgrupos
+|     |- actividades
+|- assets2
+|  |- asset2-types
+|  |- media
+|  |- novelties
+|- assets
+|  |- asset-types
+|  |- asset-novelty-types
+|  |- media
+|  |- novelties
+|- expenses
+|  |- status
+|  |- attachments
+|- invoices
+|  |- items/create
+|  |- status
+|  |- attachments
+|- purchases
+|  |- status
+|- users
+|  |- status
+
+Observaciones:
+- No hay archivo de rutas separado por modulo; casi todo esta concentrado en `routes/web.php`.
+- Si se crea un modulo nuevo, hoy el patron del proyecto es declararlo tambien en `routes/web.php`.
+- `auth.php` solo maneja autenticacion estandar.
+
+
+4. REGLAS IMPORTANTES DE ARQUITECTURA
+=====================================
+
+4.1 Multiempresa / tenant
+-------------------------
+
+La regla tenant vive principalmente en:
+- `app/Policies/Concerns/ResolvesTenantOwnership.php`
+- `app/Models/User.php`
+
+Comportamiento:
+- SuperAdmin puede cruzar empresas.
+- El resto de usuarios opera sobre su `company_id`.
+- Muchas policies verifican:
+  - permiso base
+  - empresa duena del registro
+  - que el registro no este `deleted`
+
+Si se crea una nueva entidad con `company_id` o dependiente de una empresa:
+- agregar Model
+- agregar Policy
+- si la entidad no se resuelve sola por `company_id`, extender `resolveCompanyId()` en `ResolvesTenantOwnership.php`
+
+4.2 Estados
+-----------
+
+El proyecto usa el enum `EntityStatus` y maneja registros con estados tipo:
+- active
+- inactive
+- deleted
+
+En muchos modulos no se borra fisicamente; se archiva con `deleted`.
+
+4.3 Roles y permisos
+--------------------
+
+Los permisos base se siembran en:
+- `database/seeders/RoleAndPermissionSeeder.php`
+
+Los roles oficiales se definen en:
+- `app/Enums/SystemRole.php`
+
+4.4 Navegacion
+--------------
+
+La navegacion principal esta en:
+- `resources/views/layouts/navigation.blade.php`
+
+Si se agrega una nueva pantalla o modulo, normalmente tambien hay que:
+- agregar el link desktop
+- agregar el link mobile
+- envolverlo con `@can(...)` o policy coherente
+
+4.5 Frontend dinamico
+---------------------
+
+La mayor parte de la logica Alpine vive en:
+- `resources/js/app.js`
+
+Patrones ya usados:
+- modales CRUD
+- tablas parciales recargadas por AJAX
+- selects dependientes
+- toasts
+
+Si el nuevo modulo necesita UX similar:
+- reusar componentes y patron de catalogos o facturas
+- evitar meter otro framework
+
+
+5. DONDE CREAR COSAS NUEVAS
+===========================
+
+Si vas a crear un nuevo modulo completo:
+
+1. Rutas
+- agregar rutas en `routes/web.php`
+
+2. Controlador
+- crear controlador en `app/Http/Controllers/`
+
+3. Modelo
+- crear modelo en `app/Models/`
+
+4. Policy
+- crear policy en `app/Policies/`
+- registrar o apoyar el patron actual de auto-discovery de Laravel
+- si aplica tenant, usar `ResolvesTenantOwnership`
+
+5. Requests
+- crear Form Requests en `app/Http/Requests/`
+
+6. Vistas
+- crear carpeta propia en `resources/views/<nombre-modulo>/`
+
+7. JS Alpine
+- si hay interactividad, agregar bloque en `resources/js/app.js`
+
+8. Menu
+- agregar enlaces en `resources/views/layouts/navigation.blade.php`
+
+9. Permisos
+- si el modulo requiere permisos nuevos, sembrarlos en `database/seeders/RoleAndPermissionSeeder.php`
+
+10. Si el modulo es formalmente "habilitable" por empresa
+- revisar `app/Models/Module.php`
+- revisar `app/Models/CompanyModule.php`
+- agregar llave en `database/seeders/ModuleSeeder.php`
+
+11. Si la entidad depende de empresa de forma indirecta
+- extender `resolveCompanyId()` en `app/Policies/Concerns/ResolvesTenantOwnership.php`
+
+
+6. ARCHIVOS CLAVE Y QUE HACEN
+=============================
+
+Nota:
+- La columna "Tiene comentarios" no significa documentacion extensa; solo indica si se ven comentarios de codigo/Blade en ese archivo.
+- Conviene agregar otra columna: "Observaciones / extension". Esa columna acelera mucho mas el trabajo de otro chat.
+
+| Ruta | Nombre | Que hace | Acceso a roles y limitaciones | Tiene comentarios en el codigo? | Observaciones |
+| --- | --- | --- | --- | --- | --- |
+| `routes/web.php` | web.php | Centraliza casi todas las rutas del sistema. | Todas las rutas operativas dependen de `auth` y `active.user`; luego cada controlador/policy restringe por rol. | No | Si se crea modulo nuevo, hoy se agrega aqui. |
+| `app/Models/User.php` | User.php | Modelo de usuario, relacion con empresa y helpers de rol. | SuperAdmin puede cruzar empresas; los demas quedan amarrados a `company_id`. | Si | Aqui viven `isSuperAdmin()`, `homeRouteName()` y `canAuthenticate()`. |
+| `app/Enums/SystemRole.php` | SystemRole.php | Define roles oficiales del sistema. | No controla acceso por si solo; solo nombres de roles. | No | Fuente oficial de nombres: `SuperAdmin`, `CompanyAdmin`, `Operator`, `Viewer`, `BuyerUser`. |
+| `database/seeders/RoleAndPermissionSeeder.php` | RoleAndPermissionSeeder.php | Crea permisos y asigna permisos base a roles. | Ojo: tener permiso en seeder no garantiza acceso real; la policy puede restringir mas. | No | Si se crea modulo nuevo con permisos nuevos, editar aqui. |
+| `app/Policies/Concerns/ResolvesTenantOwnership.php` | ResolvesTenantOwnership.php | Regla comun para acceso por empresa y por estado del registro. | SuperAdmin atraviesa tenant; los demas solo ven su empresa. | No | Archivo critico al agregar nuevas entidades tenant-aware. |
+| `app/Http/Middleware/EnsureActiveUser.php` | EnsureActiveUser.php | Cierra sesion si el usuario o su empresa no estan activos. | Aplica a cualquier usuario autenticado. | No | Restriccion transversal del sistema. |
+| `resources/views/layouts/navigation.blade.php` | navigation.blade.php | Construye menu desktop y mobile. | Los enlaces se muestran con `@can` y checks de policy/rol. | Si | Si una pantalla no aparece en menu, revisar aqui. |
+| `app/Http/Controllers/CompanyController.php` | CompanyController.php | CRUD de empresas y logo. | En la practica, CompanyPolicy reserva gestion real al SuperAdmin. | No | Modulo sensible; no asumir que `CompanyAdmin` puede entrar. |
+| `app/Http/Controllers/UserController.php` | UserController.php | CRUD y estado de usuarios. | SuperAdmin y CompanyAdmin con limites; CompanyAdmin no puede gestionar SuperAdmin y normalmente solo Operator/Viewer. | No | Revisar `UserPolicy.php` antes de cambiar logica. |
+| `app/Http/Controllers/ProjectController.php` | ProjectController.php | CRUD de proyectos y estado/fecha. | Usuarios con permisos de proyectos dentro de su empresa. | No | Punto de entrada al modulo central de obra. |
+| `app/Http/Controllers/ProjectCategoryController.php` | ProjectCategoryController.php | Maneja categorias, subcategorias y auxiliares del proyecto. | Restringido por empresa y permisos de proyectos/categorias. | No | Aqui vive la estructura presupuestal del proyecto. |
+| `app/Http/Controllers/Provider2Controller.php` | Provider2Controller.php | CRUD principal de proveedores actuales. | Segun policy tenant. | No | En menu "Maestras" el proyecto hoy usa `providers2`, no `providers`. |
+| `app/Http/Controllers/Asset2Controller.php` | Asset2Controller.php | CRUD principal de activos actuales. | Segun policy tenant. | No | En menu "Maestras" el proyecto hoy usa `assets2`, no `assets`. |
+| `app/Http/Controllers/ProductCatalogController.php` | ProductCatalogController.php | Catalogo maestro de grupos, subgrupos y productos. | Requiere permisos de catalogo y restricciones tenant. | No | Reutiliza AJAX + tablas parciales + Alpine. Buen patron para nuevos catalogos. |
+| `app/Http/Controllers/ActivityCatalogController.php` | ActivityCatalogController.php | Catalogo maestro de grupos, subgrupos y actividades. | Requiere permisos de catalogo y restricciones tenant. | No | Muy parecido al de productos; usarlo como referencia gemela. |
+| `app/Http/Controllers/ExpenseController.php` | ExpenseController.php | CRUD y estado de gastos. | Segun policy de gastos, empresa y estado. | No | Relacionado con adjuntos y con catalogos/activos/proyectos. |
+| `app/Http/Controllers/PurchaseController.php` | PurchaseController.php | CRUD y estado de compras. | Segun policy de compras, empresa y estado. | No | Muy conectado con productos, actividades, proveedores e invoices. |
+| `app/Http/Controllers/InvoiceController.php` | InvoiceController.php | Manejo de facturas, items y adjuntos. | Segun policy tenant. | No | Uno de los flujos mas complejos de UI y negocio. |
+| `app/Policies/UserPolicy.php` | UserPolicy.php | Define quien puede ver, crear, editar, borrar y restaurar usuarios. | CompanyAdmin no puede tocar SuperAdmin; fuera de SuperAdmin suele limitarse a Operator/Viewer. | No | Documento clave para entender gestion de usuarios. |
+| `app/Policies/CompanyPolicy.php` | CompanyPolicy.php | Restringe empresas. | Solo SuperAdmin realmente administra empresas. | No | Aclara una diferencia importante frente al seeder de permisos. |
+| `app/Policies/CompanyModulePolicy.php` | CompanyModulePolicy.php | Controla habilitacion de modulos por empresa. | Solo SuperAdmin. | No | No se ve una ruta publica evidente en `web.php`, pero el modelo/policy existen. |
+| `database/seeders/ModuleSeeder.php` | ModuleSeeder.php | Registra modulos formales del sistema. | Uso de sistema, no de usuario final. | No | Si se crea modulo habilitable por empresa, tocar aqui. |
+| `resources/views/product-catalog/index.blade.php` | index.blade.php | Vista principal del catalogo de productos. | Visible segun policy de catalogo. | Si | Ya usa selector de tablas para SuperAdmin. |
+| `resources/views/activity-catalog/index.blade.php` | index.blade.php | Vista principal del catalogo de actividades. | Visible segun policy de catalogo. | No | Ya usa selector de tablas para SuperAdmin. |
+| `resources/js/app.js` | app.js | Logica Alpine global del proyecto. | No aplica por rol directamente; ejecuta UX de pantallas permitidas. | Si, de forma puntual | Si una pantalla parece "magica", probablemente se resuelve aqui. |
+
+
+7. TABLA DE ROLES Y ALCANCE
+===========================
+
+Fuente principal:
+- `app/Enums/SystemRole.php`
+- `database/seeders/RoleAndPermissionSeeder.php`
+- policies reales
+
+| Rol | Que puede hacer en teoria | Acceso real y limitaciones importantes | Modulos/pantallas tipicas |
+| --- | --- | --- | --- |
+| `SuperAdmin` | Tiene todos los permisos del seeder. | Cruza empresas. Puede ver dashboard, empresas, usuarios, proyectos, catalogos, activos, gastos, compras, reportes, auditoria y modulos. Algunas acciones `force-delete` solo aplican aqui. | Todo el sistema. |
+| `CompanyAdmin` | Tiene muchos permisos de gestion dentro de empresa. | Opera dentro de su empresa. Puede gestionar usuarios, proyectos, catalogos, activos, gastos, compras y reportes de su tenant. No puede gestionar SuperAdmin. En empresas, aunque tiene permiso sembrado, la `CompanyPolicy` reserva gestion real a SuperAdmin. | Home, proyectos, maestras, gastos, compras, reportes, auditoria. |
+| `Operator` | Permisos operativos. | Solo su empresa. Puede trabajar con proyectos, catalogos, activos, gastos, compras y adjuntos. No suele administrar usuarios ni empresas. | Home, proyectos, maestras, gastos, compras, activos. |
+| `Viewer` | Permisos de lectura. | Solo lectura en su empresa para varios modulos. No deberia gestionar catalogos ni movimientos. | Home, proyectos, catalogos, activos, gastos, compras, reportes. |
+| `BuyerUser` | En el seeder base no recibe permisos. | Su acceso real depende de logica futura o asignaciones manuales. Hoy no aparece como rol operativo fuerte. | Ninguno garantizado por defecto. |
+
+Observaciones de roles:
+- Nunca documentar permisos solo por el seeder; siempre revisar la policy.
+- En este proyecto la policy manda mas que el permiso nominal.
+- El tenant `company_id` es tan importante como el rol.
+
+
+8. MODULOS DE NEGOCIO ACTUALES
+==============================
+
+Modulo transversal / sistema:
+- autenticacion
+- perfil
+- auditoria
+- reportes
+
+Modulo de administracion global:
+- empresas
+- modulos por empresa (infraestructura existente)
+
+Modulo operativo por empresa:
+- usuarios
+- proyectos
+- estructura presupuestal del proyecto
+- proveedores
+- activos
+- catalogo de productos
+- catalogo de actividades
+- gastos
+- compras
+- facturas
+
+Versiones "2" observadas:
+- `assets2`
+- `providers2`
+
+Interpretacion practica:
+- parecen ser las rutas/pantallas activas del sistema actual
+- `assets` y `providers` todavia existen en codigo, pero el menu visible hoy prioriza `assets2` y `providers2`
+
+
+9. GUIA RAPIDA PARA OTRO CHAT
+=============================
+
+Si otro chat necesita cambiar algo, normalmente debe empezar asi:
+
+Si el problema es de acceso:
+- revisar `User.php`
+- revisar policy del modulo
+- revisar `ResolvesTenantOwnership.php`
+- revisar si el usuario es SuperAdmin o no
+
+Si el problema es de menu o visibilidad:
+- revisar `resources/views/layouts/navigation.blade.php`
+
+Si el problema es de un modulo nuevo:
+- ruta en `routes/web.php`
+- controller en `app/Http/Controllers`
+- views en `resources/views/<modulo>`
+- requests en `app/Http/Requests`
+- policy en `app/Policies`
+- modelo en `app/Models`
+- Alpine en `resources/js/app.js`
+- permisos en `RoleAndPermissionSeeder.php`
+
+Si el problema es de catalogos dinamicos:
+- revisar `ProductCatalogController.php`
+- revisar `ActivityCatalogController.php`
+- revisar `resources/js/app.js`
+- revisar tablas parciales `_groups_table`, `_subgroups_table`, `_products_table`, `_activities_table`
+
+Si el problema es de tenant:
+- revisar `company_id`
+- revisar `ResolvesTenantOwnership.php`
+- revisar policy puntual
+
+
+10. ENTIDADES Y RELACIONES CLAVE
+================================
+
+Mapa conceptual rapido:
+
+| Entidad | Relaciones principales | Observaciones |
+| --- | --- | --- |
+| `Company` | tiene `users`, `projects`, catalogos, activos, gastos, compras, modulos habilitados | Es el tenant principal del sistema. |
+| `User` | pertenece a `company` | SuperAdmin rompe el aislamiento tenant; los demas no. |
+| `Module` | tiene `companyModules` | Representa modulo formal del sistema. |
+| `CompanyModule` | pertenece a `company` y `module` | Infraestructura para habilitar modulos por empresa. |
+| `Project` | pertenece a `company` | Centro operativo principal. |
+| `Category` | pertenece a `project` | Nivel 1 de estructura presupuestal. |
+| `Subcategory` | pertenece a `category` | Nivel 2 de estructura presupuestal. |
+| `Auxiliary` | pertenece a `subcategory` | Nivel 3 de estructura presupuestal. |
+| `Provider2` | pertenece a `company` | Flujo actual de proveedores en menu. |
+| `Asset2` | pertenece a `company` | Flujo actual de activos en menu. |
+| `ProductGroup` | pertenece a `company` | Catalogo maestro de productos. |
+| `ProductSubgroup` | pertenece a `company` y `product_group` | Subnivel del catalogo de productos. |
+| `Product` | pertenece a `company`, `product_group`, `product_subgroup` | Se usa en compras, gastos y facturas. |
+| `CatalogActivityGroup` | pertenece a `company` | Catalogo maestro de actividades. |
+| `CatalogActivitySubgroup` | pertenece a `company` y `activity_group` | Subnivel del catalogo de actividades. |
+| `CatalogActivity` | pertenece a `company`, `activity_group`, `activity_subgroup` | Se usa en compras, gastos y facturas. |
+| `Invoice` | pertenece a `company`, `project`, `provider` | Puede agrupar compras o gastos. |
+| `Expense` | pertenece a `company`, `project`, `provider`, opcional `invoice`, opcional `product`, opcional `activity` | Movimiento tipo gasto. |
+| `Purchase` | pertenece a `company`, `project`, `provider`, opcional `invoice`, opcional `product`, opcional `activity` | Movimiento tipo compra. |
+| `ExpenseAttachment` | pertenece a `expense` | Adjuntos de gasto. |
+| `InvoiceAttachment` | pertenece a `invoice` | Adjuntos de factura. |
+
+
+11. FLUJOS CRITICOS DEL SISTEMA
+================================
+
+Flujo: crear proyecto
+- entra por `ProjectController`
+- valida con `ProjectStoreRequest`
+- autoriza con `ProjectPolicy`
+- despues el proyecto sirve como contenedor de categorias, subcategorias, auxiliares, gastos y compras
+
+Flujo: construir estructura presupuestal
+- entra por `ProjectCategoryController`
+- administra categorias, subcategorias y auxiliares
+- usa rutas anidadas bajo `projects/{project}`
+- cualquier cambio aqui impacta estructura financiera del proyecto
+
+Flujo: crear producto o actividad
+- entra por `ProductCatalogController` o `ActivityCatalogController`
+- usa tablas parciales + AJAX + Alpine
+- al guardar, refresca tablas y colecciones para selects dependientes
+
+Flujo: registrar gasto
+- entra por `ExpenseController`
+- valida proyecto y catalogo asociado
+- puede amarrarse a factura
+- recalcula total de factura cuando corresponde
+- usa modal AJAX en la vista principal
+
+Flujo: registrar compra
+- entra por `PurchaseController`
+- es muy parecido al flujo de gastos
+- tambien puede depender de producto o actividad
+- tambien puede amarrarse a factura y refrescar total
+
+Flujo: crear factura
+- entra por `InvoiceController`
+- crea la factura con total en 0
+- luego agrega items de tipo compra o gasto
+- la vista `invoices.show` concentra uno de los flujos mas complejos del sistema
+
+Flujo: adjuntar archivos
+- gastos: `ExpenseAttachmentController`
+- facturas: `InvoiceController` maneja attachments
+- activos: controladores media por separado
+
+
+12. ARCHIVOS MAS SENSIBLES
+==========================
+
+Estos archivos tienen impacto alto. Cambiarlos sin revisar todo el flujo puede romper varias pantallas:
+
+| Ruta | Por que es sensible |
+| --- | --- |
+| `routes/web.php` | Centraliza casi todos los endpoints web. |
+| `resources/js/app.js` | Contiene gran parte de la logica Alpine global. |
+| `resources/views/layouts/navigation.blade.php` | Afecta menu desktop y mobile. |
+| `app/Policies/Concerns/ResolvesTenantOwnership.php` | Define el alcance tenant de muchas entidades. |
+| `database/seeders/RoleAndPermissionSeeder.php` | Cambia permisos base de todos los roles. |
+| `app/Http/Middleware/EnsureActiveUser.php` | Puede bloquear acceso global al sistema. |
+| `app/Http/Controllers/InvoiceController.php` | Une compras, gastos, facturas y adjuntos. |
+| `app/Http/Controllers/ProjectCategoryController.php` | Toca la estructura presupuestal del proyecto. |
+| `app/Http/Controllers/ProductCatalogController.php` | Afecta compras, gastos y facturas via catalogo. |
+| `app/Http/Controllers/ActivityCatalogController.php` | Afecta compras, gastos y facturas via catalogo. |
+
+
+13. PATRONES REPETIDOS DEL PROYECTO
+===================================
+
+Patron CRUD tipico:
+- Route en `routes/web.php`
+- Controller en `app/Http/Controllers`
+- FormRequest en `app/Http/Requests`
+- Policy en `app/Policies`
+- Model en `app/Models`
+- Blade principal + parciales en `resources/views/<modulo>`
+
+Patron de catalogos dinamicos:
+- vista principal con tablas parciales
+- modal unico con tabs
+- AJAX para guardar
+- respuesta JSON con HTML parcial
+- Alpine en `resources/js/app.js`
+- refresco de selects dependientes
+
+Patron tenant:
+- permiso via policy
+- validacion de empresa via `ResolvesTenantOwnership`
+- restriccion adicional por estado (`deleted`)
+
+Patron de movimientos financieros:
+- proyecto obligatorio
+- proveedor frecuente
+- producto o actividad segun caso
+- opcion de amarre a factura
+- refresco de total de factura
+
+Patron de navegacion:
+- desktop y mobile se actualizan por separado en `navigation.blade.php`
+- casi todos los enlaces van protegidos por `@can`
+
+
+14. QUE NO HACER
+================
+
+- No asumir que un permiso del seeder da acceso real: revisar siempre la policy.
+- No crear logica tenant duplicada si ya puede resolverse en `ResolvesTenantOwnership.php`.
+- No tocar solo el menu desktop: revisar tambien el menu mobile.
+- No crear un modulo nuevo solo con controller y vista: faltan rutas, policy, request, menu y posiblemente permisos.
+- No asumir que `assets` o `providers` son el flujo principal: validar si el flujo activo esta en `assets2` / `providers2`.
+- No eliminar fisicamente registros si el proyecto ya usa archivo logico con estado `deleted`.
+- No meter logica nueva de interfaz fuera del patron existente si el modulo ya usa Alpine + parciales AJAX.
+- No saltarse `FormRequest` si el modulo actual ya valida por requests dedicados.
+
+
+15. CHECKLIST PARA CREAR UN MODULO NUEVO
+========================================
+
+Checklist corto:
+- crear rutas en `routes/web.php`
+- crear controller en `app/Http/Controllers`
+- crear model en `app/Models`
+- crear policy en `app/Policies`
+- crear FormRequests en `app/Http/Requests`
+- crear carpeta de vistas en `resources/views/<modulo>`
+- agregar comportamiento Alpine en `resources/js/app.js` si hace falta
+- agregar enlace en `resources/views/layouts/navigation.blade.php`
+- sembrar permisos nuevos si el modulo los necesita
+- sembrar modulo en `ModuleSeeder.php` si debe ser habilitable por empresa
+- revisar si la entidad requiere soporte en `resolveCompanyId()`
+
+
+16. CHECKLIST PARA DEPURAR ERRORES
+==================================
+
+Si falla acceso:
+- revisar role del usuario
+- revisar permiso sembrado
+- revisar policy del modulo
+- revisar tenant `company_id`
+- revisar si el registro esta `deleted`
+
+Si falla una pantalla:
+- revisar controller
+- revisar view principal
+- revisar partials
+- revisar bloque Alpine en `resources/js/app.js`
+
+Si falla guardar:
+- revisar FormRequest
+- revisar controller
+- revisar nombres de campos del formulario
+- revisar relaciones obligatorias
+
+Si falla una tabla dinamica:
+- revisar respuesta AJAX del controller
+- revisar `x-ref` de la tabla
+- revisar HTML parcial
+- revisar `goToPage()` o funcion Alpine equivalente
+
+Si falla un selector dependiente:
+- revisar colecciones enviadas a Blade
+- revisar `x-model`
+- revisar filtros por grupo/subgrupo
+- revisar refresco posterior al guardado
+
+
+17. TECNICAS DE DESARROLLO QUE SI CONVIENE DOCUMENTAR
+=====================================================
+
+Si, conviene agregar tecnicas de desarrollo, pero enfocadas a este proyecto y no genericas.
+
+Tecnicas/patrones utiles en este repo:
+- Autorizacion siempre por Policy, no por condicionales sueltos en controller.
+- Validacion siempre por FormRequest cuando el modulo ya sigue ese patron.
+- Multiempresa resuelta por `company_id` + `ResolvesTenantOwnership`.
+- Archivado logico usando `status = deleted` en vez de borrado directo.
+- Interfaz dinamica con Blade + Alpine + tablas parciales AJAX.
+- Navegacion protegida con `@can`.
+- Seeders como fuente de verdad para roles, permisos y modulos.
+- Reutilizacion de componentes Blade (`page-header`, `status-badge`, `ajax-crud-toast`, etc.).
+
+Tecnicas de desarrollo recomendadas para futuros cambios:
+- antes de editar, leer controller + policy + request + vista + bloque Alpine relacionado
+- mantener simetria entre desktop y mobile cuando se toca navegacion
+- si un modulo se parece a catalogos, reutilizar el patron de catalogos
+- si una entidad nueva pertenece indirectamente a empresa, agregarla al trait tenant
+- cuando haya AJAX con HTML parcial, refrescar tambien los datos auxiliares usados por selects
+
+Tecnicas que no vale la pena meter en este documento salvo necesidad:
+- teoria general de Laravel
+- teoria general de REST
+- teoria general de Tailwind
+- explicaciones basicas de MVC
+
+
+18. RECOMENDACIONES PARA MEJORAR ESTA DOCUMENTACION
+==================================================
+
+Conviene mantener en esta tabla al menos estas columnas:
+- Ruta
+- Nombre
+- Que hace
+- Acceso a roles y limitaciones
+- Tiene comentarios en el codigo?
+- Observaciones / extension
+
+Otra columna util si la documentacion crece:
+- "Depende de"
+
+Ejemplo:
+- un controller puede depender de FormRequests, Policy, vistas Blade y bloque Alpine
+
+Eso acelera aun mas el trabajo de otro chat.
+
+
+19. LIMITACIONES DE ESTA DESCRIPCION
+====================================
+
+- Se hizo analizando estructura, rutas, modelos, policies, seeders y vistas clave.
+- No reemplaza leer el flujo completo de cada controlador complejo.
+- `README.md` no describe este proyecto; sigue siendo el README base de Laravel.
+- Hay modulos coexistiendo en versiones antiguas y nuevas (`assets` / `assets2`, `providers` / `providers2`), por lo que cualquier cambio debe validar cual flujo es el activo en menu y en negocio.

@@ -21,6 +21,10 @@
             productStatus: '{{ route('product-catalog.products.status', ['product' => '__ID__'], false) }}',
             productDestroy: '{{ route('product-catalog.products.destroy', ['product' => '__ID__'], false) }}'
         },
+        visibilityStorageKey: 'product-catalog-table-visibility',
+        tableVisibilityDefaults: { groups: false, subgroups: false, products: true },
+        filterGroupId: {{ \Illuminate\Support\Js::from($filters['group_id'] ? (string) $filters['group_id'] : '') }},
+        filterSubgroupId: {{ \Illuminate\Support\Js::from($filters['subgroup_id'] ? (string) $filters['subgroup_id'] : '') }},
         groups: {{ \Illuminate\Support\Js::from($activeGroups->map(fn ($g) => ['id' => $g->id, 'name' => $g->name, 'company_id' => $g->company_id])->values()) }},
         subgroups: {{ \Illuminate\Support\Js::from($activeSubgroups->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'company_id' => $s->company_id, 'product_group_id' => $s->product_group_id])->values()) }}
     })"
@@ -35,18 +39,30 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+            @if (auth()->user()->isSuperAdmin())
+                <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                    <div class="border-b border-stone-200 px-5 py-4">
+                        <h2 class="text-sm font-semibold text-stone-900">Visibilidad de tablas</h2>
+                    </div>
+                    <div class="grid gap-3 px-5 py-4 sm:grid-cols-3">
+                        <label class="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                            <input type="checkbox" class="rounded border-stone-300 text-stone-900 focus:ring-stone-900" x-model="tableVisibility.groups" x-on:change="persistTableVisibility()">
+                            <span>Grupos</span>
+                        </label>
+                        <label class="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                            <input type="checkbox" class="rounded border-stone-300 text-stone-900 focus:ring-stone-900" x-model="tableVisibility.subgroups" x-on:change="persistTableVisibility()">
+                            <span>Subgrupos</span>
+                        </label>
+                        <label class="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                            <input type="checkbox" class="rounded border-stone-300 text-stone-900 focus:ring-stone-900" x-model="tableVisibility.products" x-on:change="persistTableVisibility()">
+                            <span>Productos</span>
+                        </label>
+                    </div>
+                </section>
+            @endif
 
             {{-- Filtros --}}
             <section
-                x-data="{
-                    filtersOpen: window.innerWidth >= 768,
-                    selectedGroup: '{{ $filters['group_id'] ?? '' }}',
-                    allSubgroups: @js($subgroups->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'product_group_id' => $s->product_group_id])->values()),
-                    get filteredSubs() {
-                        if (!this.selectedGroup) return this.allSubgroups;
-                        return this.allSubgroups.filter(s => String(s.product_group_id) === String(this.selectedGroup));
-                    }
-                }"
                 class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm"
             >
                 <div class="flex items-center justify-between gap-3 px-5 py-4">
@@ -107,13 +123,14 @@
                             <select
                                 id="filter_group_id"
                                 name="group_id"
-                                x-model="selectedGroup"
+                                x-model="filterGroupId"
+                                x-on:change="syncFilterSubgroupSelection()"
                                 class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
                             >
                                 <option value="">Todos los grupos</option>
-                                @foreach ($groups as $group)
-                                    <option value="{{ $group->id }}" @selected($filters['group_id'] == $group->id)>{{ $group->name }}</option>
-                                @endforeach
+                                <template x-for="group in filterableGroups" :key="group.id">
+                                    <option :value="group.id" x-text="group.name"></option>
+                                </template>
                             </select>
                         </div>
 
@@ -122,13 +139,13 @@
                             <select
                                 id="filter_subgroup_id"
                                 name="subgroup_id"
+                                x-model="filterSubgroupId"
                                 class="mt-1 block w-full rounded-2xl border-stone-300 text-sm shadow-sm focus:border-stone-900 focus:ring-stone-900"
                             >
                                 <option value="">Todos los subgrupos</option>
-                                <template x-for="sub in filteredSubs" :key="sub.id">
+                                <template x-for="sub in catalogFilterSubgroups" :key="sub.id">
                                     <option
                                         :value="sub.id"
-                                        :selected="sub.id == {{ $filters['subgroup_id'] ?? 0 }}"
                                         x-text="sub.name"
                                     ></option>
                                 </template>
@@ -147,8 +164,28 @@
                 </form>
             </section>
 
+            <section x-show="tableVisibility.groups" x-cloak class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">
+                        Grupos
+                        <span class="ml-1 font-normal text-stone-400" x-text="`(${groups.length})`"></span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto" x-ref="groupsTable">@include('product-catalog._groups_table')</div>
+            </section>
+
+            <section x-show="tableVisibility.subgroups" x-cloak class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">
+                        Subgrupos
+                        <span class="ml-1 font-normal text-stone-400" x-text="`(${subgroups.length})`"></span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto" x-ref="subgroupsTable">@include('product-catalog._subgroups_table')</div>
+            </section>
+
             {{-- Tabla de productos --}}
-            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <section x-show="tableVisibility.products" x-cloak class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
                     <h2 class="text-sm font-semibold text-stone-900">
                         Productos

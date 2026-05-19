@@ -14,6 +14,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the login view.
      */
+    // Muestra la pantalla de inicio de sesión.
     public function create(): View
     {
         return view('auth.login');
@@ -22,6 +23,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
+    // Autentica al usuario, regenera la sesión y registra la actividad de login.
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
@@ -44,6 +46,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Destroy an authenticated session.
      */
+    // Cierra la sesión autenticada e invalida el contexto actual del navegador.
     public function destroy(Request $request): RedirectResponse
     {
         Auth::guard('web')->logout();

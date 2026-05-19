@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 
 class AssetNoveltyController extends Controller
 {
+    // Renderiza el modal de creación de novedades desde la vista principal de activos.
     public function create(Request $request, Asset $asset): string|RedirectResponse
     {
         $this->authorize('update', $asset);
@@ -37,6 +38,7 @@ class AssetNoveltyController extends Controller
             ->with('status', 'El registro de novedades se realiza desde la vista principal.');
     }
 
+    // Registra una novedad y devuelve la fila/resumen actualizados del activo cuando la petición es AJAX.
     public function store(AssetNoveltyStoreRequest $request, Asset $asset): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $asset);
@@ -65,6 +67,7 @@ class AssetNoveltyController extends Controller
             ->with('status', 'Novedad registrada correctamente.');
     }
 
+    // Renderiza el modal de edición validando que la novedad corresponda al activo solicitado.
     public function edit(Request $request, Asset $asset, AssetNovelty $novelty): string|RedirectResponse
     {
         abort_unless($novelty->asset_id === $asset->id, 404);
@@ -90,6 +93,7 @@ class AssetNoveltyController extends Controller
             ->with('status', 'La edición de novedades se realiza desde la vista principal.');
     }
 
+    // Actualiza la novedad y recompone los fragmentos visuales afectados del listado principal.
     public function update(AssetNoveltyStoreRequest $request, Asset $asset, AssetNovelty $novelty): JsonResponse|RedirectResponse
     {
         abort_unless($novelty->asset_id === $asset->id, 404);
@@ -117,6 +121,7 @@ class AssetNoveltyController extends Controller
             ->with('status', 'Novedad actualizada correctamente.');
     }
 
+    // Archiva una novedad del activo y opcionalmente devuelve un modal limpio para continuar registrando.
     public function destroy(Request $request, Asset $asset, AssetNovelty $novelty): JsonResponse|RedirectResponse
     {
         abort_unless($novelty->asset_id === $asset->id, 404);
@@ -148,6 +153,7 @@ class AssetNoveltyController extends Controller
             ->with('status', 'Novedad eliminada correctamente.');
     }
 
+    // Devuelve el payload AJAX con fila, resumen y modal parcial usados por la pantalla de activos.
     protected function assetListResponse(Request $request, Asset $asset, string $message, bool $includeNoveltyModal = false): JsonResponse
     {
         $this->loadAssetListRelations($asset);
@@ -182,6 +188,7 @@ class AssetNoveltyController extends Controller
         return response()->json($payload);
     }
 
+    // Carga el contexto reciente de novedades visible dentro del modal del activo.
     protected function loadNoveltyContext(Asset $asset): void
     {
         $asset->load([
@@ -194,6 +201,7 @@ class AssetNoveltyController extends Controller
         ]);
     }
 
+    // Recarga relaciones y métricas agregadas que cambian cuando se crea o elimina una novedad.
     protected function loadAssetListRelations(Asset $asset): void
     {
         $asset->refresh();
@@ -209,6 +217,7 @@ class AssetNoveltyController extends Controller
         ], 'cost');
     }
 
+    // Define la consulta base del listado respetando tenant, estado y búsqueda actual.
     protected function buildAssetBaseQuery(Request $request, ?int $companyId, string $search): Builder
     {
         return Asset::query()
@@ -224,6 +233,7 @@ class AssetNoveltyController extends Controller
             });
     }
 
+    // Recalcula los totales económicos del módulo usando el mismo filtro del listado.
     protected function resolveSummary(Builder $baseQuery): array
     {
         $assetIds = (clone $baseQuery)->select('id');
@@ -238,6 +248,7 @@ class AssetNoveltyController extends Controller
         ];
     }
 
+    // Obtiene el catálogo completo de tipos de novedad visible para el formulario del activo.
     protected function noveltyTypesForForm(Asset $asset)
     {
         return AssetNoveltyType::query()
@@ -260,6 +271,7 @@ class AssetNoveltyController extends Controller
             ->values();
     }
 
+    // Reduce el catálogo a tipos activos utilizables en el select principal.
     protected function activeNoveltyTypesForForm(Asset $asset)
     {
         return $this->noveltyTypesForForm($asset)

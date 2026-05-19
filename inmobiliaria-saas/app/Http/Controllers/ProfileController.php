@@ -15,6 +15,7 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
+    // Muestra el formulario de perfil del usuario autenticado.
     public function edit(Request $request): View
     {
         return view('profile.edit', [
@@ -25,6 +26,7 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
+    // Actualiza los datos del perfil y reinicia la verificación del correo si este cambia.
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $request->user()->fill($request->validated());
@@ -41,6 +43,7 @@ class ProfileController extends Controller
     /**
      * Deactivate the user's account and close the current session.
      */
+    // Desactiva la cuenta del usuario actual, excepto la del superadmin, y cierra su sesión.
     public function destroy(Request $request): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [

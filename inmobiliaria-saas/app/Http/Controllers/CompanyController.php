@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\View as ViewFacade;
 
 class CompanyController extends Controller
 {
+    // Lista empresas con filtros y puede responder la tabla/paginación parcial por AJAX.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Company::class);
@@ -57,6 +58,7 @@ class CompanyController extends Controller
         ]);
     }
 
+    // Renderiza el formulario de creación de empresa en modal AJAX o página completa.
     public function create(Request $request): View|string
     {
         $this->authorize('create', Company::class);
@@ -74,6 +76,7 @@ class CompanyController extends Controller
         ]);
     }
 
+    // Crea una empresa y devuelve la fila parcial cuando el flujo es AJAX.
     public function store(CompanyStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Company::class);
@@ -95,6 +98,7 @@ class CompanyController extends Controller
             ->with('status', 'Empresa creada correctamente.');
     }
 
+    // Muestra el detalle de la empresa, sus módulos y un resumen de relaciones principales.
     public function show(Company $company): View
     {
         $this->authorize('view', $company);
@@ -117,6 +121,7 @@ class CompanyController extends Controller
         ]);
     }
 
+    // Renderiza el formulario de edición de empresa en modal AJAX o página completa.
     public function edit(Request $request, Company $company): View|string
     {
         $this->authorize('update', $company);
@@ -134,6 +139,7 @@ class CompanyController extends Controller
         ]);
     }
 
+    // Actualiza los datos básicos de la empresa sin tocar sus relaciones.
     public function update(CompanyUpdateRequest $request, Company $company): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $company);
@@ -154,6 +160,7 @@ class CompanyController extends Controller
             ->with('status', 'Empresa actualizada correctamente.');
     }
 
+    // Cambia el estado de la empresa y protege que no se deje activa si hay reglas que lo impidan.
     public function updateStatus(Request $request, Company $company): JsonResponse
     {
         $this->authorize('update', $company);
@@ -176,6 +183,7 @@ class CompanyController extends Controller
         ]);
     }
 
+    // Archiva la empresa solo si no conserva dependencias activas que comprometan integridad operativa.
     public function destroy(Request $request, Company $company): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $company);
@@ -204,6 +212,7 @@ class CompanyController extends Controller
         return redirect()->route('companies.index')->with('status', 'Empresa archivada correctamente.');
     }
 
+    // Entrega el logo de la empresa desde storage o redirige al fallback si no existe.
     public function logo(Request $request, Company $company): \Illuminate\Http\RedirectResponse
     {
         abort_if(! $company->logo_path, 404);
@@ -221,6 +230,7 @@ class CompanyController extends Controller
         }
     }
 
+    // Guarda o reemplaza el logo de la empresa para refrescar branding en navegación y perfil tenant.
     public function storeLogo(Request $request, Company $company): JsonResponse
     {
         $this->authorize('update', $company);
@@ -246,6 +256,7 @@ class CompanyController extends Controller
         ]);
     }
 
+    // Determina si la empresa tiene relaciones activas que impiden archivarla con seguridad.
     protected function companyHasDependencies(Company $company): bool
     {
         return $company->users()->where('status', '!=', EntityStatus::Deleted->value)->exists()

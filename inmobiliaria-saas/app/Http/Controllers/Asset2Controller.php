@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\View as ViewFacade;
 
 class Asset2Controller extends Controller
 {
+    // Lista activos con filtros tenant y resume novedades/medios para la grilla principal.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Asset2::class);
@@ -76,6 +77,7 @@ class Asset2Controller extends Controller
         ]);
     }
 
+    // Renderiza el modal de creación de activo con tipos disponibles según empresa.
     public function create(Request $request): View|string|RedirectResponse
     {
         $this->authorize('create', Asset2::class);
@@ -95,6 +97,7 @@ class Asset2Controller extends Controller
             ->with('status', 'La creación de activos 2 se realiza desde la vista principal.');
     }
 
+    // Crea un activo y devuelve la fila parcial cuando el flujo es AJAX.
     public function store(Asset2StoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Asset2::class);
@@ -136,6 +139,7 @@ class Asset2Controller extends Controller
             ->with('status', 'Activo 2 creado correctamente.');
     }
 
+    // Renderiza el modal de edición de activo con sus tipos disponibles.
     public function edit(Request $request, Asset2 $asset2): View|string|RedirectResponse
     {
         $this->authorize('update', $asset2);
@@ -155,6 +159,7 @@ class Asset2Controller extends Controller
             ->with('status', 'La edición de activos 2 se realiza desde la vista principal.');
     }
 
+    // Actualiza los datos base del activo sin tocar media ni novedades.
     public function update(Asset2UpdateRequest $request, Asset2 $asset2): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $asset2);
@@ -195,6 +200,7 @@ class Asset2Controller extends Controller
             ->with('status', 'Activo 2 actualizado correctamente.');
     }
 
+    // Archiva el activo si no existen dependencias activas que bloqueen la operación.
     public function destroy(Request $request, Asset2 $asset2): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $asset2);
@@ -222,6 +228,7 @@ class Asset2Controller extends Controller
             ->with('status', 'Activo 2 archivado correctamente.');
     }
 
+    // Devuelve empresas disponibles para formularios según el alcance del actor actual.
     protected function companiesForForm($authUser)
     {
         if ($authUser->isSuperAdmin()) {
@@ -236,6 +243,7 @@ class Asset2Controller extends Controller
             ->get();
     }
 
+    // Precarga relaciones y agregados usados por los parciales de listado.
     protected function loadAsset2ListRelations(Asset2 $asset2): void
     {
         $asset2->load(['company', 'type']);
@@ -250,6 +258,7 @@ class Asset2Controller extends Controller
         ], 'cost');
     }
 
+    // Construye la query base reutilizable del índice de activos.
     protected function buildIndexBaseQuery(Request $request, ?int $companyId, string $search): Builder
     {
         return Asset2::query()
@@ -266,6 +275,7 @@ class Asset2Controller extends Controller
             });
     }
 
+    // Calcula métricas de resumen del módulo a partir de la misma query base del listado.
     protected function resolveSummary(Builder $baseQuery): array
     {
         $asset2Ids = (clone $baseQuery)->select('id');
@@ -281,6 +291,7 @@ class Asset2Controller extends Controller
         ];
     }
 
+    // Devuelve tipos de activo válidos para formularios, filtrados por empresa cuando aplica.
     protected function asset2TypesForForm(Request $request, ?int $companyId)
     {
         if (! $companyId) {

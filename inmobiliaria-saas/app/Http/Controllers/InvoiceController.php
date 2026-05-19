@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class InvoiceController extends Controller
 {
+    // Lista facturas por tipo de transacción para alimentar selectores y búsquedas AJAX.
     public function index(Request $request): JsonResponse
     {
         $rawType = (string) $request->query('type', '');
@@ -50,6 +51,7 @@ class InvoiceController extends Controller
         return response()->json(['invoices' => $invoices]);
     }
 
+    // Renderiza el modal de creación de factura con proyectos y proveedores disponibles.
     public function create(Request $request)
     {
         $type = in_array($request->string('type')->toString(), ['expense', 'purchase'], true)
@@ -71,6 +73,7 @@ class InvoiceController extends Controller
         ])->render();
     }
 
+    // Crea una factura vacía que luego recibirá compras o gastos como items.
     public function store(InvoiceStoreRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -97,6 +100,7 @@ class InvoiceController extends Controller
         ]);
     }
 
+    // Muestra el detalle completo de la factura y sus items asociados.
     public function show(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -145,6 +149,7 @@ class InvoiceController extends Controller
         ]);
     }
 
+    // Actualiza los metadatos editables de la factura sin tocar sus items.
     public function update(Request $request, Invoice $invoice): JsonResponse
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -165,6 +170,7 @@ class InvoiceController extends Controller
         return response()->json(['message' => 'Factura actualizada correctamente.']);
     }
 
+    // Renderiza el formulario modal para agregar un item de gasto o compra a la factura.
     public function createItem(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -240,6 +246,7 @@ class InvoiceController extends Controller
         ])->render();
     }
 
+    // Guarda adjuntos físicos de la factura en el storage configurado.
     public function storeAttachment(Request $request, Invoice $invoice): JsonResponse
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -271,6 +278,7 @@ class InvoiceController extends Controller
         ]);
     }
 
+    // Archiva un adjunto de factura sin eliminar el archivo de manera lógica del flujo.
     public function destroyAttachment(Request $request, Invoice $invoice, InvoiceAttachment $attachment): JsonResponse
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -285,6 +293,7 @@ class InvoiceController extends Controller
         ]);
     }
 
+    // Devuelve una vista previa o stream del archivo adjunto según su tipo.
     public function previewAttachment(Request $request, Invoice $invoice, InvoiceAttachment $attachment)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -315,6 +324,7 @@ class InvoiceController extends Controller
         }, 200, $headers);
     }
 
+    // Cambia el estado de la factura, normalmente entre abierta y cerrada.
     public function updateStatus(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -337,6 +347,7 @@ class InvoiceController extends Controller
         return redirect()->back()->with('status', $message);
     }
 
+    // Archiva la factura y deja sus movimientos como registros independientes cuando aplica.
     public function destroy(Request $request, Invoice $invoice)
     {
         $this->authorize('viewAny', $invoice->type === 'purchase' ? Purchase::class : Expense::class);
@@ -372,6 +383,7 @@ class InvoiceController extends Controller
         return redirect()->route($indexRoute)->with('status', 'Factura archivada correctamente.');
     }
 
+    // Serializa una factura al formato liviano usado por componentes cliente.
     public static function serializeInvoice(Invoice $invoice): array
     {
         return [
@@ -388,6 +400,7 @@ class InvoiceController extends Controller
         ];
     }
 
+    // Renderiza el bloque HTML de adjuntos para refresco parcial de la vista.
     protected function attachmentsHtml(Invoice $invoice): string
     {
         $invoice->load(['attachments' => fn ($query) => $query->where('status', '!=', 'deleted')->latest()]);
@@ -395,6 +408,7 @@ class InvoiceController extends Controller
         return view('invoices._attachments', compact('invoice'))->render();
     }
 
+    // Define el directorio de almacenamiento de archivos para una factura.
     protected function storageDirectory(Invoice $invoice): string
     {
         return collect([
@@ -409,6 +423,7 @@ class InvoiceController extends Controller
         ])->filter(fn ($segment) => $segment !== null && $segment !== '')->implode('/');
     }
 
+    // Genera un nombre legible para auditoría o descarga a partir de la ruta almacenada.
     protected function readableStoragePath($disk, string $path): string
     {
         if ($disk->exists($path)) {
@@ -426,6 +441,7 @@ class InvoiceController extends Controller
         return $disk->exists($prefixedPath) ? $prefixedPath : $path;
     }
 
+    // Recompone la tabla principal de gastos o compras para respuestas AJAX posteriores a mutaciones.
     protected function tableHtml(Request $request, string $type): string
     {
         $authUser = $request->user();
@@ -454,11 +470,13 @@ class InvoiceController extends Controller
         return view('expenses._table_body', compact('expenses'))->render();
     }
 
+    // Garantiza que el usuario solo interactúe con facturas de su propia empresa.
     private function guardCompany(\App\Models\User $user, Invoice $invoice): void
     {
         abort_unless($user->isSuperAdmin() || $invoice->company_id === $user->company_id, 403);
     }
 
+    // Devuelve proyectos habilitados para el usuario actual en formularios de facturas.
     protected function availableProjects($authUser)
     {
         return \App\Models\Project::query()
@@ -468,6 +486,7 @@ class InvoiceController extends Controller
             ->get();
     }
 
+    // Devuelve proveedores disponibles para el usuario actual en formularios de facturas.
     protected function availableProviders($authUser)
     {
         return \App\Models\Provider2::query()

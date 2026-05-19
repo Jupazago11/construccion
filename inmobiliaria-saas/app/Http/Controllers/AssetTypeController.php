@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 
 class AssetTypeController extends Controller
 {
+    // Lista los tipos de activos activos de la empresa para tablas y selects en AJAX.
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Asset::class);
@@ -20,6 +21,7 @@ class AssetTypeController extends Controller
         return response()->json($this->typesPayload($companyId));
     }
 
+    // Crea un tipo de activo y devuelve el catálogo actualizado para refrescar la UI.
     public function store(AssetTypeStoreRequest $request): JsonResponse
     {
         $this->authorize('create', Asset::class);
@@ -40,6 +42,7 @@ class AssetTypeController extends Controller
         ]);
     }
 
+    // Actualiza un tipo existente validando pertenencia tenant antes de guardar.
     public function update(AssetTypeStoreRequest $request, AssetType $assetType): JsonResponse
     {
         $this->authorize('update', $assetType);
@@ -60,6 +63,7 @@ class AssetTypeController extends Controller
         ]);
     }
 
+    // Archiva el tipo solo si no tiene activos activos relacionados.
     public function destroy(Request $request, AssetType $assetType): JsonResponse
     {
         $this->authorize('delete', $assetType);
@@ -83,6 +87,7 @@ class AssetTypeController extends Controller
         ]);
     }
 
+    // Resuelve la empresa objetivo; el superadmin debe seleccionarla y el resto usa su tenant.
     protected function resolveCompanyId(Request $request): int
     {
         if (! $request->user()->isSuperAdmin()) {
@@ -95,6 +100,7 @@ class AssetTypeController extends Controller
         return $companyId;
     }
 
+    // Genera la respuesta común para la tabla de tipos y las opciones del modal de activos.
     protected function typesPayload(int $companyId): array
     {
         $types = AssetType::query()

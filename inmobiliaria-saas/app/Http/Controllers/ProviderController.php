@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\View as ViewFacade;
 
 class ProviderController extends Controller
 {
+    // Lista proveedores con filtros por tenant, estado y búsqueda, y soporta paginación AJAX.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Provider::class);
@@ -67,6 +68,7 @@ class ProviderController extends Controller
         ]);
     }
 
+    // Renderiza el modal de creación precargando empresas y tipos válidos para el usuario actual.
     public function create(Request $request): View|string|RedirectResponse
     {
         $this->authorize('create', Provider::class);
@@ -88,6 +90,7 @@ class ProviderController extends Controller
             ->with('status', 'La creación de proveedores se realiza desde la vista principal.');
     }
 
+    // Crea un proveedor y devuelve la nueva fila renderizada cuando el flujo es AJAX.
     public function store(ProviderStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Provider::class);
@@ -121,6 +124,7 @@ class ProviderController extends Controller
             ->with('status', 'Proveedor creado correctamente.');
     }
 
+    // Renderiza el modal de edición reutilizando el mismo formulario del módulo.
     public function edit(Request $request, Provider $provider): View|string|RedirectResponse
     {
         $this->authorize('update', $provider);
@@ -142,6 +146,7 @@ class ProviderController extends Controller
             ->with('status', 'La edición de proveedores se realiza desde la vista principal.');
     }
 
+    // Actualiza el proveedor y recompone su fila en la tabla principal si corresponde.
     public function update(ProviderUpdateRequest $request, Provider $provider): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $provider);
@@ -175,6 +180,7 @@ class ProviderController extends Controller
             ->with('status', 'Proveedor actualizado correctamente.');
     }
 
+    // Cambia únicamente el estado activo/inactivo desde acciones rápidas de la tabla.
     public function updateStatus(Request $request, Provider $provider): JsonResponse
     {
         $this->authorize('update', $provider);
@@ -196,6 +202,7 @@ class ProviderController extends Controller
         ]);
     }
 
+    // Archiva el proveedor solo si no tiene compras ni gastos activos asociados.
     public function destroy(Request $request, Provider $provider): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $provider);
@@ -227,6 +234,7 @@ class ProviderController extends Controller
             ->with('status', 'Proveedor archivado correctamente.');
     }
 
+    // Devuelve las empresas visibles en el formulario según el rol autenticado.
     protected function companiesForForm($authUser)
     {
         if ($authUser->isSuperAdmin()) {
@@ -241,6 +249,7 @@ class ProviderController extends Controller
             ->get();
     }
 
+    // Carga los tipos de proveedor utilizables y conserva el tipo actual aunque esté inactivo.
     protected function providerTypesForForm($authUser, ?Provider $provider = null)
     {
         return ProviderType::query()

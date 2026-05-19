@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 
 class ProductCatalogController extends Controller
 {
+    // Renderiza el catálogo completo o responde parciales AJAX para refrescar tablas y selectores.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', ProductGroup::class);
@@ -28,16 +29,26 @@ class ProductCatalogController extends Controller
         $payload = $this->viewPayload($request);
 
         if ($request->ajax() && $request->boolean('table_only')) {
-            return response()->json([
+            return response()->json(array_merge([
                 'table_html' => view('product-catalog._products_table', [
                     'products' => $payload['products'],
                 ])->render(),
-            ]);
+                'products_table_html' => view('product-catalog._products_table', [
+                    'products' => $payload['products'],
+                ])->render(),
+                'groups_table_html' => view('product-catalog._groups_table', [
+                    'groups' => $payload['groups'],
+                ])->render(),
+                'subgroups_table_html' => view('product-catalog._subgroups_table', [
+                    'subgroups' => $payload['subgroups'],
+                ])->render(),
+            ], $this->catalogCollections($payload)));
         }
 
         return view('product-catalog.index', $payload);
     }
 
+    // Crea un grupo de productos para la empresa resuelta por el request.
     public function storeGroup(ProductGroupStoreRequest $request): JsonResponse
     {
         $this->authorize('create', ProductGroup::class);
@@ -51,6 +62,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Grupo creado correctamente.');
     }
 
+    // Actualiza el nombre de un grupo existente sin alterar su estructura asociada.
     public function updateGroup(ProductGroupUpdateRequest $request, ProductGroup $productGroup): JsonResponse
     {
         $this->authorize('update', $productGroup);
@@ -60,6 +72,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Grupo actualizado correctamente.');
     }
 
+    // Cambia el estado visible del grupo entre activo e inactivo.
     public function statusGroup(Request $request, ProductGroup $productGroup): JsonResponse
     {
         $this->authorize('update', $productGroup);
@@ -70,6 +83,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Estado del grupo actualizado correctamente.');
     }
 
+    // Archiva el grupo y su estructura dependiente si no hay movimientos que lo bloqueen.
     public function destroyGroup(Request $request, ProductGroup $productGroup): JsonResponse
     {
         $this->authorize('delete', $productGroup);
@@ -87,6 +101,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Grupo archivado correctamente.');
     }
 
+    // Crea un subgrupo de productos asociado a un grupo existente.
     public function storeSubgroup(ProductSubgroupStoreRequest $request): JsonResponse
     {
         $this->authorize('create', ProductSubgroup::class);
@@ -101,6 +116,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Subgrupo creado correctamente.');
     }
 
+    // Actualiza nombre o grupo asociado del subgrupo.
     public function updateSubgroup(ProductSubgroupUpdateRequest $request, ProductSubgroup $productSubgroup): JsonResponse
     {
         $this->authorize('update', $productSubgroup);
@@ -110,6 +126,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Subgrupo actualizado correctamente.');
     }
 
+    // Cambia el estado del subgrupo y propaga inactivación a sus productos cuando corresponde.
     public function statusSubgroup(Request $request, ProductSubgroup $productSubgroup): JsonResponse
     {
         $this->authorize('update', $productSubgroup);
@@ -133,6 +150,7 @@ class ProductCatalogController extends Controller
         );
     }
 
+    // Archiva el subgrupo y todos sus productos si no existen movimientos asociados.
     public function destroySubgroup(Request $request, ProductSubgroup $productSubgroup): JsonResponse
     {
         $this->authorize('delete', $productSubgroup);
@@ -149,6 +167,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Subgrupo archivado correctamente. Sus productos también fueron archivados.');
     }
 
+    // Crea un producto dentro del árbol grupo/subgrupo seleccionado.
     public function storeProduct(ProductStoreRequest $request): JsonResponse
     {
         $this->authorize('create', Product::class);
@@ -164,6 +183,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Producto creado correctamente.');
     }
 
+    // Actualiza los datos básicos del producto.
     public function updateProduct(ProductUpdateRequest $request, Product $product): JsonResponse
     {
         $this->authorize('update', $product);
@@ -173,6 +193,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Producto actualizado correctamente.');
     }
 
+    // Cambia el estado operativo del producto.
     public function statusProduct(Request $request, Product $product): JsonResponse
     {
         $this->authorize('update', $product);
@@ -183,6 +204,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Estado del producto actualizado correctamente.');
     }
 
+    // Archiva el producto solo si todavía no participa en compras o gastos vigentes.
     public function destroyProduct(Request $request, Product $product): JsonResponse
     {
         $this->authorize('delete', $product);
@@ -197,6 +219,7 @@ class ProductCatalogController extends Controller
         return $this->catalogResponse($request, 'Producto archivado correctamente.');
     }
 
+    // Construye los datos base de filtros, tablas y selectores para la vista del catálogo.
     protected function viewPayload(Request $request): array
     {
         $authUser = $request->user();
@@ -214,10 +237,12 @@ class ProductCatalogController extends Controller
         $groups = ProductGroup::query()
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->where('status', '!=', EntityStatus::Deleted->value)
+            ->withCount(['subgroups', 'products'])
             ->orderBy('name')
             ->get();
 
         $subgroups = ProductSubgroup::query()
+            ->with('group')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->where('status', '!=', EntityStatus::Deleted->value)
             ->orderBy('name')
@@ -245,8 +270,33 @@ class ProductCatalogController extends Controller
         ];
     }
 
+    // Normaliza la respuesta JSON simple usada por las mutaciones del catálogo.
     protected function catalogResponse(Request $request, string $message): JsonResponse
     {
         return response()->json(['message' => $message]);
+    }
+
+    // Expone colecciones activas para repoblar selects y filtros después de respuestas AJAX.
+    protected function catalogCollections(array $payload): array
+    {
+        return [
+            'groups' => $payload['groups']
+                ->where('status', EntityStatus::Active->value)
+                ->values()
+                ->map(fn ($group) => [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'company_id' => $group->company_id,
+                ]),
+            'subgroups' => $payload['subgroups']
+                ->where('status', EntityStatus::Active->value)
+                ->values()
+                ->map(fn ($subgroup) => [
+                    'id' => $subgroup->id,
+                    'name' => $subgroup->name,
+                    'company_id' => $subgroup->company_id,
+                    'product_group_id' => $subgroup->product_group_id,
+                ]),
+        ];
     }
 }

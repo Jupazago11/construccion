@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\View as ViewFacade;
 
 class AssetController extends Controller
 {
+    // Lista activos con filtros por empresa y búsqueda, y soporta refresco parcial por AJAX.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Asset::class);
@@ -76,6 +77,7 @@ class AssetController extends Controller
         ]);
     }
 
+    // Renderiza el modal de creación desde la vista principal y precarga empresas y tipos disponibles.
     public function create(Request $request): View|string|RedirectResponse
     {
         $this->authorize('create', Asset::class);
@@ -95,6 +97,7 @@ class AssetController extends Controller
             ->with('status', 'La creación de activos se realiza desde la vista principal.');
     }
 
+    // Crea un activo, recarga sus agregados y devuelve la fila/resumen actualizados cuando aplica.
     public function store(AssetStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Asset::class);
@@ -136,6 +139,7 @@ class AssetController extends Controller
             ->with('status', 'Activo creado correctamente.');
     }
 
+    // Renderiza el modal de edición reutilizando la misma vista del formulario.
     public function edit(Request $request, Asset $asset): View|string|RedirectResponse
     {
         $this->authorize('update', $asset);
@@ -155,6 +159,7 @@ class AssetController extends Controller
             ->with('status', 'La edición de activos se realiza desde la vista principal.');
     }
 
+    // Actualiza el activo y recompone los fragmentos visibles del listado principal.
     public function update(AssetUpdateRequest $request, Asset $asset): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $asset);
@@ -195,6 +200,7 @@ class AssetController extends Controller
             ->with('status', 'Activo actualizado correctamente.');
     }
 
+    // Archiva el activo mediante borrado lógico y recalcula el resumen filtrado actual.
     public function destroy(Request $request, Asset $asset): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $asset);
@@ -222,6 +228,7 @@ class AssetController extends Controller
             ->with('status', 'Activo archivado correctamente.');
     }
 
+    // Devuelve las empresas disponibles en el formulario según el rol del usuario autenticado.
     protected function companiesForForm($authUser)
     {
         if ($authUser->isSuperAdmin()) {
@@ -236,6 +243,7 @@ class AssetController extends Controller
             ->get();
     }
 
+    // Carga las relaciones y métricas agregadas que necesita cada fila del listado de activos.
     protected function loadAssetListRelations(Asset $asset): void
     {
         $asset->load(['company', 'type']);
@@ -250,6 +258,7 @@ class AssetController extends Controller
         ], 'cost');
     }
 
+    // Construye la consulta base reutilizable para listado, resúmenes y respuestas AJAX.
     protected function buildIndexBaseQuery(Request $request, ?int $companyId, string $search): Builder
     {
         return Asset::query()
@@ -266,6 +275,7 @@ class AssetController extends Controller
             });
     }
 
+    // Calcula los totales económicos visibles en la cabecera del módulo de activos.
     protected function resolveSummary(Builder $baseQuery): array
     {
         $assetIds = (clone $baseQuery)->select('id');
@@ -280,6 +290,7 @@ class AssetController extends Controller
         ];
     }
 
+    // Obtiene los tipos de activo disponibles para el formulario junto con metadatos de gestión.
     protected function assetTypesForForm(Request $request, ?int $companyId)
     {
         if (! $companyId) {

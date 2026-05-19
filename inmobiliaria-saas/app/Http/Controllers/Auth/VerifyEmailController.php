@@ -12,6 +12,7 @@ class VerifyEmailController extends Controller
     /**
      * Mark the authenticated user's email address as verified.
      */
+    // Marca el correo como verificado y redirige al dashboard con bandera de confirmación.
     public function __invoke(EmailVerificationRequest $request): RedirectResponse
     {
         if ($request->user()->hasVerifiedEmail()) {

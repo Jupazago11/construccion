@@ -7,6 +7,7 @@ use Illuminate\Contracts\View\View;
 
 class HomeController extends Controller
 {
+    // Resuelve la etiqueta legible del rol autenticado para la pantalla principal de bienvenida.
     public function __invoke(): View
     {
         $user = auth()->user();

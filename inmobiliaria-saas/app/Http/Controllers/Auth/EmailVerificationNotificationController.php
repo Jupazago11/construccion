@@ -11,6 +11,7 @@ class EmailVerificationNotificationController extends Controller
     /**
      * Send a new email verification notification.
      */
+    // Reenvía el correo de verificación cuando el usuario sigue pendiente de confirmar.
     public function store(Request $request): RedirectResponse
     {
         if ($request->user()->hasVerifiedEmail()) {

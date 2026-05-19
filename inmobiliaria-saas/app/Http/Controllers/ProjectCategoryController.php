@@ -23,6 +23,7 @@ use Illuminate\Validation\ValidationException;
 
 class ProjectCategoryController extends Controller
 {
+    // Muestra la estructura presupuestal completa del proyecto con su resumen operativo.
     public function index(Project $project): View
     {
         $this->authorize('view', $project);
@@ -35,6 +36,7 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Renderiza el modal para copiar una estructura completa desde otro proyecto de la misma empresa.
     public function createCopy(Request $request, Project $project): View|string
     {
         $this->authorize('view', $project);
@@ -49,6 +51,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Replica categorías, subcategorías y auxiliares desde un proyecto origen hacia el proyecto actual.
     public function storeCopy(
         ProjectCategoryCopyRequest $request,
         Project $project,
@@ -90,6 +93,7 @@ class ProjectCategoryController extends Controller
         );
     }
 
+    // Renderiza el modal de creación de categoría.
     public function createCategory(Request $request, Project $project): View|string
     {
         $this->authorize('view', $project);
@@ -104,6 +108,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Crea una categoría en el proyecto con el siguiente orden disponible.
     public function storeCategory(CategoryStoreRequest $request, Project $project): JsonResponse
     {
         $this->authorize('view', $project);
@@ -124,6 +129,7 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Renderiza el modal de edición de categoría.
     public function editCategory(Request $request, Project $project, Category $category): View|string
     {
         $this->authorize('view', $project);
@@ -138,6 +144,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Actualiza nombre y descripción de la categoría.
     public function updateCategory(CategoryUpdateRequest $request, Project $project, Category $category): JsonResponse
     {
         $this->authorize('view', $project);
@@ -152,6 +159,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Categoría actualizada correctamente.');
     }
 
+    // Cambia el estado operativo de una categoría.
     public function updateCategoryStatus(Request $request, Project $project, Category $category): JsonResponse
     {
         $this->authorize('view', $project);
@@ -167,6 +175,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Estado de la categoría actualizado correctamente.');
     }
 
+    // Archiva una categoría junto con su estructura descendente cuando no hay movimientos vigentes.
     public function destroyCategory(Project $project, Category $category): JsonResponse
     {
         $this->authorize('view', $project);
@@ -196,6 +205,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Categoría archivada correctamente junto con su estructura vacía.');
     }
 
+    // Persiste el nuevo orden manual de las categorías del proyecto.
     public function reorderCategories(Request $request, Project $project): JsonResponse
     {
         $this->authorize('view', $project);
@@ -223,6 +233,7 @@ class ProjectCategoryController extends Controller
         return response()->json(['message' => 'Orden de categorías actualizado correctamente.']);
     }
 
+    // Renderiza el modal de creación de subcategoría, opcionalmente preseleccionando categoría.
     public function createSubcategory(Request $request, Project $project): View|string
     {
         $this->authorize('view', $project);
@@ -246,6 +257,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Crea una subcategoría dentro de la categoría indicada.
     public function storeSubcategory(SubcategoryStoreRequest $request, Project $project): JsonResponse
     {
         $this->authorize('view', $project);
@@ -266,6 +278,7 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Renderiza el modal de edición de subcategoría.
     public function editSubcategory(Project $project, Subcategory $subcategory): View|string
     {
         $this->authorize('view', $project);
@@ -285,6 +298,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Actualiza los datos básicos de la subcategoría.
     public function updateSubcategory(SubcategoryUpdateRequest $request, Project $project, Subcategory $subcategory): JsonResponse
     {
         $this->authorize('view', $project);
@@ -300,6 +314,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Subcategoría actualizada correctamente.');
     }
 
+    // Cambia el estado operativo de la subcategoría.
     public function updateSubcategoryStatus(Request $request, Project $project, Subcategory $subcategory): JsonResponse
     {
         $this->authorize('view', $project);
@@ -315,6 +330,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Estado de la subcategoría actualizado correctamente.');
     }
 
+    // Archiva una subcategoría junto con sus auxiliares cuando no hay movimientos vigentes.
     public function destroySubcategory(Project $project, Subcategory $subcategory): JsonResponse
     {
         $this->authorize('view', $project);
@@ -335,6 +351,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Subcategoría archivada correctamente junto con sus auxiliares vacíos.');
     }
 
+    // Persiste el nuevo orden manual de las subcategorías de una categoría.
     public function reorderSubcategories(Request $request, Project $project): JsonResponse
     {
         $this->authorize('view', $project);
@@ -370,6 +387,7 @@ class ProjectCategoryController extends Controller
         return response()->json(['message' => 'Orden de subcategorías actualizado correctamente.']);
     }
 
+    // Renderiza el modal de creación de auxiliar, opcionalmente preseleccionando categoría y subcategoría.
     public function createAuxiliary(Request $request, Project $project): View|string
     {
         $this->authorize('view', $project);
@@ -399,6 +417,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Crea un auxiliar dentro de la subcategoría indicada.
     public function storeAuxiliary(AuxiliaryStoreRequest $request, Project $project): JsonResponse
     {
         $this->authorize('view', $project);
@@ -419,6 +438,7 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Renderiza el modal de edición de auxiliar.
     public function editAuxiliary(Project $project, Auxiliary $auxiliary): View|string
     {
         $this->authorize('view', $project);
@@ -435,6 +455,7 @@ class ProjectCategoryController extends Controller
         ])->render();
     }
 
+    // Actualiza los datos básicos del auxiliar.
     public function updateAuxiliary(AuxiliaryUpdateRequest $request, Project $project, Auxiliary $auxiliary): JsonResponse
     {
         $this->authorize('view', $project);
@@ -450,6 +471,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Auxiliar actualizado correctamente.');
     }
 
+    // Cambia el estado operativo del auxiliar.
     public function updateAuxiliaryStatus(Request $request, Project $project, Auxiliary $auxiliary): JsonResponse
     {
         $this->authorize('view', $project);
@@ -465,6 +487,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Estado del auxiliar actualizado correctamente.');
     }
 
+    // Archiva un auxiliar si no tiene movimientos vigentes asociados.
     public function destroyAuxiliary(Project $project, Auxiliary $auxiliary): JsonResponse
     {
         $this->authorize('view', $project);
@@ -482,6 +505,7 @@ class ProjectCategoryController extends Controller
         return $this->structureResponse($project, 'Auxiliar archivado correctamente.');
     }
 
+    // Persiste el nuevo orden manual de los auxiliares de una subcategoría.
     public function reorderAuxiliaries(Request $request, Project $project): JsonResponse
     {
         $this->authorize('view', $project);
@@ -517,6 +541,7 @@ class ProjectCategoryController extends Controller
         return response()->json(['message' => 'Orden de auxiliares actualizado correctamente.']);
     }
 
+    // Recompone la estructura completa para refrescar la vista después de mutaciones AJAX.
     protected function structureResponse(Project $project, string $message, ?array $created = null): JsonResponse
     {
         $loadedProject = $this->loadProjectStructure($project->fresh());
@@ -536,6 +561,7 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Genera la estructura jerárquica consumida por la vista y por los widgets de resumen.
     protected function expenseStructureData(Project $project): array
     {
         $categories = [];
@@ -576,6 +602,7 @@ class ProjectCategoryController extends Controller
         ];
     }
 
+    // Carga el proyecto con toda su estructura ordenada y filtrada por estado.
     protected function loadProjectStructure(Project $project): Project
     {
         return $project->load([
@@ -611,6 +638,7 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Calcula contadores resumidos de categorías, subcategorías y auxiliares.
     protected function summaryData(Project $project): array
     {
         return [
@@ -629,6 +657,7 @@ class ProjectCategoryController extends Controller
         ];
     }
 
+    // Devuelve las categorías activas disponibles para formularios dependientes.
     protected function availableCategories(Project $project)
     {
         return Category::query()
@@ -639,6 +668,7 @@ class ProjectCategoryController extends Controller
             ->get();
     }
 
+    // Devuelve las subcategorías activas disponibles para formularios dependientes.
     protected function availableSubcategories(Project $project)
     {
         return Subcategory::query()
@@ -650,21 +680,25 @@ class ProjectCategoryController extends Controller
             ->get();
     }
 
+    // Calcula el siguiente orden de inserción para categorías del proyecto.
     protected function nextCategorySortOrder(Project $project): int
     {
         return ((int) Category::query()->where('project_id', $project->id)->max('sort_order')) + 1;
     }
 
+    // Calcula el siguiente orden de inserción para subcategorías de una categoría.
     protected function nextSubcategorySortOrder(int $categoryId): int
     {
         return ((int) Subcategory::query()->where('category_id', $categoryId)->max('sort_order')) + 1;
     }
 
+    // Calcula el siguiente orden de inserción para auxiliares de una subcategoría.
     protected function nextAuxiliarySortOrder(int $subcategoryId): int
     {
         return ((int) Auxiliary::query()->where('subcategory_id', $subcategoryId)->max('sort_order')) + 1;
     }
 
+    // Determina si una categoría tiene gastos vigentes que impidan archivarla.
     protected function categoryHasExpenseRecords(Category $category): bool
     {
         return $category->expenses()
@@ -682,6 +716,7 @@ class ProjectCategoryController extends Controller
                 ->exists();
     }
 
+    // Determina si una subcategoría tiene gastos vigentes que impidan archivarla.
     protected function subcategoryHasExpenseRecords(Subcategory $subcategory): bool
     {
         return $subcategory->expenses()
@@ -692,6 +727,7 @@ class ProjectCategoryController extends Controller
                 ->exists();
     }
 
+    // Valida la lista de ids enviada para reordenamiento manual.
     protected function validatedOrderIds(Request $request): array
     {
         $data = $request->validate([
@@ -710,6 +746,7 @@ class ProjectCategoryController extends Controller
         return $ids;
     }
 
+    // Lista proyectos origen válidos para copiar estructura dentro de la misma empresa.
     protected function availableSourceProjects(Project $project)
     {
         return Project::query()
@@ -721,11 +758,13 @@ class ProjectCategoryController extends Controller
             ->get();
     }
 
+    // Define si el proyecto actual permite crear nuevos registros en su estructura.
     protected function projectAllowsNewRecords(Project $project): bool
     {
         return in_array($project->status, ['planning', 'active'], true);
     }
 
+    // Corta el flujo cuando el proyecto no admite nuevas mutaciones en estructura.
     protected function ensureProjectAllowsNewRecords(Project $project): void
     {
         if ($this->projectAllowsNewRecords($project)) {
@@ -737,16 +776,19 @@ class ProjectCategoryController extends Controller
         ]);
     }
 
+    // Garantiza que la categoría manipulada pertenezca realmente al proyecto actual.
     protected function guardCategoryBelongsToProject(Project $project, Category $category): void
     {
         abort_unless($category->project_id === $project->id, 404);
     }
 
+    // Garantiza que la subcategoría manipulada pertenezca realmente al proyecto actual.
     protected function guardSubcategoryBelongsToProject(Project $project, Subcategory $subcategory): void
     {
         abort_unless($subcategory->category()->where('project_id', $project->id)->exists(), 404);
     }
 
+    // Garantiza que el auxiliar manipulado pertenezca realmente al proyecto actual.
     protected function guardAuxiliaryBelongsToProject(Project $project, Auxiliary $auxiliary): void
     {
         abort_unless(

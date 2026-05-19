@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 
 class ProviderTypeController extends Controller
 {
+    // Lista los tipos de proveedor de la empresa y soporta uso AJAX desde el módulo de proveedores.
     public function index(Request $request): JsonResponse|RedirectResponse
     {
         $this->authorize('viewAny', ProviderType::class);
@@ -25,6 +26,7 @@ class ProviderTypeController extends Controller
         return redirect()->route('providers.index');
     }
 
+    // Crea un tipo de proveedor y responde con JSON o redirect según el origen de la petición.
     public function store(Request $request): JsonResponse|RedirectResponse
     {
         $this->authorize('create', ProviderType::class);
@@ -51,6 +53,7 @@ class ProviderTypeController extends Controller
         return redirect()->route('provider-types.index')->with('status', 'Tipo de proveedor creado correctamente.');
     }
 
+    // Actualiza los datos del tipo y conserva el patrón dual JSON/redirect del módulo legado.
     public function update(Request $request, ProviderType $providerType): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $providerType);
@@ -74,6 +77,7 @@ class ProviderTypeController extends Controller
         return redirect()->route('provider-types.index')->with('status', 'Tipo de proveedor actualizado correctamente.');
     }
 
+    // Cambia únicamente el estado activo/inactivo del tipo desde acciones rápidas en la tabla.
     public function updateStatus(Request $request, ProviderType $providerType): JsonResponse
     {
         $this->authorize('update', $providerType);
@@ -91,6 +95,7 @@ class ProviderTypeController extends Controller
         ]);
     }
 
+    // Archiva el tipo si no tiene proveedores activos asociados.
     public function destroy(Request $request, ProviderType $providerType): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $providerType);
@@ -117,6 +122,7 @@ class ProviderTypeController extends Controller
         return redirect()->route('provider-types.index')->with('status', 'Tipo de proveedor archivado correctamente.');
     }
 
+    // Valida la carga del formulario considerando tenant, unicidad y modo superadmin.
     protected function validatedData(Request $request, ?ProviderType $providerType = null): array
     {
         $companyId = $request->user()->isSuperAdmin()
@@ -144,6 +150,7 @@ class ProviderTypeController extends Controller
         ]);
     }
 
+    // Determina la empresa cuyo catálogo de tipos se está administrando.
     protected function resolveCompanyId(Request $request): int
     {
         if (! $request->user()->isSuperAdmin()) {
@@ -156,6 +163,7 @@ class ProviderTypeController extends Controller
         return $companyId;
     }
 
+    // Prepara la estructura JSON reutilizada por la tabla y los formularios del catálogo.
     protected function typesPayload(int $companyId): array
     {
         $types = ProviderType::query()

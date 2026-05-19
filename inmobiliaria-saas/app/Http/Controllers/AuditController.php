@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\View as ViewFacade;
 
 class AuditController extends Controller
 {
+    // Lista la bitácora del sistema con filtros por empresa, proyecto, evento y rango de fechas.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Activity::class);

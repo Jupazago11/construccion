@@ -19,6 +19,7 @@ class NewPasswordController extends Controller
     /**
      * Display the password reset view.
      */
+    // Muestra el formulario final para definir una nueva contraseña a partir del token.
     public function create(Request $request): View
     {
         return view('auth.reset-password', ['request' => $request]);
@@ -29,6 +30,7 @@ class NewPasswordController extends Controller
      *
      * @throws ValidationException
      */
+    // Ejecuta el restablecimiento definitivo de la contraseña si el token es válido.
     public function store(Request $request): RedirectResponse
     {
         $request->validate([

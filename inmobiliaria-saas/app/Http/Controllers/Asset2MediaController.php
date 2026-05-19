@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class Asset2MediaController extends Controller
 {
+    // Muestra el repositorio de archivos del activo 2 con sus adjuntos activos cargados.
     public function index(Asset2 $asset2): View
     {
         $this->authorize('view', $asset2);
@@ -25,6 +26,7 @@ class Asset2MediaController extends Controller
         ]);
     }
 
+    // Carga uno o varios archivos al activo 2 y devuelve el fragmento HTML actualizado para la lista.
     public function store(AssetMediaStoreRequest $request, Asset2 $asset2): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $asset2);
@@ -79,6 +81,7 @@ class Asset2MediaController extends Controller
         return $this->mediaResponse($asset2, 'Archivos del activo cargados correctamente.');
     }
 
+    // Sirve una vista previa en streaming validando que el archivo pertenezca al activo solicitado.
     public function preview(Asset2 $asset2, Asset2Media $media)
     {
         $this->authorize('view', $asset2);
@@ -109,6 +112,7 @@ class Asset2MediaController extends Controller
         }, 200, $headers);
     }
 
+    // Archiva un adjunto del activo 2 y refresca la lista de archivos sin recargar la pantalla.
     public function destroy(Request $request, Asset2 $asset2, Asset2Media $media): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $asset2);
@@ -138,6 +142,7 @@ class Asset2MediaController extends Controller
             ->with('status', 'Archivo del activo eliminado correctamente.');
     }
 
+    // Construye la respuesta AJAX estándar con el HTML renderizado de adjuntos.
     protected function mediaResponse(Asset2 $asset2, string $message): JsonResponse
     {
         $loadedAsset2 = $this->loadAsset2Media($asset2->fresh());
@@ -150,6 +155,7 @@ class Asset2MediaController extends Controller
         ]);
     }
 
+    // Carga las relaciones mínimas necesarias para pintar la galería o listado de medios.
     protected function loadAsset2Media(Asset2 $asset2): Asset2
     {
         return $asset2->load([
@@ -161,11 +167,13 @@ class Asset2MediaController extends Controller
         ]);
     }
 
+    // Impide acceder o eliminar archivos asociados a otro activo 2.
     protected function guardMediaBelongsToAsset(Asset2 $asset2, Asset2Media $media): void
     {
         abort_unless($media->asset2_id === $asset2->id, 404);
     }
 
+    // Define la carpeta de almacenamiento segmentada por empresa y activo.
     protected function storageDirectory(Asset2 $asset2): string
     {
         return collect([
@@ -178,6 +186,7 @@ class Asset2MediaController extends Controller
         ])->filter(fn ($segment) => $segment !== null && $segment !== '')->implode('/');
     }
 
+    // Intenta guardar en R2 y cae a disco público local si la configuración remota falla.
     protected function storeUploadedFile($uploadedFile, Asset2 $asset2): array
     {
         $directory = $this->storageDirectory($asset2);
@@ -196,6 +205,7 @@ class Asset2MediaController extends Controller
         }
     }
 
+    // Resuelve el disco preferido según la configuración actual del proyecto.
     protected function preferredUploadDisk(): string
     {
         $r2 = config('filesystems.disks.r2', []);
@@ -205,6 +215,7 @@ class Asset2MediaController extends Controller
             : 'public';
     }
 
+    // Normaliza rutas antiguas o sin prefijo para que los archivos sigan siendo legibles.
     protected function readableStoragePath($disk, string $path): string
     {
         if ($disk->exists($path)) {

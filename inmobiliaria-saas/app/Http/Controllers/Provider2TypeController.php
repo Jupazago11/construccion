@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 
 class Provider2TypeController extends Controller
 {
+    // Lista los tipos de proveedores 2 activos de una empresa para consumo AJAX.
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Provider2::class);
@@ -20,6 +21,7 @@ class Provider2TypeController extends Controller
         return response()->json($this->typesPayload($companyId));
     }
 
+    // Crea un tipo de proveedor 2 y devuelve el catálogo actualizado para refrescar selects y tablas.
     public function store(Request $request): JsonResponse
     {
         $this->authorize('create', Provider2::class);
@@ -40,6 +42,7 @@ class Provider2TypeController extends Controller
         ]);
     }
 
+    // Actualiza el nombre o estado de un tipo existente dentro de la misma empresa.
     public function update(Request $request, Provider2Type $provider2Type): JsonResponse
     {
         $this->authorize('update', $provider2Type);
@@ -56,6 +59,7 @@ class Provider2TypeController extends Controller
         ]);
     }
 
+    // Archiva el tipo solo si no tiene proveedores 2 activos asociados.
     public function destroy(Request $request, Provider2Type $provider2Type): JsonResponse
     {
         $this->authorize('delete', $provider2Type);
@@ -73,6 +77,7 @@ class Provider2TypeController extends Controller
         ]);
     }
 
+    // Centraliza la validación del formulario y la unicidad del nombre por empresa.
     protected function validatedData(Request $request, ?Provider2Type $provider2Type = null): array
     {
         $companyId = $request->user()->isSuperAdmin()
@@ -95,6 +100,7 @@ class Provider2TypeController extends Controller
         ]);
     }
 
+    // Determina sobre qué empresa se administra el catálogo de tipos.
     protected function resolveCompanyId(Request $request): int
     {
         if (! $request->user()->isSuperAdmin()) {
@@ -107,6 +113,7 @@ class Provider2TypeController extends Controller
         return $companyId;
     }
 
+    // Arma la carga útil estándar que reutiliza el frontend al gestionar tipos de proveedor 2.
     protected function typesPayload(int $companyId): array
     {
         $types = Provider2Type::query()

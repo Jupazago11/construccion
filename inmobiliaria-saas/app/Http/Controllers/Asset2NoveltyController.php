@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 
 class Asset2NoveltyController extends Controller
 {
+    // Renderiza el modal de creación de novedades desde la vista principal de activos 2.
     public function create(Request $request, Asset2 $asset2): string|RedirectResponse
     {
         $this->authorize('update', $asset2);
@@ -37,6 +38,7 @@ class Asset2NoveltyController extends Controller
             ->with('status', 'El registro de novedades se realiza desde la vista principal.');
     }
 
+    // Registra una novedad del activo 2 y devuelve la fila y resumen actualizados cuando se usa AJAX.
     public function store(AssetNoveltyStoreRequest $request, Asset2 $asset2): JsonResponse|RedirectResponse
     {
         $this->authorize('update', $asset2);
@@ -65,6 +67,7 @@ class Asset2NoveltyController extends Controller
             ->with('status', 'Novedad registrada correctamente.');
     }
 
+    // Renderiza el modal de edición validando que la novedad pertenezca al activo 2.
     public function edit(Request $request, Asset2 $asset2, Asset2Novelty $novelty): string|RedirectResponse
     {
         abort_unless($novelty->asset2_id === $asset2->id, 404);
@@ -90,6 +93,7 @@ class Asset2NoveltyController extends Controller
             ->with('status', 'La edición de novedades se realiza desde la vista principal.');
     }
 
+    // Actualiza una novedad existente y refresca la información agregada del listado.
     public function update(AssetNoveltyStoreRequest $request, Asset2 $asset2, Asset2Novelty $novelty): JsonResponse|RedirectResponse
     {
         abort_unless($novelty->asset2_id === $asset2->id, 404);
@@ -117,6 +121,7 @@ class Asset2NoveltyController extends Controller
             ->with('status', 'Novedad actualizada correctamente.');
     }
 
+    // Archiva una novedad y opcionalmente recompone el modal vacío para registrar la siguiente.
     public function destroy(Request $request, Asset2 $asset2, Asset2Novelty $novelty): JsonResponse|RedirectResponse
     {
         abort_unless($novelty->asset2_id === $asset2->id, 404);
@@ -148,6 +153,7 @@ class Asset2NoveltyController extends Controller
             ->with('status', 'Novedad eliminada correctamente.');
     }
 
+    // Prepara la respuesta AJAX con fila, resumen y modal reutilizable para la tabla principal.
     protected function asset2ListResponse(Request $request, Asset2 $asset2, string $message, bool $includeNoveltyModal = false): JsonResponse
     {
         $this->loadAsset2ListRelations($asset2);
@@ -182,6 +188,7 @@ class Asset2NoveltyController extends Controller
         return response()->json($payload);
     }
 
+    // Carga el historial reciente de novedades que se muestra dentro del modal del activo 2.
     protected function loadNoveltyContext(Asset2 $asset2): void
     {
         $asset2->load([
@@ -194,6 +201,7 @@ class Asset2NoveltyController extends Controller
         ]);
     }
 
+    // Recarga relaciones y agregados visibles en la fila del activo 2 tras cambios de novedades.
     protected function loadAsset2ListRelations(Asset2 $asset2): void
     {
         $asset2->refresh();
@@ -209,6 +217,7 @@ class Asset2NoveltyController extends Controller
         ], 'cost');
     }
 
+    // Construye la consulta base del listado para recalcular resúmenes respetando tenant y filtros.
     protected function buildAsset2BaseQuery(Request $request, ?int $companyId, string $search): Builder
     {
         return Asset2::query()
@@ -224,6 +233,7 @@ class Asset2NoveltyController extends Controller
             });
     }
 
+    // Recalcula los totales del módulo de activos 2 a partir de la consulta filtrada actual.
     protected function resolveSummary(Builder $baseQuery): array
     {
         $asset2Ids = (clone $baseQuery)->select('id');
@@ -239,6 +249,7 @@ class Asset2NoveltyController extends Controller
         ];
     }
 
+    // Devuelve todos los tipos de novedad visibles para el formulario, junto con URLs auxiliares.
     protected function noveltyTypesForForm(Asset2 $asset2)
     {
         return AssetNoveltyType::query()
@@ -261,6 +272,7 @@ class Asset2NoveltyController extends Controller
             ->values();
     }
 
+    // Filtra los tipos de novedad utilizables en el select principal del formulario.
     protected function activeNoveltyTypesForForm(Asset2 $asset2)
     {
         return $this->noveltyTypesForForm($asset2)

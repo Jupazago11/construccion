@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 class ActivityCatalogController extends Controller
 {
+    // Renderiza el catálogo de actividades o responde parciales AJAX para refrescar tablas y selectores.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', CatalogActivityGroup::class);
@@ -46,6 +47,7 @@ class ActivityCatalogController extends Controller
         return view('activity-catalog.index', $payload);
     }
 
+    // Crea un grupo de actividades para la empresa resuelta por el request.
     public function storeGroup(CatalogActivityGroupStoreRequest $request): JsonResponse
     {
         $this->authorize('create', CatalogActivityGroup::class);
@@ -59,6 +61,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Grupo creado correctamente.');
     }
 
+    // Actualiza el nombre de un grupo de actividades existente.
     public function updateGroup(CatalogActivityGroupUpdateRequest $request, CatalogActivityGroup $activityGroup): JsonResponse
     {
         $this->authorize('update', $activityGroup);
@@ -68,6 +71,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Grupo actualizado correctamente.');
     }
 
+    // Cambia el estado visible del grupo entre activo e inactivo.
     public function statusGroup(Request $request, CatalogActivityGroup $activityGroup): JsonResponse
     {
         $this->authorize('update', $activityGroup);
@@ -78,6 +82,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Estado del grupo actualizado correctamente.');
     }
 
+    // Archiva el grupo y su estructura dependiente si no existen movimientos que lo usen.
     public function destroyGroup(CatalogActivityGroup $activityGroup): JsonResponse
     {
         $this->authorize('delete', $activityGroup);
@@ -95,6 +100,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Grupo archivado correctamente.');
     }
 
+    // Crea un subgrupo de actividades enlazado a un grupo existente.
     public function storeSubgroup(CatalogActivitySubgroupStoreRequest $request): JsonResponse
     {
         $this->authorize('create', CatalogActivitySubgroup::class);
@@ -109,6 +115,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Subgrupo creado correctamente.');
     }
 
+    // Actualiza nombre o grupo asociado del subgrupo.
     public function updateSubgroup(CatalogActivitySubgroupUpdateRequest $request, CatalogActivitySubgroup $activitySubgroup): JsonResponse
     {
         $this->authorize('update', $activitySubgroup);
@@ -118,6 +125,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Subgrupo actualizado correctamente.');
     }
 
+    // Cambia el estado del subgrupo y propaga inactivación a sus actividades cuando aplica.
     public function statusSubgroup(Request $request, CatalogActivitySubgroup $activitySubgroup): JsonResponse
     {
         $this->authorize('update', $activitySubgroup);
@@ -140,6 +148,7 @@ class ActivityCatalogController extends Controller
         );
     }
 
+    // Archiva el subgrupo y sus actividades si no hay movimientos asociados.
     public function destroySubgroup(CatalogActivitySubgroup $activitySubgroup): JsonResponse
     {
         $this->authorize('delete', $activitySubgroup);
@@ -156,6 +165,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Subgrupo archivado correctamente. Sus actividades también fueron archivadas.');
     }
 
+    // Crea una actividad dentro del árbol grupo/subgrupo seleccionado.
     public function storeActivity(CatalogActivityStoreRequest $request): JsonResponse
     {
         $this->authorize('create', CatalogActivity::class);
@@ -171,6 +181,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Actividad creada correctamente.');
     }
 
+    // Actualiza los datos básicos de la actividad.
     public function updateActivity(CatalogActivityUpdateRequest $request, CatalogActivity $activity): JsonResponse
     {
         $this->authorize('update', $activity);
@@ -180,6 +191,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Actividad actualizada correctamente.');
     }
 
+    // Cambia el estado operativo de la actividad.
     public function statusActivity(Request $request, CatalogActivity $activity): JsonResponse
     {
         $this->authorize('update', $activity);
@@ -190,6 +202,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Estado de la actividad actualizado correctamente.');
     }
 
+    // Archiva la actividad solo si no participa en compras o gastos vigentes.
     public function destroyActivity(CatalogActivity $activity): JsonResponse
     {
         $this->authorize('delete', $activity);
@@ -204,6 +217,7 @@ class ActivityCatalogController extends Controller
         return $this->catalogResponse('Actividad archivada correctamente.');
     }
 
+    // Construye filtros, tablas y colecciones necesarias para la vista del catálogo.
     protected function viewPayload(Request $request): array
     {
         $authUser = $request->user();
@@ -254,11 +268,13 @@ class ActivityCatalogController extends Controller
         ];
     }
 
+    // Normaliza la respuesta JSON simple usada por las mutaciones del catálogo.
     protected function catalogResponse(string $message): JsonResponse
     {
         return response()->json(['message' => $message]);
     }
 
+    // Expone grupos y subgrupos activos para repoblar selects y filtros en respuestas AJAX.
     protected function catalogCollections(array $payload): array
     {
         return [

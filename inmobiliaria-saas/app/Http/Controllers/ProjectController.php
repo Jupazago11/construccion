@@ -23,6 +23,7 @@ class ProjectController extends Controller
 
     protected const PROJECT_TABLE_LIST_VIEW = 'projects._table_body';
 
+    // Lista proyectos con filtros tenant y soporta vista parcial AJAX en modo tabla o tarjetas.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Project::class);
@@ -59,6 +60,7 @@ class ProjectController extends Controller
         ]);
     }
 
+    // Renderiza el formulario de creación de proyecto en modal AJAX o página completa.
     public function create(Request $request): View|string
     {
         $this->authorize('create', Project::class);
@@ -80,6 +82,7 @@ class ProjectController extends Controller
         ]);
     }
 
+    // Crea un proyecto y devuelve la representación parcial adecuada según el modo de listado.
     public function store(ProjectStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Project::class);
@@ -116,6 +119,7 @@ class ProjectController extends Controller
             ->with('status', 'Proyecto creado correctamente.');
     }
 
+    // Muestra el detalle del proyecto y sirve de puerta de entrada a su estructura.
     public function show(Project $project): View
     {
         $this->authorize('view', $project);
@@ -128,6 +132,7 @@ class ProjectController extends Controller
         ]);
     }
 
+    // Renderiza el formulario de edición de proyecto en modal AJAX o página completa.
     public function edit(Request $request, Project $project): View|string
     {
         $this->authorize('update', $project);
@@ -149,6 +154,7 @@ class ProjectController extends Controller
         ]);
     }
 
+    // Actualiza los datos básicos del proyecto sin tocar su estructura presupuestal.
     public function update(ProjectUpdateRequest $request, Project $project): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $project);
@@ -185,6 +191,7 @@ class ProjectController extends Controller
             ->with('status', 'Proyecto actualizado correctamente.');
     }
 
+    // Renderiza un formulario liviano para editar solo fechas del proyecto.
     public function editDate(Request $request, Project $project): string
     {
         $this->authorize('update', $project);
@@ -195,6 +202,7 @@ class ProjectController extends Controller
         ])->render();
     }
 
+    // Actualiza la fecha del proyecto sin pasar por el formulario completo.
     public function updateDate(Request $request, Project $project): JsonResponse
     {
         $this->authorize('update', $project);
@@ -216,6 +224,7 @@ class ProjectController extends Controller
         ]);
     }
 
+    // Cambia el estado operativo del proyecto, lo que impacta flujos de estructura y transacciones.
     public function updateStatus(Request $request, Project $project): JsonResponse
     {
         $this->authorize('update', $project);
@@ -238,6 +247,7 @@ class ProjectController extends Controller
         ]);
     }
 
+    // Archiva el proyecto solo si no tiene dependencias activas incompatibles.
     public function destroy(Request $request, Project $project): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $project);
@@ -268,6 +278,7 @@ class ProjectController extends Controller
             ->with('status', 'Proyecto archivado correctamente.');
     }
 
+    // Devuelve empresas disponibles para formularios según el alcance del usuario autenticado.
     protected function companiesForForm($authUser)
     {
         if ($authUser->isSuperAdmin()) {
@@ -282,6 +293,7 @@ class ProjectController extends Controller
             ->get();
     }
 
+    // Resuelve la vista parcial de una sola fila o tarjeta según el modo de listado actual.
     protected function projectListPartial(Request $request): string
     {
         return $request->user()?->isSuperAdmin()
@@ -289,6 +301,7 @@ class ProjectController extends Controller
             : self::PROJECT_CARD_VIEW;
     }
 
+    // Resuelve el contenedor parcial completo para refrescar la lista de proyectos por AJAX.
     protected function projectListContainerPartial(Request $request): string
     {
         return $request->user()?->isSuperAdmin()
@@ -296,6 +309,7 @@ class ProjectController extends Controller
             : self::PROJECT_CARD_LIST_VIEW;
     }
 
+    // Construye la query base del índice con filtros de búsqueda, estado y tenant.
     protected function buildIndexQuery(Request $request, ?int $companyId, string $search, string $status)
     {
         return Project::query()
@@ -318,12 +332,14 @@ class ProjectController extends Controller
             ->when($status !== '', fn ($query) => $query->where('status', $status));
     }
 
+    // Determina si el proyecto conserva relaciones activas que impiden archivarlo.
     protected function projectHasDependencies(Project $project): bool
     {
         return $project->categories()->where('status', '!=', EntityStatus::Deleted->value)->exists()
             || $project->expenses()->where('status', '!=', EntityStatus::Deleted->value)->exists();
     }
 
+    // Precarga relaciones usadas por los parciales de listado para evitar consultas repetidas.
     protected function loadProjectListRelations(Project $project): void
     {
         $project->load('company');

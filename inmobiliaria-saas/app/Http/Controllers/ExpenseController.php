@@ -21,6 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 class ExpenseController extends Controller
 {
+    // Lista gastos con filtros tenant y puede responder tabla/paginación parcial vía AJAX.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Expense::class);
@@ -67,6 +68,7 @@ class ExpenseController extends Controller
         ]);
     }
 
+    // Renderiza el modal de creación de gasto desde la vista principal.
     public function create(Request $request): View|string|RedirectResponse
     {
         $this->authorize('create', Expense::class);
@@ -92,6 +94,7 @@ class ExpenseController extends Controller
             ->with('status', 'La creación de gastos se realiza desde la vista principal.');
     }
 
+    // Crea un gasto, valida consistencia del proyecto y recalcula la factura asociada si existe.
     public function store(ExpenseStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Expense::class);
@@ -147,6 +150,7 @@ class ExpenseController extends Controller
             ->with('status', 'Gasto creado correctamente.');
     }
 
+    // Renderiza el modal de edición de un gasto existente.
     public function edit(Request $request, Expense $expense): View|string|RedirectResponse
     {
         $this->authorize('update', $expense);
@@ -165,6 +169,7 @@ class ExpenseController extends Controller
             ->with('status', 'La edición de gastos se realiza desde la vista principal.');
     }
 
+    // Actualiza un gasto y sincroniza el total de la factura anterior o actual cuando cambia el enlace.
     public function update(ExpenseUpdateRequest $request, Expense $expense): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $expense);
@@ -221,6 +226,7 @@ class ExpenseController extends Controller
             ->with('status', 'Gasto actualizado correctamente.');
     }
 
+    // Cambia el estado del gasto y refresca el total de la factura asociada.
     public function updateStatus(Request $request, Expense $expense): JsonResponse
     {
         $this->authorize('update', $expense);
@@ -245,6 +251,7 @@ class ExpenseController extends Controller
         ]);
     }
 
+    // Archiva el gasto y limpia su impacto sobre la factura relacionada.
     public function destroy(Request $request, Expense $expense): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $expense);
@@ -278,6 +285,7 @@ class ExpenseController extends Controller
             ->with('status', 'Gasto archivado correctamente.');
     }
 
+    // Arma las colecciones necesarias para los formularios de gasto en modales AJAX.
     protected function formPayload($authUser, ?Expense $expense = null, ?int $preferredProjectId = null): array
     {
         $currentProjectId = $expense?->project_id ?? $preferredProjectId;
@@ -329,6 +337,7 @@ class ExpenseController extends Controller
         ];
     }
 
+    // Recompone la tabla principal de gastos usando los filtros actuales del request.
     protected function tableHtml(Request $request): string
     {
         $authUser = $request->user();
@@ -353,6 +362,7 @@ class ExpenseController extends Controller
         return view('expenses._table_body', compact('expenses'))->render();
     }
 
+    // Construye la query base del índice con relaciones y filtros de búsqueda.
     protected function buildIndexQuery(
         Request $request,
         ?int $companyId,
@@ -396,6 +406,7 @@ class ExpenseController extends Controller
             ->when($dateTo !== '', fn ($query) => $query->whereDate('expense_date', '<=', $dateTo));
     }
 
+    // Devuelve proyectos visibles para el usuario y filtros generales de la pantalla.
     protected function availableProjects($authUser, ?int $companyId = null)
     {
         return Project::query()
@@ -409,6 +420,7 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    // Devuelve proyectos habilitados para crear o editar gastos, incluso manteniendo el actual si está bloqueado.
     protected function availableProjectsForExpenses($authUser, ?int $companyId = null, ?int $currentProjectId = null)
     {
         return Project::query()
@@ -429,6 +441,7 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    // Devuelve proveedores disponibles para el contexto del usuario actual.
     protected function availableProviders($authUser)
     {
         return Provider2::query()
@@ -438,6 +451,7 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    // Devuelve productos activos disponibles para asociar al gasto.
     protected function availableProducts($authUser)
     {
         return Product::query()
@@ -448,6 +462,7 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    // Devuelve actividades activas disponibles para asociar al gasto.
     protected function availableActivities($authUser)
     {
         return CatalogActivity::query()
@@ -458,6 +473,7 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    // Devuelve facturas abiertas o relacionadas con el registro actual para selección en formularios.
     protected function availableInvoices($authUser, string $type)
     {
         return Invoice::query()
@@ -469,6 +485,7 @@ class ExpenseController extends Controller
             ->get();
     }
 
+    // Impide crear o editar movimientos sobre proyectos cerrados o no editables.
     protected function guardProjectStateForMutations(Project $project, ?Expense $expense = null): void
     {
         if (in_array($project->status, ['planning', 'active'], true)) {
@@ -486,6 +503,7 @@ class ExpenseController extends Controller
         ]);
     }
 
+    // Garantiza que producto o actividad pertenezcan a la misma empresa del proyecto.
     protected function guardTransactionCatalog(array $data, Project $project): void
     {
         if (! $project->company->providers2()
@@ -530,6 +548,7 @@ class ExpenseController extends Controller
         }
     }
 
+    // Recalcula el total acumulado de una factura a partir de sus movimientos activos.
     protected function refreshInvoiceTotal(?int $invoiceId): void
     {
         if (! $invoiceId) {
@@ -546,6 +565,7 @@ class ExpenseController extends Controller
             ]);
     }
 
+    // Renderiza el detalle HTML de la factura para refrescos parciales desde gastos.
     protected function invoiceDetailHtml(?int $invoiceId): ?string
     {
         if (! $invoiceId) {
@@ -578,6 +598,7 @@ class ExpenseController extends Controller
         ])->render();
     }
 
+    // Centraliza el cálculo de total para mantener consistencia si cambian impuestos o descuentos.
     protected function calculateTotal(float $subtotal, float $tax, float $discount): float
     {
         $total = $subtotal + $tax - $discount;

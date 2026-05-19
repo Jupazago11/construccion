@@ -12,6 +12,7 @@ class EmailVerificationPromptController extends Controller
     /**
      * Display the email verification prompt.
      */
+    // Muestra el aviso de verificación solo si el usuario aún no confirmó su correo.
     public function __invoke(Request $request): RedirectResponse|View
     {
         return $request->user()->hasVerifiedEmail()

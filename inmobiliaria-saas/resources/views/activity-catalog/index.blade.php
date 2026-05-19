@@ -6,6 +6,7 @@
 <x-app-layout
     x-data="activityCatalog({
         companyId: {{ \Illuminate\Support\Js::from($filters['company_id']) }},
+        isSuperAdmin: {{ auth()->user()->isSuperAdmin() ? 'true' : 'false' }},
         urls: {
             groupStore: '{{ route('activity-catalog.groups.store', [], false) }}',
             groupUpdate: '{{ route('activity-catalog.groups.update', ['activityGroup' => '__ID__'], false) }}',
@@ -20,6 +21,8 @@
             activityStatus: '{{ route('activity-catalog.activities.status', ['activity' => '__ID__'], false) }}',
             activityDestroy: '{{ route('activity-catalog.activities.destroy', ['activity' => '__ID__'], false) }}'
         },
+        visibilityStorageKey: 'activity-catalog-table-visibility',
+        tableVisibilityDefaults: { groups: true, subgroups: true, activities: true },
         filterGroupId: {{ \Illuminate\Support\Js::from($filters['group_id'] ? (string) $filters['group_id'] : '') }},
         filterSubgroupId: {{ \Illuminate\Support\Js::from($filters['subgroup_id'] ? (string) $filters['subgroup_id'] : '') }},
         groups: {{ \Illuminate\Support\Js::from($activeGroups->map(fn ($g) => ['id' => $g->id, 'name' => $g->name, 'company_id' => $g->company_id])->values()) }},
@@ -36,6 +39,28 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+            @if (auth()->user()->isSuperAdmin())
+                <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                    <div class="border-b border-stone-200 px-5 py-4">
+                        <h2 class="text-sm font-semibold text-stone-900">Visibilidad de tablas</h2>
+                    </div>
+                    <div class="grid gap-3 px-5 py-4 sm:grid-cols-3">
+                        <label class="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                            <input type="checkbox" class="rounded border-stone-300 text-stone-900 focus:ring-stone-900" x-model="tableVisibility.groups" x-on:change="persistTableVisibility()">
+                            <span>Grupos</span>
+                        </label>
+                        <label class="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                            <input type="checkbox" class="rounded border-stone-300 text-stone-900 focus:ring-stone-900" x-model="tableVisibility.subgroups" x-on:change="persistTableVisibility()">
+                            <span>Subgrupos</span>
+                        </label>
+                        <label class="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                            <input type="checkbox" class="rounded border-stone-300 text-stone-900 focus:ring-stone-900" x-model="tableVisibility.activities" x-on:change="persistTableVisibility()">
+                            <span>Actividades</span>
+                        </label>
+                    </div>
+                </section>
+            @endif
+
             <section
                 class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm"
             >
@@ -138,7 +163,7 @@
                 </form>
             </section>
 
-            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <section x-show="tableVisibility.groups" x-cloak class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
                     <h2 class="text-sm font-semibold text-stone-900">
                         Grupos
@@ -148,7 +173,7 @@
                 <div class="overflow-x-auto" x-ref="groupsTable">@include('activity-catalog._groups_table')</div>
             </section>
 
-            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <section x-show="tableVisibility.subgroups" x-cloak class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
                     <h2 class="text-sm font-semibold text-stone-900">
                         Subgrupos
@@ -158,7 +183,7 @@
                 <div class="overflow-x-auto" x-ref="subgroupsTable">@include('activity-catalog._subgroups_table')</div>
             </section>
 
-            <section class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <section x-show="tableVisibility.activities" x-cloak class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4">
                     <h2 class="text-sm font-semibold text-stone-900">
                         Actividades

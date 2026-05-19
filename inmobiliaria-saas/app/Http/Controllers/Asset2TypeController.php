@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 
 class Asset2TypeController extends Controller
 {
+    // Lista los tipos de activos 2 activos de la empresa en formato JSON para poblar tablas y selects.
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Asset2::class);
@@ -20,6 +21,7 @@ class Asset2TypeController extends Controller
         return response()->json($this->typesPayload($companyId));
     }
 
+    // Crea un nuevo tipo de activo 2 y devuelve el payload actualizado para refrescar la UI sin recargar.
     public function store(Asset2TypeStoreRequest $request): JsonResponse
     {
         $this->authorize('create', Asset2::class);
@@ -40,6 +42,7 @@ class Asset2TypeController extends Controller
         ]);
     }
 
+    // Actualiza un tipo existente validando que pertenezca a la empresa seleccionada.
     public function update(Asset2TypeStoreRequest $request, Asset2Type $asset2Type): JsonResponse
     {
         $this->authorize('update', $asset2Type);
@@ -60,6 +63,7 @@ class Asset2TypeController extends Controller
         ]);
     }
 
+    // Archiva el tipo cuando no tiene activos 2 activos relacionados.
     public function destroy(Request $request, Asset2Type $asset2Type): JsonResponse
     {
         $this->authorize('delete', $asset2Type);
@@ -83,6 +87,7 @@ class Asset2TypeController extends Controller
         ]);
     }
 
+    // Resuelve la empresa objetivo; el superadmin debe enviarla explícitamente y el resto usa su propia empresa.
     protected function resolveCompanyId(Request $request): int
     {
         if (! $request->user()->isSuperAdmin()) {
@@ -95,6 +100,7 @@ class Asset2TypeController extends Controller
         return $companyId;
     }
 
+    // Construye la respuesta reutilizable para tablas y opciones del modal de activos 2.
     protected function typesPayload(int $companyId): array
     {
         $types = Asset2Type::query()

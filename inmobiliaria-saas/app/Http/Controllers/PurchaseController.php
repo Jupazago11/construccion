@@ -22,6 +22,7 @@ use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
 {
+    // Lista compras con filtros tenant y puede responder tabla/paginación parcial vía AJAX.
     public function index(Request $request): View|JsonResponse
     {
         $this->authorize('viewAny', Purchase::class);
@@ -68,6 +69,7 @@ class PurchaseController extends Controller
         ]);
     }
 
+    // Renderiza el modal de creación de compra desde la vista principal.
     public function create(Request $request): View|string|RedirectResponse
     {
         $this->authorize('create', Purchase::class);
@@ -89,6 +91,7 @@ class PurchaseController extends Controller
         return redirect()->route('purchases.index');
     }
 
+    // Crea una compra, valida consistencia del proyecto y recalcula la factura asociada si existe.
     public function store(PurchaseStoreRequest $request): RedirectResponse|JsonResponse
     {
         $this->authorize('create', Purchase::class);
@@ -136,6 +139,7 @@ class PurchaseController extends Controller
         return redirect()->route('purchases.index')->with('status', 'Compra creada correctamente.');
     }
 
+    // Renderiza el modal de edición de una compra existente.
     public function edit(Request $request, Purchase $purchase): View|string|RedirectResponse
     {
         $this->authorize('update', $purchase);
@@ -152,6 +156,7 @@ class PurchaseController extends Controller
         return redirect()->route('purchases.index');
     }
 
+    // Actualiza una compra y sincroniza el total de la factura anterior o actual cuando cambia el enlace.
     public function update(PurchaseUpdateRequest $request, Purchase $purchase): RedirectResponse|JsonResponse
     {
         $this->authorize('update', $purchase);
@@ -198,6 +203,7 @@ class PurchaseController extends Controller
         return redirect()->route('purchases.index')->with('status', 'Compra actualizada correctamente.');
     }
 
+    // Cambia el estado de la compra y refresca el total de la factura asociada.
     public function updateStatus(Request $request, Purchase $purchase): JsonResponse
     {
         $this->authorize('update', $purchase);
@@ -219,6 +225,7 @@ class PurchaseController extends Controller
         ]);
     }
 
+    // Archiva la compra y limpia su impacto sobre la factura relacionada.
     public function destroy(Request $request, Purchase $purchase): JsonResponse|RedirectResponse
     {
         $this->authorize('delete', $purchase);
@@ -237,6 +244,7 @@ class PurchaseController extends Controller
         return redirect()->route('purchases.index')->with('status', 'Compra archivada correctamente.');
     }
 
+    // Arma las colecciones necesarias para los formularios de compra en modales AJAX.
     protected function formPayload($authUser, ?Purchase $purchase = null, ?int $preferredProjectId = null): array
     {
         $currentProjectId = $purchase?->project_id ?? $preferredProjectId;
@@ -279,6 +287,7 @@ class PurchaseController extends Controller
         ];
     }
 
+    // Recompone la tabla principal de compras usando los filtros actuales del request.
     protected function tableHtml(Request $request): string
     {
         $authUser = $request->user();
@@ -304,6 +313,7 @@ class PurchaseController extends Controller
         return view('purchases._table_body', compact('purchases'))->render();
     }
 
+    // Construye la query base del índice con relaciones y filtros de búsqueda.
     protected function buildIndexQuery(
         Request $request,
         ?int $companyId,
@@ -346,6 +356,7 @@ class PurchaseController extends Controller
             ->when($dateTo !== '', fn ($query) => $query->whereDate('purchase_date', '<=', $dateTo));
     }
 
+    // Devuelve proyectos visibles para el usuario y filtros generales de la pantalla.
     protected function availableProjectsForTransactions($authUser, ?int $companyId = null, ?int $currentProjectId = null)
     {
         return Project::query()
@@ -365,6 +376,7 @@ class PurchaseController extends Controller
             ->get();
     }
 
+    // Devuelve proveedores disponibles para el contexto del usuario actual.
     protected function availableProviders($authUser)
     {
         return Provider2::query()
@@ -374,6 +386,7 @@ class PurchaseController extends Controller
             ->get();
     }
 
+    // Devuelve productos activos disponibles para asociar a la compra.
     protected function availableProducts($authUser)
     {
         return Product::query()
@@ -384,6 +397,7 @@ class PurchaseController extends Controller
             ->get();
     }
 
+    // Devuelve actividades activas disponibles para asociar a la compra.
     protected function availableActivities($authUser)
     {
         return CatalogActivity::query()
@@ -394,6 +408,7 @@ class PurchaseController extends Controller
             ->get();
     }
 
+    // Devuelve facturas abiertas o relacionadas con el registro actual para selección en formularios.
     protected function availableInvoices($authUser, string $type)
     {
         return Invoice::query()
@@ -405,6 +420,7 @@ class PurchaseController extends Controller
             ->get();
     }
 
+    // Impide crear o editar movimientos sobre proyectos cerrados o no editables.
     protected function guardProjectStateForMutations(Project $project, ?Purchase $purchase = null): void
     {
         if (in_array($project->status, ['planning', 'active'], true)) {
@@ -418,6 +434,7 @@ class PurchaseController extends Controller
         throw ValidationException::withMessages(['project_id' => 'No puedes registrar compras en un proyecto pausado, completado, cancelado o archivado.']);
     }
 
+    // Garantiza que producto o actividad pertenezcan a la misma empresa del proyecto.
     protected function guardTransactionCatalog(array $data, Project $project): void
     {
         if (! $project->company->providers2()->whereKey($data['provider_id'])->where('status', EntityStatus::Active->value)->exists()) {
@@ -445,6 +462,7 @@ class PurchaseController extends Controller
         }
     }
 
+    // Recalcula el total acumulado de una factura a partir de sus movimientos activos.
     protected function refreshInvoiceTotal(?int $invoiceId): void
     {
         if (! $invoiceId) {
@@ -461,6 +479,7 @@ class PurchaseController extends Controller
             ]);
     }
 
+    // Renderiza el detalle HTML de la factura para refrescos parciales desde compras.
     protected function invoiceDetailHtml(?int $invoiceId): ?string
     {
         if (! $invoiceId) {

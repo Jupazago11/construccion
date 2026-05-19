@@ -14,6 +14,7 @@ class ConfirmablePasswordController extends Controller
     /**
      * Show the confirm password view.
      */
+    // Muestra la vista para reconfirmar la contraseña antes de acciones sensibles.
     public function show(): View
     {
         return view('auth.confirm-password');
@@ -22,6 +23,7 @@ class ConfirmablePasswordController extends Controller
     /**
      * Confirm the user's password.
      */
+    // Valida nuevamente la contraseña actual y guarda la marca temporal de confirmación.
     public function store(Request $request): RedirectResponse
     {
         if (! Auth::guard('web')->validate([

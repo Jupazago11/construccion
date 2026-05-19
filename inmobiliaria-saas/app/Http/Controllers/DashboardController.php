@@ -12,6 +12,7 @@ use Illuminate\Contracts\View\View;
 
 class DashboardController extends Controller
 {
+    // Muestra el dashboard exclusivo del superadmin y redirige al resto de roles a su home operativo.
     public function __invoke(): View|RedirectResponse
     {
         $user = auth()->user();
@@ -30,6 +31,7 @@ class DashboardController extends Controller
         ]);
     }
 
+    // Reúne los indicadores globales visibles en el tablero de administración general.
     protected function superAdminStats(): array
     {
         return [
@@ -42,6 +44,7 @@ class DashboardController extends Controller
         ];
     }
 
+    // Conserva una variante de métricas por empresa para futuras vistas tenant-específicas.
     protected function companyStats(?int $companyId): array
     {
         return [

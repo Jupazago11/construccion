@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    // Construye el tablero analítico de gastos o compras con filtros por empresa, proyecto y rango de fechas.
     public function index(Request $request): View|Response
     {
         $user = $request->user();

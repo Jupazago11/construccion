@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class ExpenseAttachmentController extends Controller
 {
+    // Muestra el repositorio de adjuntos del gasto con sus relaciones principales cargadas.
     public function index(Expense $expense): View
     {
         $this->authorize('view', $expense);
@@ -24,6 +25,7 @@ class ExpenseAttachmentController extends Controller
         ]);
     }
 
+    // Carga uno o varios archivos al gasto y devuelve la lista actualizada de adjuntos.
     public function store(ExpenseAttachmentStoreRequest $request, Expense $expense): JsonResponse|RedirectResponse
     {
         $this->authorize('view', $expense);
@@ -66,6 +68,7 @@ class ExpenseAttachmentController extends Controller
         return $this->attachmentResponse($expense, 'Archivos cargados correctamente.');
     }
 
+    // Descarga un adjunto validando que pertenezca al gasto solicitado.
     public function download(Expense $expense, ExpenseAttachment $attachment)
     {
         $this->authorize('view', $expense);
@@ -78,6 +81,7 @@ class ExpenseAttachmentController extends Controller
         );
     }
 
+    // Sirve una vista previa inline del adjunto cuando el navegador puede renderizarlo.
     public function preview(Expense $expense, ExpenseAttachment $attachment)
     {
         $this->authorize('view', $expense);
@@ -108,6 +112,7 @@ class ExpenseAttachmentController extends Controller
         }, 200, $headers);
     }
 
+    // Archiva un adjunto del gasto y recompone el listado parcial renderizado.
     public function destroy(Expense $expense, ExpenseAttachment $attachment): JsonResponse|RedirectResponse
     {
         $this->authorize('view', $expense);
@@ -131,6 +136,7 @@ class ExpenseAttachmentController extends Controller
         return $this->attachmentResponse($expense, 'Archivo archivado correctamente.');
     }
 
+    // Construye la respuesta AJAX estándar con el HTML actualizado del listado de adjuntos.
     protected function attachmentResponse(Expense $expense, string $message): JsonResponse
     {
         $loadedExpense = $this->loadExpenseAttachments($expense->fresh());
@@ -143,6 +149,7 @@ class ExpenseAttachmentController extends Controller
         ]);
     }
 
+    // Carga las relaciones necesarias para la vista de adjuntos del gasto.
     protected function loadExpenseAttachments(Expense $expense): Expense
     {
         return $expense->load([
@@ -159,11 +166,13 @@ class ExpenseAttachmentController extends Controller
         ]);
     }
 
+    // Impide operar sobre archivos que pertenecen a otro gasto.
     protected function guardAttachmentBelongsToExpense(Expense $expense, ExpenseAttachment $attachment): void
     {
         abort_unless($attachment->expense_id === $expense->id, 404);
     }
 
+    // Define la carpeta de almacenamiento de adjuntos segmentada por empresa, proyecto y gasto.
     protected function storageDirectory(Expense $expense): string
     {
         return collect([
@@ -178,6 +187,7 @@ class ExpenseAttachmentController extends Controller
         ])->filter(fn ($segment) => $segment !== null && $segment !== '')->implode('/');
     }
 
+    // Normaliza rutas con y sin prefijo para mantener legibilidad sobre R2.
     protected function readableStoragePath($disk, string $path): string
     {
         if ($disk->exists($path)) {
@@ -195,6 +205,7 @@ class ExpenseAttachmentController extends Controller
         return $disk->exists($prefixedPath) ? $prefixedPath : $path;
     }
 
+    // Bloquea la carga de adjuntos cuando el proyecto del gasto ya no está en ejecución editable.
     protected function guardProjectState(Expense $expense): void
     {
         if (in_array($expense->project?->status, ['planning', 'active'], true)) {
