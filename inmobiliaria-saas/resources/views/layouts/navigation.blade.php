@@ -54,7 +54,7 @@
                     @if (Auth::user()->can('viewAny', App\Models\User::class) || Auth::user()->can('viewAny', App\Models\Asset::class) || Auth::user()->can('viewAny', App\Models\Asset2::class) || Auth::user()->can('viewAny', App\Models\Provider::class) || Auth::user()->can('viewAny', App\Models\ProductGroup::class))
                         <x-dropdown align="left" width="56">
                             <x-slot name="trigger">
-                                <button class="inline-flex items-center gap-1 border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none {{ request()->routeIs('users.*', 'assets.*', 'assets2.*', 'providers.*', 'product-catalog.*', 'activity-catalog.*') ? 'border-sky-500 text-stone-900' : 'border-transparent text-stone-500 hover:border-stone-300 hover:text-stone-700' }}">
+                                <button class="inline-flex items-center gap-1 border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none {{ request()->routeIs('users.*', 'assets.*', 'assets2.*', 'providers.*', 'providers2.*', 'product-catalog.*', 'activity-catalog.*') ? 'border-sky-500 text-stone-900' : 'border-transparent text-stone-500 hover:border-stone-300 hover:text-stone-700' }}">
                                     Maestras
                                     <svg class="h-4 w-4 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                                 </button>
@@ -77,13 +77,8 @@
                         </x-dropdown>
                     @endif
                     @can('viewAny', App\Models\Expense::class)
-                        <x-nav-link :href="$navUrl('expenses.index')" :active="request()->routeIs('expenses.*')">
+                        <x-nav-link :href="$navUrl('gastos2.index')" :active="request()->routeIs('gastos2.*') || request()->routeIs('invoices.*')">
                             Gastos
-                        </x-nav-link>
-                    @endcan
-                    @can('viewAny', App\Models\Purchase::class)
-                        <x-nav-link :href="$navUrl('purchases.index')" :active="request()->routeIs('purchases.*')">
-                            Compras
                         </x-nav-link>
                     @endcan
                     @can('reports.view')
@@ -264,20 +259,11 @@
             @endif
 
             @can('viewAny', App\Models\Expense::class)
-                <a href="{{ $navUrl('expenses.index') }}" class="mobile-nav-item {{ request()->routeIs('expenses.*') ? 'mobile-nav-item--active' : '' }}">
+                <a href="{{ $navUrl('gastos2.index') }}" class="mobile-nav-item {{ request()->routeIs('gastos2.*') || request()->routeIs('invoices.*') ? 'mobile-nav-item--active' : '' }}">
                     <span class="mobile-nav-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21l-7-7-7 7V5a2 2 0 012-2h10a2 2 0 012 2v16z" /></svg>
                     </span>
                     <span>Gastos</span>
-                </a>
-            @endcan
-
-            @can('viewAny', App\Models\Purchase::class)
-                <a href="{{ $navUrl('purchases.index') }}" class="mobile-nav-item {{ request()->routeIs('purchases.*') ? 'mobile-nav-item--active' : '' }}">
-                    <span class="mobile-nav-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                    </span>
-                    <span>Compras</span>
                 </a>
             @endcan
 
