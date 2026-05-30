@@ -69,24 +69,13 @@
                 @endif
 
                 @can('viewAny', App\Models\Expense::class)
-                <a href="{{ $navUrl('expenses.index') }}" class="home-card group">
+                <a href="{{ $navUrl('gastos2.index') }}" class="home-card group">
                     <div class="home-card-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21l-7-7-7 7V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
                         </svg>
                     </div>
                     <span class="home-card-label">Gastos</span>
-                </a>
-                @endcan
-
-                @can('viewAny', App\Models\Purchase::class)
-                <a href="{{ $navUrl('purchases.index') }}" class="home-card group">
-                    <div class="home-card-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </div>
-                    <span class="home-card-label">Compras</span>
                 </a>
                 @endcan
 

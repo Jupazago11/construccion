@@ -22,16 +22,54 @@ class AssetDemoSeeder extends Seeder
         }
 
         $creator = User::query()->where('username', 'camilomorales')->first();
-        $assetTypes = [
-            'tool' => AssetType::query()->updateOrCreate(
-                ['company_id' => $company->id, 'name' => 'Herramienta'],
-                ['status' => EntityStatus::Active->value]
-            ),
-            'equipment' => AssetType::query()->updateOrCreate(
-                ['company_id' => $company->id, 'name' => 'Equipo'],
-                ['status' => EntityStatus::Active->value]
-            ),
+        $typeNames = [
+            'Maquinaria pesada',
+            'Maquinaria liviana',
+            'Equipo eléctrico',
+            'Equipo de medición',
+            'Equipo de seguridad colectiva',
+            'Herramienta eléctrica',
+            'Herramienta manual',
+            'Herramienta de corte',
+            'Herramienta de elevación',
+            'Equipo de soldadura',
+            'Equipo de compactación',
+            'Equipo de bombeo',
+            'Equipo de comunicación',
+            'Equipo de cómputo',
+            'Equipo de topografía',
+            'Vehículo de carga',
+            'Vehículo liviano',
+            'Moto de obra',
+            'Andamio y cimbra',
+            'Formaleta y encofrado',
+            'Estructura temporal',
+            'Bodega y almacén',
+            'Oficina de obra',
+            'Baño portátil',
+            'Cerramiento y señalización',
+            'Planta eléctrica',
+            'Tablero eléctrico temporal',
+            'Extintor',
+            'Botiquín y primeros auxilios',
+            'Arnés y EPP colectivo',
+            'Carretilla y transporte manual',
+            'Compresor de aire',
+            'Generador eléctrico',
+            'Equipo de pintura',
+            'Mobiliario de obra',
         ];
+
+        $assetTypes = [];
+        foreach ($typeNames as $typeName) {
+            $assetTypes[$typeName] = AssetType::query()->updateOrCreate(
+                ['company_id' => $company->id, 'name' => $typeName],
+                ['status' => EntityStatus::Active->value]
+            );
+        }
+
+        $assetTypes['tool'] = $assetTypes['Herramienta manual'];
+        $assetTypes['equipment'] = $assetTypes['Maquinaria liviana'];
         $maintenanceType = AssetNoveltyType::query()->updateOrCreate(
             ['company_id' => $company->id, 'name' => 'Mantenimiento'],
             ['adds_value' => false, 'status' => EntityStatus::Active->value]

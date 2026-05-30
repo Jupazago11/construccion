@@ -111,19 +111,12 @@
         @endif
 
         <div class="mt-auto grid gap-2 px-5 py-4">
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-1 gap-2">
                 <a
-                    href="{{ route('expenses.index', ['project_id' => $project->id]) }}"
+                    href="{{ route('gastos2.index', ['project_id' => $project->id]) }}"
                     class="inline-flex min-w-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-800 transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-900"
                 >
                     Gastos
-                </a>
-
-                <a
-                    href="{{ route('purchases.index', ['project_id' => $project->id]) }}"
-                    class="inline-flex min-w-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 hover:text-sky-900"
-                >
-                    Compras
                 </a>
             </div>
         </div>

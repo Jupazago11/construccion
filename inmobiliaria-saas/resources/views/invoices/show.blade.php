@@ -13,9 +13,9 @@
         <div class="flex items-center gap-3">
             <a href="{{ $backUrl }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-stone-200 px-3 py-2 text-sm font-medium text-stone-600 transition hover:bg-stone-50 hover:text-stone-900">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" /></svg>
-                {{ $isPurchase ? 'Compras' : 'Gastos' }}
+                Gastos
             </a>
-            <span class="text-sm text-stone-400">{{ $isPurchase ? 'Factura de compras' : 'Factura de gastos' }}</span>
+            <span class="text-sm text-stone-400">Factura</span>
             <button
                 type="button"
                 data-action="invoice-status"
@@ -240,7 +240,7 @@
                                                 type="button"
                                                 data-item-delete
                                                 class="rounded-xl border border-rose-200 p-1.5 text-rose-600 transition hover:bg-rose-50"
-                                                title="{{ $isPurchase ? 'Archivar compra' : 'Archivar gasto' }}"
+                                                title="Archivar ítem"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.366-.446.911-.699 1.486-.699h.514c.575 0 1.12.253 1.486.699L12.85 4H16a1 1 0 110 2h-1l-.867 10.142A2 2 0 0112.14 18H7.86a2 2 0 01-1.993-1.858L5 6H4a1 1 0 010-2h3.15l1.107-.901zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                             </button>
@@ -250,9 +250,9 @@
                             @empty
                                 <tr>
                                     <td colspan="{{ $isOpen ? 5 : 4 }}" class="px-6 py-10 text-center text-stone-400 sm:px-8">
-                                        Sin {{ $typeLabel }} registrados.
+                                        Sin ítems registrados.
                                         @if ($isOpen)
-                                            <span class="mt-1 block text-xs">Usa el boton <strong>+ Agregar</strong> para anadir el primero.</span>
+                                            <span class="mt-1 block text-xs">Usa el botón <strong>+</strong> para añadir el primero.</span>
                                         @endif
                                     </td>
                                 </tr>

@@ -26,16 +26,8 @@
                         x-transition:leave="transition ease-in duration-[613ms]"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 -translate-y-2"
-                        class="grid gap-4 md:grid-cols-[180px_220px_220px_180px_180px_auto]"
+                        class="grid gap-4 md:grid-cols-[220px_220px_180px_180px_auto]"
                     >
-                        <div>
-                            <x-input-label for="report_type" :value="'Indicadores'" />
-                            <select id="report_type" name="report_type" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
-                                <option value="expense" @selected($filters['report_type'] === 'expense')>Gastos</option>
-                                <option value="purchase" @selected($filters['report_type'] === 'purchase')>Compras</option>
-                            </select>
-                        </div>
-
                         @if (auth()->user()->isSuperAdmin())
                             <div>
                                 <x-input-label for="company_id" :value="'Empresa'" />
@@ -215,7 +207,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const filterForm = document.getElementById('reports-filter-form');
-            const reportTypeSelect = document.getElementById('report_type');
             const projectSelect = document.getElementById('project_id');
             const dateFromInput = document.getElementById('date_from');
             const dateToInput = document.getElementById('date_to');
@@ -242,15 +233,6 @@
                 if (applyProjectDateRange(projectSelect.value) && filterForm) {
                     filterForm.submit();
                 }
-            });
-
-            reportTypeSelect?.addEventListener('change', () => {
-                if (applyProjectDateRange(projectSelect?.value) && filterForm) {
-                    filterForm.submit();
-                    return;
-                }
-
-                filterForm?.submit();
             });
 
             if (!hasSelectedProject || typeof Chart === 'undefined') {

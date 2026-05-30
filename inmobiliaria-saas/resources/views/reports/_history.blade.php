@@ -4,7 +4,7 @@
             <tr>
                 <th class="px-4 py-3 font-medium">Fecha</th>
                 <th class="px-4 py-3 font-medium">Proyecto</th>
-                <th class="px-4 py-3 font-medium">Clasificación</th>
+                <th class="px-4 py-3 font-medium">Ítem</th>
                 <th class="px-4 py-3 font-medium">Proveedor</th>
                 <th class="px-4 py-3 font-medium">Total</th>
             </tr>
@@ -12,18 +12,18 @@
         <tbody class="divide-y divide-stone-100">
             @forelse ($history as $movement)
                 <tr>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ ($reportType ?? 'expense') === 'purchase' ? $movement->purchase_date?->format('Y-m-d') : $movement->expense_date?->format('Y-m-d') }}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->project?->name }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->movement_date ? \Illuminate\Support\Carbon::parse($movement->movement_date)->format('Y-m-d') : '—' }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->project_name ?: '—' }}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-600">
-                        <div>{{ $movement->product?->name ?: 'Sin producto' }}</div>
-                        @if ($movement->product?->group)
-                            <div class="text-xs text-stone-500">{{ $movement->product->group->name }}</div>
+                        <div>{{ $movement->item_name }}</div>
+                        @if ($movement->group_name)
+                            <div class="text-xs text-stone-500">{{ $movement->group_name }}</div>
                         @endif
-                        @if ($movement->product?->subgroup)
-                            <div class="text-xs text-stone-500">{{ $movement->product->subgroup->name }}</div>
+                        @if ($movement->subgroup_name)
+                            <div class="text-xs text-stone-500">{{ $movement->subgroup_name }}</div>
                         @endif
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->provider?->name ?: 'Sin proveedor' }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $movement->provider_name ?: '—' }}</td>
                     <td class="whitespace-nowrap px-4 py-3 text-stone-900">$ {{ number_format((float) $movement->total_amount, 0, ',', '.') }}</td>
                 </tr>
             @empty

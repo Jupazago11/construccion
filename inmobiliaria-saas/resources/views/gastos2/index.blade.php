@@ -1,0 +1,125 @@
+<x-app-layout x-data="crudTable({ flash: {{ \Illuminate\Support\Js::from(session('status')) }} })" x-on:click="handleClick($event)">
+    <x-slot name="header">
+        <x-page-header title="Gastos" description="" />
+    </x-slot>
+
+    @can('create', App\Models\Expense::class)
+        <button
+            type="button"
+            data-action="create"
+            data-url="{{ route('invoices.create', ['type' => 'expense', 'from_index' => 1]) }}"
+            data-title="Nueva factura"
+            class="app-create-text-fab"
+            title="Nueva factura"
+        >
+            + Factura
+        </button>
+    @endcan
+
+    <div class="py-8">
+        <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+
+            <section x-data="{ filtersOpen: window.innerWidth >= 768 }" class="rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between gap-3 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-stone-900">Filtros</h2>
+                    <button
+                        type="button"
+                        class="inline-flex items-center rounded-2xl border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 md:hidden"
+                        x-on:click="filtersOpen = !filtersOpen"
+                        x-text="filtersOpen ? 'Ocultar' : 'Expandir'"
+                    ></button>
+                </div>
+                <form method="GET" action="{{ route('gastos2.index') }}" class="border-t border-stone-200 p-5">
+                    <div
+                        x-show="filtersOpen"
+                        x-transition:enter="transition ease-out duration-[875ms]"
+                        x-transition:enter-start="opacity-0 -translate-y-2"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-[613ms]"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 -translate-y-2"
+                        class="grid gap-4 md:grid-cols-[1fr_200px_180px_180px_180px_180px_auto]"
+                        x-cloak
+                    >
+                        <div>
+                            <x-input-label for="search" :value="'Buscar'" />
+                            <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="$filters['search']" placeholder="Número, descripción, proyecto o proveedor" />
+                        </div>
+
+                        @if (auth()->user()->isSuperAdmin())
+                            <div>
+                                <x-input-label for="company_id" :value="'Empresa'" />
+                                <select id="company_id" name="company_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                    <option value="">Todas las empresas</option>
+                                    @foreach ($companies as $company)
+                                        <option value="{{ $company->id }}" @selected((string) $filters['company_id'] === (string) $company->id)>{{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
+                        <div>
+                            <x-input-label for="project_id" :value="'Proyecto'" />
+                            <select id="project_id" name="project_id" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                <option value="">Todos los proyectos</option>
+                                @foreach ($projects as $project)
+                                    <option value="{{ $project->id }}" @selected((string) $filters['project_id'] === (string) $project->id)>{{ $project->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <x-input-label for="status" :value="'Estado'" />
+                            <select id="status" name="status" class="mt-1 block w-full rounded-2xl border-stone-300 shadow-sm focus:border-stone-900 focus:ring-stone-900">
+                                <option value="" @selected($filters['status'] === '')>Todos</option>
+                                <option value="open" @selected($filters['status'] === 'open')>Abierta</option>
+                                <option value="closed" @selected($filters['status'] === 'closed')>Cerrada</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <x-input-label for="date_from" :value="'Desde'" />
+                            <x-text-input id="date_from" name="date_from" type="date" class="mt-1 block w-full" :value="$filters['date_from']" />
+                        </div>
+
+                        <div>
+                            <x-input-label for="date_to" :value="'Hasta'" />
+                            <x-text-input id="date_to" name="date_to" type="date" class="mt-1 block w-full" :value="$filters['date_to']" />
+                        </div>
+
+                        <div class="flex items-end">
+                            <x-primary-button class="w-full justify-center md:w-auto">Filtrar</x-primary-button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <div class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm" data-ajax-table>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-stone-200 text-sm">
+                        <thead class="bg-stone-50 text-left text-stone-500">
+                            <tr>
+                                <th class="w-32 px-6 py-4 font-medium">Fecha</th>
+                                <th class="px-6 py-4 font-medium">Referencia</th>
+                                <th class="px-6 py-4 font-medium">Proyecto</th>
+                                <th class="px-6 py-4 font-medium">Proveedor</th>
+                                <th class="px-6 py-4 text-right font-medium">Total</th>
+                                <th class="px-6 py-4 font-medium">Estado</th>
+                                <th class="px-6 py-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-stone-100" x-ref="tbody">
+                            @include('gastos2._table_body', ['invoices' => $invoices])
+                        </tbody>
+                    </table>
+                </div>
+                <div class="border-t border-stone-200 px-6 py-4" x-ref="pagination" data-ajax-pagination>
+                    {{ $invoices->links() }}
+                </div>
+            </div>
+
+            <x-ajax-crud-modal />
+            <x-ajax-crud-toast />
+        </div>
+    </div>
+</x-app-layout>

@@ -18,16 +18,16 @@
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">
         <div class="grid gap-6 md:grid-cols-2">
             <div>
-                <x-input-label :for="$isPurchase ? 'purchase_date' : 'expense_date'" :value="'Fecha'" />
+                <x-input-label for="expense_date" :value="'Fecha'" />
                 <x-text-input
-                    :id="$isPurchase ? 'purchase_date' : 'expense_date'"
-                    :name="$isPurchase ? 'purchase_date' : 'expense_date'"
+                    id="expense_date"
+                    name="expense_date"
                     type="date"
                     class="mt-1 block w-full"
                     :value="now()->toDateString()"
                     required
                 />
-                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="{{ $isPurchase ? 'purchase_date' : 'expense_date' }}"></p>
+                <p class="mt-2 hidden text-sm text-rose-600" data-error-for="expense_date"></p>
             </div>
 
             <div class="md:col-span-2">
@@ -106,7 +106,7 @@
 
     <x-modal-footer>
         <button type="submit" class="app-save-button disabled:cursor-wait disabled:opacity-60">
-            {{ $isPurchase ? 'Agregar compra' : 'Agregar gasto' }}
+            Agregar ítem
         </button>
     </x-modal-footer>
 </form>

@@ -140,8 +140,8 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'items' => $items,
             'isPurchase' => $isPurchase,
-            'typeLabel' => $isPurchase ? 'compras' : 'gastos',
-            'backUrl' => $isPurchase ? route('purchases.index') : route('expenses.index'),
+            'typeLabel' => $isPurchase ? 'ítems' : 'ítems',
+            'backUrl' => route('gastos2.index'),
             'providers' => $this->availableProviders($request->user()),
             'projects' => $this->availableProjects($request->user()),
             'products' => $products,
@@ -378,9 +378,7 @@ class InvoiceController extends Controller
             ]);
         }
 
-        $indexRoute = $invoiceType === 'purchase' ? 'purchases.index' : 'expenses.index';
-
-        return redirect()->route($indexRoute)->with('status', 'Factura archivada correctamente.');
+        return redirect()->route('gastos2.index')->with('status', 'Factura archivada correctamente.');
     }
 
     // Serializa una factura al formato liviano usado por componentes cliente.

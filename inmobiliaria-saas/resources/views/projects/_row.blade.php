@@ -35,18 +35,11 @@
     <td class="px-6 py-4">
         <div class="flex items-center justify-end gap-2">
             <a
-                href="{{ route('expenses.index', ['project_id' => $project->id]) }}"
+                href="{{ route('gastos2.index', ['project_id' => $project->id]) }}"
                 class="rounded-2xl border border-rose-200 px-3 py-2 text-sm font-medium text-rose-800 transition hover:bg-rose-50"
                 title="Ver gastos"
             >
                 Gastos
-            </a>
-            <a
-                href="{{ route('purchases.index', ['project_id' => $project->id]) }}"
-                class="rounded-2xl border border-sky-200 px-3 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-50"
-                title="Ver compras"
-            >
-                Compras
             </a>
             <button
                 type="button"

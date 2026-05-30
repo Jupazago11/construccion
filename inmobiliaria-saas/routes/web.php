@@ -26,6 +26,7 @@ use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderTypeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\Gastos2Controller;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
@@ -144,6 +145,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::patch('novelties/{novelty}', [AssetNoveltyController::class, 'update'])->name('novelties.update');
         Route::delete('novelties/{novelty}', [AssetNoveltyController::class, 'destroy'])->name('novelties.destroy');
     });
+
+    Route::get('gastos2', [Gastos2Controller::class, 'index'])->name('gastos2.index');
 
     Route::patch('expenses/{expense}/status', [ExpenseController::class, 'updateStatus'])->name('expenses.status');
     Route::resource('expenses', ExpenseController::class)->except('show');
