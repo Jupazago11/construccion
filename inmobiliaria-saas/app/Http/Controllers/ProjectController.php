@@ -11,7 +11,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\View as ViewFacade;
 
 class ProjectController extends Controller
 {
@@ -43,7 +42,7 @@ class ProjectController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view($this->projectListContainerPartial($request), compact('projects'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $projects])->render(),
+                'pagination_html' => $projects->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

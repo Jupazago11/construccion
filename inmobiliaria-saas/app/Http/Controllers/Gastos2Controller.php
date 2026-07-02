@@ -9,7 +9,6 @@ use App\Models\Invoice;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\View as ViewFacade;
 
 class Gastos2Controller extends Controller
 {
@@ -54,7 +53,7 @@ class Gastos2Controller extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html'      => view('gastos2._table_body', compact('invoices'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $invoices])->render(),
+                'pagination_html' => $invoices->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

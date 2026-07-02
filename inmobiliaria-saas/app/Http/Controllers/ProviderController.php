@@ -12,7 +12,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\View as ViewFacade;
 
 class ProviderController extends Controller
 {
@@ -51,7 +50,7 @@ class ProviderController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('providers._table_body', compact('providers'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $providers])->render(),
+                'pagination_html' => $providers->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

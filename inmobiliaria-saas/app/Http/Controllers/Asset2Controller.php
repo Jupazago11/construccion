@@ -14,7 +14,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\View as ViewFacade;
 
 class Asset2Controller extends Controller
 {
@@ -60,7 +59,7 @@ class Asset2Controller extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('assets2._table_body', compact('assets2'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $assets2])->render(),
+                'pagination_html' => $assets2->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

@@ -17,7 +17,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\View as ViewFacade;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
@@ -48,7 +47,7 @@ class PurchaseController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('purchases._table_body', compact('purchases'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $purchases])->render(),
+                'pagination_html' => $purchases->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

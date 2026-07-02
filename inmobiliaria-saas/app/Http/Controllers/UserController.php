@@ -12,7 +12,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\View as ViewFacade;
 use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
@@ -49,7 +48,7 @@ class UserController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('users._table_body', compact('users'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $users])->render(),
+                'pagination_html' => $users->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

@@ -16,7 +16,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\View as ViewFacade;
 use Illuminate\Validation\ValidationException;
 
 class ExpenseController extends Controller
@@ -47,7 +46,7 @@ class ExpenseController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('expenses._table_body', compact('expenses'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $expenses])->render(),
+                'pagination_html' => $expenses->links('pagination::tailwind')->toHtml(),
             ]);
         }
 

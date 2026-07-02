@@ -3,7 +3,7 @@
 **/.env
 **/.env.*
 **/node_modules
-**/vendor
+inmobiliaria-saas/vendor
 **/storage/logs/*
 **/storage/framework/cache/*
 **/storage/framework/sessions/*

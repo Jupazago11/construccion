@@ -9,7 +9,6 @@ use App\Models\Project;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\View as ViewFacade;
 
 class AuditController extends Controller
 {
@@ -43,7 +42,7 @@ class AuditController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('audit._table_body', compact('activities'))->render(),
-                'pagination_html' => ViewFacade::make('pagination::tailwind', ['paginator' => $activities])->render(),
+                'pagination_html' => $activities->links('pagination::tailwind')->toHtml(),
             ]);
         }
 
