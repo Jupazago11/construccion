@@ -90,6 +90,15 @@
                 </a>
                 @endcan
 
+                <a href="{{ $navUrl('vehiculo.index') }}" class="home-card group">
+                    <div class="home-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16.5v.75m8-.75v.75M3 12l1.286-4.286A2 2 0 016.2 6.25h11.6a2 2 0 011.914 1.464L21 12m-18 0v5a1 1 0 001 1h1.5a1 1 0 001-1v-1h11v1a1 1 0 001 1H20a1 1 0 001-1v-5m-18 0h18" />
+                        </svg>
+                    </div>
+                    <span class="home-card-label">Vehículo</span>
+                </a>
+
                 {{-- Cerrar sesión siempre al final --}}
                 <form method="POST" action="{{ $navUrl('logout') }}" class="contents">
                     @csrf

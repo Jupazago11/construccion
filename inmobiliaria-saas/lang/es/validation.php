@@ -159,5 +159,9 @@ return [
         'company_id' => 'empresa',
         'role' => 'rol',
         'status' => 'estado',
+        'category' => 'categoría',
+        'concept' => 'concepto',
+        'amount' => 'valor',
+        'description' => 'descripción',
     ],
 ];

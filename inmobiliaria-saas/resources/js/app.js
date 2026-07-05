@@ -110,6 +110,10 @@ Alpine.data('crudTable', (config = {}) => ({
                 Alpine.initTree(this.$refs.pagination);
             }
 
+            // replaceState (no pushState): refleja la página/filtros actuales para que un F5 no
+            // vuelva a la página 1, sin llenar el botón "atrás" con cada clic de paginación.
+            window.history.replaceState(window.history.state, '', url);
+
             window.requestAnimationFrame(() => {
                 window.scrollTo({
                     top: preservedWindowTop,
@@ -158,6 +162,7 @@ Alpine.data('crudTable', (config = {}) => ({
                     window.initializeCompanyLogoForms?.(this.$refs.modalContent);
                     window.initializeInvoiceAttachmentForms?.(this.$refs.modalContent);
                     window.initializeAssetForms?.(this.$refs.modalContent);
+                    window.initializeVehiculoForms?.(this.$refs.modalContent);
 
                     const draft = this.loadDraft(url);
                     if (draft) {
@@ -798,6 +803,18 @@ Alpine.data('crudTable', (config = {}) => ({
 
             if (! response.data.row_html && ! response.data.table_html) {
                 this.removeRow(response.data.id);
+            }
+
+            // Si el botón "Archivar" está dentro de un formulario (el modal de edición), ese modal
+            // queda mostrando un registro que ya no existe: se cierra. Los botones de eliminar en
+            // filas/listas sueltas no están dentro de un <form>, así que no se ven afectados.
+            const formContext = button?.closest?.('form[data-ajax-form]');
+            if (formContext) {
+                if (formContext.closest('[data-nested-modal-content]')) {
+                    this.closeNestedModal();
+                } else {
+                    this.closeModal();
+                }
             }
 
             this.showToast(response.data.message ?? 'Registro eliminado correctamente.');
@@ -3146,6 +3163,36 @@ window.initializeAssetForms = (root = document) => {
         }
 
         form.dataset.assetInitialized = 'true';
+
+        const moneyInputs = [...form.querySelectorAll('[data-currency-input]')];
+
+        moneyInputs.forEach((input) => {
+            syncFormattedMoneyInput(input);
+
+            input.addEventListener('input', () => {
+                syncFormattedMoneyInput(input, true);
+            });
+
+            input.addEventListener('blur', () => {
+                syncFormattedMoneyInput(input);
+            });
+        });
+
+        form.addEventListener('submit', () => {
+            moneyInputs.forEach((input) => {
+                input.value = normalizeIntegerAmount(input.value);
+            });
+        });
+    });
+};
+
+window.initializeVehiculoForms = (root = document) => {
+    root.querySelectorAll('form[data-vehiculo-form]').forEach((form) => {
+        if (form.dataset.vehiculoInitialized === 'true') {
+            return;
+        }
+
+        form.dataset.vehiculoInitialized = 'true';
 
         const moneyInputs = [...form.querySelectorAll('[data-currency-input]')];
 

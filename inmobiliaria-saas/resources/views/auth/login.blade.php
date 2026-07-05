@@ -59,4 +59,16 @@
             </x-primary-button>
         </div>
     </form>
+
+    <div class="mt-6 border-t border-stone-200 pt-6">
+        <p class="text-center text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Vehículo</p>
+        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+            <a href="{{ route('vehiculo.index') }}" class="flex-1 rounded-2xl border border-stone-300 px-4 py-2 text-center text-sm font-medium text-stone-700 transition hover:bg-stone-50">
+                Registrar ingreso/gasto
+            </a>
+            <a href="{{ route('vehiculo.dashboard') }}" class="flex-1 rounded-2xl border border-stone-300 px-4 py-2 text-center text-sm font-medium text-stone-700 transition hover:bg-stone-50">
+                Ver indicadores
+            </a>
+        </div>
+    </div>
 </x-guest-layout>

@@ -29,6 +29,7 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\Gastos2Controller;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\VehicleRecordController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -205,6 +206,17 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     Route::patch('users/{user}/status', [UserController::class, 'updateStatus'])->name('users.status');
     Route::resource('users', UserController::class);
+});
+
+// Rutas públicas del registro de vehículo: sin auth, sin tenant, uso interno.
+Route::prefix('vehiculo')->name('vehiculo.')->group(function () {
+    Route::get('indicadores', [VehicleRecordController::class, 'dashboard'])->name('dashboard');
+    Route::get('/', [VehicleRecordController::class, 'index'])->name('index');
+    Route::get('create', [VehicleRecordController::class, 'create'])->name('create');
+    Route::post('/', [VehicleRecordController::class, 'store'])->name('store');
+    Route::get('{record}/edit', [VehicleRecordController::class, 'edit'])->name('edit');
+    Route::patch('{record}', [VehicleRecordController::class, 'update'])->name('update');
+    Route::delete('{record}', [VehicleRecordController::class, 'destroy'])->name('destroy');
 });
 
 require __DIR__.'/auth.php';
